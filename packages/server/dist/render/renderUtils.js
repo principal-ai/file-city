@@ -1,0 +1,633 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.RenderMode = void 0;
+exports.drawStar = drawStar;
+exports.drawStars = drawStars;
+exports.drawGrid = drawGrid;
+exports.drawLegend = drawLegend;
+exports.drawBuildingBorder = drawBuildingBorder;
+exports.drawDistrictBorder = drawDistrictBorder;
+exports.drawDistricts = drawDistricts;
+exports.drawBuildings = drawBuildings;
+exports.drawReactSymbol = drawReactSymbol;
+exports.drawConnections = drawConnections;
+const buildingTypes_1 = require("../types/buildingTypes");
+const importanceTypes_1 = require("../types/importanceTypes");
+const importanceUtils_1 = require("../utils/importanceUtils");
+var RenderMode;
+(function (RenderMode) {
+    RenderMode["HIGHLIGHT"] = "highlight";
+    RenderMode["ISOLATE"] = "isolate";
+})(RenderMode || (exports.RenderMode = RenderMode = {}));
+// Helper functions for drawing
+// Cache for star path to avoid recreating it
+let starPathCache = null;
+/**
+ * Draw a star at the given position
+ */
+function drawStar(ctx, x, y, size, color = '#FFD700', strokeColor = '#FFB000', glow = true) {
+    ctx.save();
+    // Create star path if not cached
+    if (!starPathCache) {
+        starPathCache = new Path2D();
+        // Star path with 5 points
+        const outerRadius = 1;
+        const innerRadius = 0.4;
+        for (let i = 0; i < 10; i++) {
+            const angle = (i * Math.PI) / 5 - Math.PI / 2;
+            const radius = i % 2 === 0 ? outerRadius : innerRadius;
+            const px = Math.cos(angle) * radius;
+            const py = Math.sin(angle) * radius;
+            if (i === 0) {
+                starPathCache.moveTo(px, py);
+            }
+            else {
+                starPathCache.lineTo(px, py);
+            }
+        }
+        starPathCache.closePath();
+    }
+    // Position and scale
+    ctx.translate(x, y);
+    ctx.scale(size, size);
+    // Glow effect
+    if (glow) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 10;
+    }
+    // Fill star
+    ctx.fillStyle = color;
+    ctx.fill(starPathCache);
+    // Stroke star
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 0.1;
+    ctx.stroke(starPathCache);
+    ctx.restore();
+}
+/**
+ * Draw multiple stars (for higher importance levels)
+ */
+function drawStars(ctx, x, y, count, size, config) {
+    const settings = config?.visualSettings || importanceTypes_1.DEFAULT_VISUAL_SETTINGS;
+    const starSize = size * (settings.starSize || 1);
+    const spacing = starSize * 1.2;
+    // Center the star group
+    const totalWidth = (count - 1) * spacing;
+    const startX = x - totalWidth / 2;
+    for (let i = 0; i < count; i++) {
+        drawStar(ctx, startX + i * spacing, y, starSize, settings.starColor, undefined, settings.enableGlow);
+    }
+}
+function drawGrid(ctx, width, height, gridSize) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+    }
+    for (let y = 0; y < height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+    }
+    ctx.restore();
+}
+function drawLegend(ctx, width, height, highlightedCount, focusDirectory, fullSize, _rootDirectoryName) {
+    ctx.fillStyle = '#ffffff';
+    ctx.font = fullSize ? '12px monospace' : '10px monospace';
+    //ctx.fillText(`${highlightedCount} files highlighted`, 10, height - 10);
+    if (focusDirectory) {
+        ctx.fillText(`Focus: ${focusDirectory}`, 10, height - 22);
+    }
+    // Draw root directory name in bottom right corner
+    //const displayName = rootDirectoryName || 'workspace';
+    ctx.save();
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'; // Slightly transparent
+    ctx.font = fullSize ? '11px monospace' : '9px monospace';
+    //ctx.fillText(displayName, width - 10, height - 10);
+    ctx.restore();
+}
+// Border-based highlighting functions
+function drawBuildingBorder(ctx, building, worldToCanvas, scale, color = '#ffffff', lineWidth = 2) {
+    const size = Math.max(building.dimensions[0], building.dimensions[2]);
+    const halfSize = size / 2;
+    const topLeft = worldToCanvas(building.position.x - halfSize, building.position.z - halfSize);
+    const width = size * scale;
+    const height = size * scale;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.rect(topLeft.x, topLeft.y, width, height);
+    ctx.stroke();
+    ctx.restore();
+}
+function drawDistrictBorder(ctx, district, worldToCanvas, scale, color = '#60a5fa', lineWidth = 2, dashPattern = []) {
+    const canvasPos = worldToCanvas(district.worldBounds.minX, district.worldBounds.minZ);
+    const width = (district.worldBounds.maxX - district.worldBounds.minX) * scale;
+    const height = (district.worldBounds.maxZ - district.worldBounds.minZ) * scale;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    ctx.setLineDash(dashPattern);
+    ctx.beginPath();
+    ctx.rect(canvasPos.x, canvasPos.y, width, height);
+    ctx.stroke();
+    ctx.restore();
+}
+function drawDistricts(mode, ctx, districts, worldToCanvas, scale, highlightedDirectories, hoveredDirectories, hoveredDistrict, fullSize, emphasizedDirectories, selectedPaths, changedFiles, theme, customColorFn, defaultDirectoryColor) {
+    // Create BuildingTypeResolver for directory classification
+    const typeResolver = new buildingTypes_1.BuildingTypeResolver(theme, customColorFn, defaultDirectoryColor);
+    // Count districts by depth for debugging
+    const depthCounts = new Map();
+    districts.forEach(district => {
+        const depth = (district.path || '').split('/').filter(Boolean).length;
+        depthCounts.set(depth, (depthCounts.get(depth) || 0) + 1);
+    });
+    // Helper function to check if a district contains any visible buildings or should be shown as a parent
+    const districtContainsVisibleBuildings = (districtPath) => {
+        // Highlight mode (highlight mode): render ALL districts, visual highlighting is handled separately
+        if (mode === RenderMode.HIGHLIGHT) {
+            return true; // Always render if not in isolate mode
+        }
+        // In isolate mode, use changedFiles if available, otherwise fall back to selectedPaths
+        const pathsToCheck = changedFiles ? new Set(changedFiles.keys()) : selectedPaths || new Set();
+        // Normalize district path - remove trailing slashes for consistent comparison
+        const normalizedDistrictPath = districtPath.replace(/\/$/, '');
+        if (pathsToCheck.size === 0) {
+            // In isolate mode with no paths to check, only show the root district for context
+            const isRootDistrict = normalizedDistrictPath === '' || normalizedDistrictPath.split('/').length <= 1;
+            if (isRootDistrict) {
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+        // Check if any visible path is within this district OR if this district is a parent of visible paths
+        for (const visiblePath of pathsToCheck) {
+            // Case 1: Visible path is exactly the district itself
+            if (visiblePath === normalizedDistrictPath) {
+                return true;
+            }
+            // Case 2: Visible path is a file/subdirectory within this district
+            if (normalizedDistrictPath === '') {
+                // Root directory case - check if it's a top-level file (no slashes)
+                if (!visiblePath.includes('/')) {
+                    return true;
+                }
+                // Also check if any visible path starts from root (any file path with slashes)
+                if (visiblePath.includes('/')) {
+                    return true;
+                }
+            }
+            else {
+                // Non-root directory case - check if visible path starts with district path + '/'
+                if (visiblePath.startsWith(normalizedDistrictPath + '/')) {
+                    return true;
+                }
+                // Case 3: Check if this district is a parent path of any visible path
+                // This handles cases where we need to show parent directories for navigation
+                const districtParts = normalizedDistrictPath.split('/');
+                const visibleParts = visiblePath.split('/');
+                // Check if this district is a parent path (shorter path that matches the beginning)
+                if (districtParts.length < visibleParts.length) {
+                    const isParent = districtParts.every((part, index) => part === visibleParts[index]);
+                    if (isParent) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    };
+    districts.forEach((district, _index) => {
+        const districtPath = district.path || '';
+        const isRoot = !districtPath || districtPath === '';
+        // Skip root districts (empty path)
+        if (isRoot)
+            return;
+        // Skip districts that don't contain visible buildings in isolate mode
+        if (!districtContainsVisibleBuildings(districtPath)) {
+            return;
+        }
+        const canvasPos = worldToCanvas(district.worldBounds.minX, district.worldBounds.minZ);
+        const width = (district.worldBounds.maxX - district.worldBounds.minX) * scale;
+        const depth = (district.worldBounds.maxZ - district.worldBounds.minZ) * scale;
+        // Get the directory name for classification
+        const directoryName = districtPath.split('/').pop() || '';
+        // Classify the directory to get its color
+        const classification = typeResolver.classifyDirectory({
+            path: districtPath,
+            name: directoryName,
+            fileCount: district.fileCount,
+        });
+        // Use the classified color or fall back to depth-based grey
+        const baseColorHex = classification.buildingType.color;
+        // Convert hex to RGB for the rgba() format used below
+        const hexToRgb = (hex) => {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result
+                ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)]
+                : [75, 80, 85]; // Default grey if parsing fails
+        };
+        const baseColor = hexToRgb(baseColorHex);
+        // Base opacity
+        let opacity = 0.3;
+        let borderOpacity = 0.6;
+        // Highlighting
+        const isHighlighted = highlightedDirectories?.has(districtPath) || false;
+        const isInHoveredPath = hoveredDirectories?.has(districtPath) || false;
+        const isDirectlyHovered = hoveredDistrict === district;
+        const isHovered = isInHoveredPath || isDirectlyHovered;
+        const isEmphasized = false; //emphasizedDirectories?.has(districtPath);
+        if (isHighlighted) {
+            opacity = 0.5;
+            borderOpacity = 0.8;
+        }
+        if (isEmphasized) {
+            opacity = Math.max(opacity, 0.6);
+            borderOpacity = Math.max(borderOpacity, 0.9);
+        }
+        if (isHovered) {
+            opacity = Math.max(opacity, 0.4);
+            borderOpacity = Math.max(borderOpacity, 0.7);
+        }
+        // Fill with subtle gradients
+        if (isHighlighted) {
+            // Subtle white/gray highlight instead of blue
+            ctx.fillStyle = `rgba(120, 120, 120, ${opacity})`;
+        }
+        else if (isEmphasized) {
+            // Warmer orange for emphasized
+            ctx.fillStyle = `rgba(255, 140, 60, ${opacity})`;
+        }
+        else {
+            // Use the elegant grey colors
+            ctx.fillStyle = `rgba(${baseColor[0]}, ${baseColor[1]}, ${baseColor[2]}, ${opacity})`;
+        }
+        ctx.fillRect(canvasPos.x, canvasPos.y, width, depth);
+        // Border with better contrast
+        if (isHighlighted) {
+            // White/light gray border instead of blue
+            ctx.strokeStyle = `rgba(180, 180, 180, ${borderOpacity})`;
+        }
+        else if (isEmphasized) {
+            // Golden border for emphasized
+            ctx.strokeStyle = `rgba(255, 180, 80, ${borderOpacity})`;
+        }
+        else {
+            // Lighter grey borders for better definition
+            ctx.strokeStyle = `rgba(${Math.min(255, baseColor[0] + 40)}, ${Math.min(255, baseColor[1] + 40)}, ${Math.min(255, baseColor[2] + 40)}, ${borderOpacity})`;
+        }
+        ctx.lineWidth = isHighlighted || isEmphasized ? 2 : 1;
+        ctx.strokeRect(canvasPos.x, canvasPos.y, width, depth);
+        // Hover highlight - white border for directly hovered district and all districts in hover path
+        if (isHovered) {
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(canvasPos.x, canvasPos.y, width, depth);
+        }
+        // Label - show for all districts with sufficient size
+        const districtName = district.path?.split('/').pop() || 'root';
+        const minSize = fullSize ? 40 : 30;
+        if (width > minSize && depth > minSize) {
+            ctx.save();
+            ctx.fillStyle = isHighlighted ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.7)';
+            // Scale font size proportionally with district size, with reasonable bounds
+            const baseFontSize = fullSize ? 18 : 13;
+            const scaleFactor = Math.min(Math.max(scale / 1.0, 0.5), 3.0); // Clamp scale factor
+            const fontSize = Math.round(baseFontSize * scaleFactor);
+            ctx.font = `${fontSize}px monospace`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const displayName = districtName;
+            // Position label at the bottom of the district boundary
+            // Use a small offset from the bottom edge for padding
+            const bottomPadding = 2; //Math.max(4, fontSize * 0.5); // Small padding based on font size
+            ctx.textBaseline = 'bottom'; // Change baseline to bottom for proper bottom alignment
+            ctx.fillText(displayName, canvasPos.x + width / 2, canvasPos.y + depth - bottomPadding);
+            ctx.restore();
+        }
+    });
+}
+function drawBuildings(mode, ctx, buildings, worldToCanvas, scale, highlightedPaths, selectedPaths, focusDirectory, hoveredBuilding, theme, customColorFn, emphasizedDirectories, showFileNames, fullSize, changedFiles, hoverBorderColor, selectedBorderColor, disableOpacityDimming, importanceConfig) {
+    buildings.forEach(building => {
+        // Isolate mode: only render changed files (more restrictive than showOnlyChangedFiles)
+        if (mode === 'isolate' && changedFiles && !changedFiles.has(building.path)) {
+            return; // Skip rendering this building but keep it in layout
+        }
+        const pos = worldToCanvas(building.position.x, building.position.z);
+        // Calculate building dimensions (no coordinate swapping needed)
+        let width, height;
+        if (building.dimensions[0] > 50 || building.dimensions[2] > 50) {
+            width = building.dimensions[0] * scale * 0.95;
+            height = building.dimensions[2] * scale * 0.95;
+        }
+        else {
+            // Traditional layout - use small squares
+            const size = Math.max(2, Math.max(building.dimensions[0], building.dimensions[2]) * scale * 0.9);
+            width = size;
+            height = size;
+        }
+        const isHighlighted = highlightedPaths?.has(building.path) || false;
+        const isSelected = selectedPaths?.has(building.path) || false;
+        const isHovered = hoveredBuilding === building;
+        const isInHoveredPath = hoveredBuilding?.path === building.path;
+        const isInFocus = !focusDirectory || building.path.startsWith(focusDirectory);
+        // Check if building is in an emphasized directory
+        const isInEmphasizedDirectory = false;
+        //emphasizedDirectories ?
+        //  Array.from(emphasizedDirectories).some(dir => building.path.startsWith(dir + '/')) : false;
+        // Check if this file has changes (for PR visualization)
+        const changeType = changedFiles?.get(building.path);
+        const hasChanges = !!changeType;
+        const isInPRMode = !!changedFiles;
+        // Building color logic - NEW PR HIGHLIGHTING STRATEGY
+        let color;
+        let opacity = 1;
+        if (isInPRMode) {
+            // In PR mode, always use the regular file type colors
+            if (building.color) {
+                color = building.color;
+            }
+            else {
+                // Use centralized BuildingTypeResolver for consistent color determination
+                const resolver = new buildingTypes_1.BuildingTypeResolver(theme, customColorFn);
+                const result = resolver.classifyBuilding({
+                    path: building.path,
+                    fileExtension: building.fileExtension,
+                    size: building.size,
+                    lastModified: building.lastModified,
+                });
+                color = result.buildingType.color;
+            }
+            // Set opacity based on whether file has changes
+            if (hasChanges) {
+                opacity = changeType === 'deleted' ? 0.5 : 1; // Deleted files are semi-transparent
+            }
+            else {
+                // Unchanged files are dimmed
+                opacity = 0.3;
+            }
+        }
+        else {
+            // Normal mode: use centralized building type system
+            if (building.color) {
+                color = building.color;
+            }
+            else {
+                // Use centralized BuildingTypeResolver for consistent color determination
+                const resolver = new buildingTypes_1.BuildingTypeResolver(theme, customColorFn);
+                const result = resolver.classifyBuilding({
+                    path: building.path,
+                    fileExtension: building.fileExtension,
+                    size: building.size,
+                    lastModified: building.lastModified,
+                });
+                color = result.buildingType.color;
+            }
+            // Apply opacity dimming unless disabled
+            if (disableOpacityDimming) {
+                opacity = 1; // No dimming - all buildings at full opacity
+            }
+            else {
+                // When in highlight mode, dim non-highlighted buildings
+                if (mode === 'highlight' && (highlightedPaths?.size || 0) > 0) {
+                    opacity = isHighlighted ? 1 : 0.3;
+                }
+                else {
+                    opacity = isInFocus ? 1 : 0.3;
+                }
+            }
+        }
+        // Draw building
+        ctx.globalAlpha = opacity;
+        ctx.fillStyle = color;
+        ctx.fillRect(pos.x - width / 2, pos.y - height / 2, width, height);
+        ctx.globalAlpha = 1;
+        // PR Mode: Draw borders and effects based on change type
+        if (isInPRMode && hasChanges) {
+            ctx.save();
+            switch (changeType) {
+                case 'added':
+                    // Green border for new files
+                    ctx.strokeStyle = '#22c55e';
+                    ctx.lineWidth = 3;
+                    ctx.setLineDash([]);
+                    ctx.strokeRect(pos.x - width / 2 - 2, pos.y - height / 2 - 2, width + 4, height + 4);
+                    break;
+                case 'modified':
+                    // Purple border for modified files
+                    ctx.strokeStyle = '#a855f7';
+                    ctx.lineWidth = 3;
+                    ctx.setLineDash([]);
+                    ctx.strokeRect(pos.x - width / 2 - 2, pos.y - height / 2 - 2, width + 4, height + 4);
+                    break;
+                case 'deleted':
+                    // Red strikethrough for deleted files
+                    ctx.strokeStyle = '#ef4444';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([]);
+                    // Draw diagonal strikethrough
+                    ctx.beginPath();
+                    ctx.moveTo(pos.x - width / 2, pos.y - height / 2);
+                    ctx.lineTo(pos.x + width / 2, pos.y + height / 2);
+                    ctx.moveTo(pos.x + width / 2, pos.y - height / 2);
+                    ctx.lineTo(pos.x - width / 2, pos.y + height / 2);
+                    ctx.stroke();
+                    // Also add a red border
+                    ctx.strokeRect(pos.x - width / 2 - 2, pos.y - height / 2 - 2, width + 4, height + 4);
+                    break;
+                case 'renamed':
+                    // Blue dashed border for renamed files
+                    ctx.strokeStyle = '#3b82f6';
+                    ctx.lineWidth = 3;
+                    ctx.setLineDash([5, 5]);
+                    ctx.strokeRect(pos.x - width / 2 - 2, pos.y - height / 2 - 2, width + 4, height + 4);
+                    break;
+            }
+            ctx.restore();
+        }
+        // Legacy highlighting effects (for non-PR mode)
+        else if (!isInPRMode) {
+            if (isSelected) {
+                ctx.strokeStyle = selectedBorderColor
+                    ? `${selectedBorderColor}CC`
+                    : 'rgba(255, 255, 255, 0.8)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([]);
+                ctx.strokeRect(pos.x - width / 2 - 3, pos.y - height / 2 - 3, width + 6, height + 6);
+            }
+            else if (isHighlighted || isInHoveredPath) {
+                // Configurable border for highlighted buildings
+                ctx.strokeStyle = selectedBorderColor
+                    ? `${selectedBorderColor}CC`
+                    : 'rgba(255, 255, 255, 0.8)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(pos.x - width / 2 - 1, pos.y - height / 2 - 1, width + 2, height + 2);
+            }
+            else if (isInEmphasizedDirectory) {
+                ctx.fillStyle = 'rgba(255, 165, 0, 0.3)';
+                ctx.fillRect(pos.x - width / 2 - 1, pos.y - height / 2 - 1, width + 2, height + 2);
+            }
+        }
+        // Hover effect (always show)
+        if (isHovered) {
+            ctx.strokeStyle = hoverBorderColor ? `${hoverBorderColor}CC` : 'rgba(255, 255, 255, 0.8)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([]);
+            ctx.strokeRect(pos.x - width / 2 - 1, pos.y - height / 2 - 1, width + 2, height + 2);
+        }
+        // Draw importance stars
+        if (importanceConfig?.visualSettings?.showStars !== false) {
+            const importanceResult = (0, importanceUtils_1.calculateImportance)(building.path, 'file', importanceConfig);
+            if (importanceResult && (0, importanceUtils_1.shouldShowImportance)(importanceResult.importance, importanceConfig)) {
+                const starCount = (0, importanceUtils_1.getStarCount)(importanceResult.importance, importanceConfig);
+                if (starCount > 0) {
+                    // Position stars above the building
+                    const starY = pos.y - height / 2 - 10;
+                    const starSize = Math.min(8, width / 4);
+                    drawStars(ctx, pos.x, starY, starCount, starSize, importanceConfig);
+                }
+            }
+        }
+        // Draw React symbol for JSX/TSX files
+        if (isReactFile(building.fileExtension)) {
+            // Position React symbol centered in the building
+            // Size is 75% of the smaller dimension
+            const reactSize = Math.min(width, height) * 0.75;
+            const reactX = pos.x;
+            const reactY = pos.y;
+            drawReactSymbol(ctx, reactX, reactY, reactSize);
+        }
+        // Draw filename if enabled and building is large enough
+        if (showFileNames && width > 100 && height > 30) {
+            const fileName = building.path.split('/').pop() || '';
+            // Set up text rendering
+            ctx.save();
+            // Calculate font size based on building size with better scaling
+            // Adjusted for 1000x1000 minimum canvas size
+            const minFontSize = fullSize ? 40 : 30;
+            const maxFontSize = fullSize ? 40 : 30;
+            // Improved scaling algorithm that considers both building size and text length
+            const calculateOptimalFontSize = () => {
+                // Method 1: Size-based scaling with better progression
+                // Adjusted for 1000x1000 minimum canvas - buildings will be larger
+                const minDimension = Math.min(width, height);
+                let sizeBasedFontSize;
+                if (minDimension < 20) {
+                    // Very small buildings: conservative scaling
+                    sizeBasedFontSize = minDimension * 0.4;
+                }
+                else if (minDimension < 40) {
+                    // Small buildings: moderate scaling
+                    sizeBasedFontSize = minDimension * 0.35;
+                }
+                else if (minDimension < 80) {
+                    // Medium buildings: standard scaling
+                    sizeBasedFontSize = minDimension * 0.3;
+                }
+                else if (minDimension < 150) {
+                    // Large buildings: less aggressive scaling
+                    sizeBasedFontSize = minDimension * 0.25;
+                }
+                else {
+                    // Very large buildings: minimal scaling to avoid huge text
+                    sizeBasedFontSize = minDimension * 0.2;
+                }
+                // Method 2: Text-length aware adjustment
+                // Longer filenames need relatively smaller font sizes
+                // Less aggressive reduction for higher resolution canvas
+                const textLengthFactor = Math.max(0.75, 1 - (fileName.length - 10) * 0.015);
+                // Method 3: Aspect ratio consideration
+                const aspectRatio = width / height;
+                const aspectMultiplier = aspectRatio > 1.8 ? 1.15 : aspectRatio > 1.3 ? 1.05 : 1.0; // Progressive scaling for wide buildings
+                // Combine all factors
+                return sizeBasedFontSize * textLengthFactor * aspectMultiplier;
+            };
+            let fontSize = calculateOptimalFontSize();
+            // Final clamp to bounds
+            fontSize = Math.min(maxFontSize, Math.max(minFontSize, Math.floor(fontSize)));
+            // Use sans-serif for better readability at small sizes
+            ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            // Measure text and adjust font size if needed to ensure it fits
+            let textMetrics = ctx.measureText(fileName);
+            let textWidth = textMetrics.width;
+            const availableWidth = width - 8; // Leave 8px padding for higher resolution
+            // If text is too wide, reduce font size iteratively
+            while (textWidth > availableWidth && fontSize > minFontSize) {
+                fontSize = Math.max(minFontSize, fontSize - 1);
+                ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+                textMetrics = ctx.measureText(fileName);
+                textWidth = textMetrics.width;
+            }
+            // Only draw if text fits within building with padding
+            if (textWidth < width - 8) {
+                // Draw background rectangle for better contrast
+                const textPadding = 2;
+                const textHeight = fontSize * 1.2;
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(pos.x - textWidth / 2 - textPadding, pos.y - textHeight / 2, textWidth + textPadding * 2, textHeight);
+                // Draw text
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                ctx.fillText(fileName, pos.x, pos.y);
+            }
+            ctx.restore();
+        }
+    });
+}
+/**
+ * Draw a React symbol (⚛) at the given position
+ */
+function drawReactSymbol(ctx, x, y, size, color = '#00D8FF', glow = true) {
+    ctx.save();
+    // Position and setup
+    ctx.translate(x, y);
+    // Glow effect for React symbol
+    if (glow) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 8;
+    }
+    // Draw the React symbol (⚛)
+    ctx.fillStyle = color;
+    ctx.font = `${size}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('⚛', 0, 0);
+    ctx.restore();
+}
+/**
+ * Check if a file is a React file (JSX/TSX)
+ */
+function isReactFile(fileExtension) {
+    if (!fileExtension)
+        return false;
+    const ext = fileExtension.toLowerCase();
+    return ext === '.jsx' || ext === '.tsx';
+}
+function drawConnections(ctx, buildings, highlightedPaths, worldToCanvas) {
+    const highlightedBuildings = buildings.filter(b => highlightedPaths.has(b.path));
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0, 255, 255, 0.2)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 4]);
+    for (let i = 0; i < highlightedBuildings.length - 1; i++) {
+        const from = worldToCanvas(highlightedBuildings[i].position.x, highlightedBuildings[i].position.z);
+        const to = worldToCanvas(highlightedBuildings[i + 1].position.x, highlightedBuildings[i + 1].position.z);
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
+        ctx.stroke();
+    }
+    ctx.restore();
+}

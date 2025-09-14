@@ -1,0 +1,567 @@
+{
+  "version": "1.0.0",
+  "description": "Git Gallery file color palette configuration",
+  "lastUpdated": "2025-01-26",
+  "suffixConfigs": {
+    ".ts": {
+      "primary": {
+        "color": "#007ACC",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "displayName": "TypeScript",
+      "description": "TypeScript source files",
+      "category": "Frontend",
+      "source": "https://www.typescriptlang.org/branding/"
+    },
+    ".tsx": {
+      "primary": {
+        "color": "#007ACC",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "secondary": {
+        "color": "#61DBFB",
+        "renderStrategy": "border",
+        "opacity": 0.6
+      },
+      "displayName": "TSX",
+      "description": "TypeScript React components",
+      "category": "Frontend"
+    },
+    ".js": {
+      "primary": {
+        "color": "#f1e05a",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "displayName": "JavaScript",
+      "description": "JavaScript source files",
+      "category": "Frontend"
+    },
+    ".jsx": {
+      "primary": {
+        "color": "#61dafb",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "secondary": {
+        "color": "#f1e05a",
+        "renderStrategy": "border",
+        "opacity": 0.4
+      },
+      "displayName": "JSX",
+      "description": "JavaScript React components",
+      "category": "Frontend"
+    },
+    ".html": {
+      "primary": {
+        "color": "#e34c26",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "displayName": "HTML",
+      "description": "HyperText Markup Language",
+      "category": "Web"
+    },
+    ".css": {
+      "primary": {
+        "color": "#563d7c",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "secondary": {
+        "color": "#ffffff",
+        "renderStrategy": "border",
+        "borderWidth": 1,
+        "opacity": 1.0
+      },
+      "displayName": "CSS",
+      "description": "Cascading Style Sheets",
+      "category": "Web"
+    },
+    ".scss": {
+      "primary": {
+        "color": "#c6538c",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "displayName": "SCSS",
+      "description": "Sassy CSS",
+      "category": "Web"
+    },
+    ".sass": {
+      "primary": {
+        "color": "#c6538c",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "displayName": "Sass",
+      "description": "Syntactically Awesome Style Sheets",
+      "category": "Web"
+    },
+    ".less": {
+      "primary": {
+        "color": "#1d365d",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "displayName": "Less",
+      "description": "Leaner Style Sheets",
+      "category": "Web"
+    },
+    ".json": {
+      "primary": {
+        "color": "#ffd93d",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "secondary": {
+        "color": "#ff8c00",
+        "renderStrategy": "border",
+        "borderWidth": 1,
+        "opacity": 1.0
+      },
+      "displayName": "JSON",
+      "description": "JavaScript Object Notation",
+      "category": "Data"
+    },
+    ".yaml": {
+      "primary": {
+        "color": "#cb171e",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "displayName": "YAML",
+      "description": "YAML Ain't Markup Language",
+      "category": "Config"
+    },
+    ".yml": {
+      "primary": {
+        "color": "#cb171e",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "displayName": "YML",
+      "description": "YAML Ain't Markup Language",
+      "category": "Config"
+    },
+    ".xml": {
+      "primary": {
+        "color": "#ff6600",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "displayName": "XML",
+      "description": "eXtensible Markup Language",
+      "category": "Data"
+    },
+    ".toml": {
+      "primary": {
+        "color": "#9c4221",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "displayName": "TOML",
+      "description": "Tom's Obvious, Minimal Language",
+      "category": "Config"
+    },
+    ".md": {
+      "primary": {
+        "color": "#083fa1",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "secondary": {
+        "color": "#ffffff",
+        "renderStrategy": "border",
+        "opacity": 0.3
+      },
+      "displayName": "Markdown",
+      "description": "Markdown documentation",
+      "category": "Documentation"
+    },
+    ".mdx": {
+      "primary": {
+        "color": "#fcb32c",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "secondary": {
+        "color": "#083fa1",
+        "renderStrategy": "glow",
+        "opacity": 0.4
+      },
+      "displayName": "MDX",
+      "description": "Markdown with JSX",
+      "category": "Documentation"
+    },
+    ".py": {
+      "primary": {
+        "color": "#3572A5",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "secondary": {
+        "color": "#ffd43b",
+        "renderStrategy": "border",
+        "borderWidth": 2,
+        "opacity": 0.9
+      },
+      "displayName": "Python",
+      "description": "Python source files",
+      "category": "Backend"
+    },
+    ".java": {
+      "primary": {
+        "color": "#b07219",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "displayName": "Java",
+      "description": "Java source files",
+      "category": "Backend"
+    },
+    ".go": {
+      "primary": {
+        "color": "#00ADD8",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "secondary": {
+        "color": "#ffffff",
+        "renderStrategy": "glow",
+        "opacity": 0.5
+      },
+      "displayName": "Go",
+      "description": "Go source files",
+      "category": "Backend"
+    },
+    ".rs": {
+      "primary": {
+        "color": "#dea584",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "secondary": {
+        "color": "#ce422b",
+        "renderStrategy": "border",
+        "borderWidth": 2,
+        "opacity": 1.0
+      },
+      "displayName": "Rust",
+      "description": "Rust source files",
+      "category": "Backend"
+    },
+    ".php": {
+      "primary": {
+        "color": "#4F5D95",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "displayName": "PHP",
+      "description": "PHP source files",
+      "category": "Backend"
+    },
+    ".rb": {
+      "primary": {
+        "color": "#701516",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "secondary": {
+        "color": "#ff0000",
+        "renderStrategy": "glow",
+        "opacity": 0.3
+      },
+      "displayName": "Ruby",
+      "description": "Ruby source files",
+      "category": "Backend"
+    },
+    ".swift": {
+      "primary": {
+        "color": "#fa7343",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "displayName": "Swift",
+      "description": "Swift source files",
+      "category": "Mobile"
+    },
+    ".c": {
+      "primary": {
+        "color": "#555555",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "secondary": {
+        "color": "#ffffff",
+        "renderStrategy": "border",
+        "borderWidth": 1,
+        "opacity": 0.9
+      },
+      "displayName": "C",
+      "description": "C source files",
+      "category": "Systems"
+    },
+    ".cpp": {
+      "primary": {
+        "color": "#f34b7d",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "displayName": "C++",
+      "description": "C++ source files",
+      "category": "Systems"
+    },
+    ".cs": {
+      "primary": {
+        "color": "#178600",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "displayName": "C#",
+      "description": "C# source files",
+      "category": "Backend"
+    },
+    ".kt": {
+      "primary": {
+        "color": "#A97BFF",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "secondary": {
+        "color": "#7f39fb",
+        "renderStrategy": "glow",
+        "opacity": 0.4
+      },
+      "displayName": "Kotlin",
+      "description": "Kotlin source files",
+      "category": "Mobile"
+    },
+    ".sh": {
+      "primary": {
+        "color": "#89e051",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "displayName": "Shell",
+      "description": "Shell scripts",
+      "category": "Scripts"
+    },
+    ".bash": {
+      "primary": {
+        "color": "#89e051",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "displayName": "Bash",
+      "description": "Bash scripts",
+      "category": "Scripts"
+    },
+    ".zsh": {
+      "primary": {
+        "color": "#89e051",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "displayName": "Zsh",
+      "description": "Z shell scripts",
+      "category": "Scripts"
+    },
+    ".fish": {
+      "primary": {
+        "color": "#89e051",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "displayName": "Fish",
+      "description": "Fish shell scripts",
+      "category": "Scripts"
+    },
+    ".ps1": {
+      "primary": {
+        "color": "#012456",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "secondary": {
+        "color": "#ffffff",
+        "renderStrategy": "border",
+        "borderWidth": 1,
+        "opacity": 0.9
+      },
+      "displayName": "PowerShell",
+      "description": "PowerShell scripts",
+      "category": "Scripts"
+    },
+    ".sql": {
+      "primary": {
+        "color": "#e38c00",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "secondary": {
+        "color": "#ffffff",
+        "renderStrategy": "border",
+        "opacity": 0.4
+      },
+      "displayName": "SQL",
+      "description": "Structured Query Language",
+      "category": "Database"
+    },
+    ".svg": {
+      "primary": {
+        "color": "#ffb13b",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "secondary": {
+        "color": "#ff8c00",
+        "renderStrategy": "glow",
+        "opacity": 0.5
+      },
+      "displayName": "SVG",
+      "description": "Scalable Vector Graphics",
+      "category": "Images"
+    },
+    ".png": {
+      "primary": {
+        "color": "#00b4d8",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "displayName": "PNG",
+      "description": "Portable Network Graphics",
+      "category": "Images"
+    },
+    ".jpg": {
+      "primary": {
+        "color": "#00b4d8",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "displayName": "JPEG",
+      "description": "Joint Photographic Experts Group",
+      "category": "Images"
+    },
+    ".jpeg": {
+      "primary": {
+        "color": "#00b4d8",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "displayName": "JPEG",
+      "description": "Joint Photographic Experts Group",
+      "category": "Images"
+    },
+    ".gif": {
+      "primary": {
+        "color": "#00b4d8",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "displayName": "GIF",
+      "description": "Graphics Interchange Format",
+      "category": "Images"
+    },
+    ".webp": {
+      "primary": {
+        "color": "#00b4d8",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "displayName": "WebP",
+      "description": "Web Picture format",
+      "category": "Images"
+    },
+    ".vue": {
+      "primary": {
+        "color": "#41b883",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "secondary": {
+        "color": "#35495e",
+        "renderStrategy": "border",
+        "borderWidth": 2,
+        "opacity": 1.0
+      },
+      "displayName": "Vue",
+      "description": "Vue.js components",
+      "category": "Frontend"
+    },
+    ".svelte": {
+      "primary": {
+        "color": "#ff3e00",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "secondary": {
+        "color": "#ffffff",
+        "renderStrategy": "glow",
+        "opacity": 0.6
+      },
+      "displayName": "Svelte",
+      "description": "Svelte components",
+      "category": "Frontend"
+    },
+    ".dart": {
+      "primary": {
+        "color": "#0175c2",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "displayName": "Dart",
+      "description": "Dart source files",
+      "category": "Mobile"
+    },
+    ".r": {
+      "primary": {
+        "color": "#198ce7",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "displayName": "R",
+      "description": "R statistical computing",
+      "category": "Analytics"
+    },
+    ".lua": {
+      "primary": {
+        "color": "#000080",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "secondary": {
+        "color": "#ffffff",
+        "renderStrategy": "border",
+        "borderWidth": 1,
+        "opacity": 0.9
+      },
+      "displayName": "Lua",
+      "description": "Lua source files",
+      "category": "Scripts"
+    },
+    ".vim": {
+      "primary": {
+        "color": "#019733",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "displayName": "Vim",
+      "description": "Vim configuration",
+      "category": "Config"
+    }
+  },
+  "defaultConfig": {
+    "primary": {
+      "color": "#8b949e",
+      "renderStrategy": "fill",
+      "opacity": 0.6
+    },
+    "displayName": "Other",
+    "description": "Unrecognized file types",
+    "category": "Other"
+  },
+  "includeUnmatched": true
+}

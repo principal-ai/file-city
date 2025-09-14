@@ -1,0 +1,36 @@
+{
+  "name": "@principal-ai/code-city-server",
+  "version": "0.1.0",
+  "description": "Server-side rendering utilities for Code City visualization",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@principal-ai/code-city-builder": "^0.1.1",
+    "canvas": "^2.11.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "keywords": [
+    "code-city",
+    "visualization",
+    "server",
+    "canvas",
+    "architecture"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

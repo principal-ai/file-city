@@ -1,0 +1,36 @@
+{
+  "name": "code-city-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "bun run build:builder && bun run build:react && bun run build:server",
+    "build:builder": "cd packages/builder && bun run build",
+    "build:react": "cd packages/react && bun run build",
+    "build:server": "cd packages/server && bun run build",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "publish:all": "bun run publish:builder && bun run publish:react && bun run publish:server",
+    "publish:builder": "cd packages/builder && npm publish --access restricted",
+    "publish:react": "cd packages/react && npm publish --access restricted",
+    "publish:server": "cd packages/server && npm publish --access restricted",
+    "version:sync": "bun run version:set",
+    "version:set": "echo 'Setting version...' && bun scripts/sync-versions.js"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "prettier": "^2.8.8",
+    "typescript": "^5.0.4"
+  }
+}

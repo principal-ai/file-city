@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+**/dist/
+build/
+**/build/
+
+# Storybook
+storybook-static/
+**/storybook-static/
+
+# Package manager files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+
+# IDE
+.vscode/
+.idea/
+
+# Coverage
+coverage/
+**/coverage/
+
+# Misc
+*.log
+.DS_Store
+.env
+.env.local
+.env.*.local
