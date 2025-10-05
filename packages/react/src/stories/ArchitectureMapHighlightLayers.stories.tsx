@@ -33,6 +33,7 @@ export const Default: Story = {
     canvasBackgroundColor: '#0f1419',
     defaultBuildingColor: '#36454F',
     defaultDirectoryColor: '#111827',
+    enableZoom: true,
   },
 };
 
@@ -93,6 +94,7 @@ export const WithHighlightLayers: Story = {
         canvasBackgroundColor="#0f1419"
         defaultBuildingColor="#36454F"
         defaultDirectoryColor="#111827"
+        enableZoom={true}
       />
     );
   },
@@ -117,6 +119,7 @@ export const DirectoryHighlighting: Story = {
     ],
     showLayerControls: true,
     fullSize: true,
+    enableZoom: true,
   },
 };
 
@@ -129,6 +132,7 @@ export const SelectiveRendering: Story = {
       directories: new Set(['src', 'tests']),
     },
     fullSize: true,
+    enableZoom: true,
   },
 };
 
@@ -142,6 +146,7 @@ export const SubdirectoryMode: Story = {
       autoCenter: true,
     },
     fullSize: true,
+    enableZoom: true,
   },
 };
 
@@ -156,6 +161,7 @@ export const Interactive: Story = {
         <ArchitectureMapHighlightLayers
           cityData={createSampleCityData()}
           fullSize={true}
+          enableZoom={true}
           onHover={(info) => {
             if (info.hoveredBuilding) {
               setHoveredInfo(`File: ${info.hoveredBuilding.path}`);
@@ -212,6 +218,7 @@ export const WithAbstractionLayer: Story = {
       },
     ],
     fullSize: true,
+    enableZoom: true,
   },
 };
 
@@ -271,6 +278,7 @@ export const CustomRenderStrategies: Story = {
     ],
     showLayerControls: true,
     fullSize: true,
+    enableZoom: true,
   },
 };
 
@@ -281,6 +289,7 @@ export const WithGrid: Story = {
     showGrid: true,
     showFileNames: true,
     fullSize: true,
+    enableZoom: true,
   },
 };
 
@@ -294,6 +303,7 @@ export const WithTransformations: Story = {
       flipVertical: false,
     },
     fullSize: true,
+    enableZoom: true,
   },
 };
 
@@ -304,5 +314,6 @@ export const WithBorderRadius: Story = {
     buildingBorderRadius: 4,
     districtBorderRadius: 8,
     fullSize: true,
+    enableZoom: true,
   },
 };
