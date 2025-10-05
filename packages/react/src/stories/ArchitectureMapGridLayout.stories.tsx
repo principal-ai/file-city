@@ -169,6 +169,7 @@ export const DefaultsTest: Story = {
     showFileNames: false,
     showDirectoryLabels: true,
     fullSize: true,
+    enableZoom: true,
   },
 };
 
@@ -214,6 +215,7 @@ export const TwoByTwoGrid: Story = {
     showFileNames: false,
     showDirectoryLabels: true,
     fullSize: true,
+    enableZoom: true,
   },
 };
 
@@ -267,6 +269,7 @@ export const ThreeByThreeGrid: Story = {
     }),
     showGrid: true,
     fullSize: true,
+    enableZoom: true,
   },
 };
 
@@ -300,6 +303,7 @@ export const SparseGrid: Story = {
     }),
     showGrid: true,
     fullSize: true,
+    enableZoom: true,
   },
 };
 
@@ -357,6 +361,7 @@ export const GridWithHighlights: Story = {
     showLayerControls: true,
     showGrid: true,
     fullSize: true,
+    enableZoom: true,
   },
 };
 
@@ -403,5 +408,6 @@ export const LargeGrid: Story = {
     }),
     showGrid: true,
     fullSize: true,
+    enableZoom: true,
   },
 };

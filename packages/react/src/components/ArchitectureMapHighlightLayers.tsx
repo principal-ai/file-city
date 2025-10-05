@@ -47,6 +47,7 @@ export interface ArchitectureMapHighlightLayersProps {
   rootDirectoryName?: string;
   onDirectorySelect?: (directory: string | null) => void;
   onFileClick?: (path: string, type: 'file' | 'directory') => void;
+  enableZoom?: boolean;
 
   // Display options
   fullSize?: boolean;
@@ -215,6 +216,7 @@ export function ArchitectureMapHighlightLayers({
   rootDirectoryName,
   onDirectorySelect,
   onFileClick,
+  enableZoom = false,
   fullSize = false,
   showGrid = false,
   showFileNames = false,
@@ -252,6 +254,19 @@ export function ArchitectureMapHighlightLayers({
     lastMousePos: { x: 0, y: 0 },
     hasMouseMoved: false,
   });
+
+  useEffect(() => {
+    if (!enableZoom) {
+      setZoomState(prev => ({
+        ...prev,
+        scale: 1,
+        offsetX: 0,
+        offsetY: 0,
+        isDragging: false,
+        hasMouseMoved: false,
+      }));
+    }
+  }, [enableZoom]);
 
   const [hitTestCache, setHitTestCache] = useState<HitTestCache | null>(null);
 
@@ -1198,7 +1213,7 @@ export function ArchitectureMapHighlightLayers({
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (zoomState.isDragging) {
+      if (enableZoom && zoomState.isDragging) {
         const rawDeltaX = e.clientX - zoomState.lastMousePos.x;
         const rawDeltaY = e.clientY - zoomState.lastMousePos.y;
 
@@ -1236,7 +1251,7 @@ export function ArchitectureMapHighlightLayers({
 
       handleMouseMoveInternal(e as unknown as React.MouseEvent<HTMLCanvasElement>);
     },
-    [zoomState.isDragging, zoomState.lastMousePos, handleMouseMoveInternal, transform],
+    [enableZoom, zoomState.isDragging, zoomState.lastMousePos, handleMouseMoveInternal, transform],
   );
 
   const handleClick = () => {
@@ -1278,7 +1293,11 @@ export function ArchitectureMapHighlightLayers({
   }, []);
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    const rect = canvasRef.current!.getBoundingClientRect();
+    if (!enableZoom || !canvasRef.current) {
+      return;
+    }
+
+    const rect = canvasRef.current.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
@@ -1300,8 +1319,8 @@ export function ArchitectureMapHighlightLayers({
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     setZoomState(prev => ({
       ...prev,
-      isDragging: true,
-      lastMousePos: { x: e.clientX, y: e.clientY },
+      isDragging: enableZoom ? true : false,
+      lastMousePos: enableZoom ? { x: e.clientX, y: e.clientY } : prev.lastMousePos,
       hasMouseMoved: false,
     }));
   };
@@ -1309,6 +1328,24 @@ export function ArchitectureMapHighlightLayers({
   const handleMouseUp = useCallback(() => {
     setZoomState(prev => ({ ...prev, isDragging: false }));
   }, []);
+
+  const interactionCursor = useMemo(() => {
+    if (enableZoom) {
+      if (zoomState.isDragging) {
+        return 'grabbing';
+      }
+      if (interactionState.hoveredBuilding || interactionState.hoveredDistrict) {
+        return 'pointer';
+      }
+      return 'grab';
+    }
+
+    if (interactionState.hoveredBuilding || interactionState.hoveredDistrict) {
+      return 'pointer';
+    }
+
+    return 'default';
+  }, [enableZoom, zoomState.isDragging, interactionState.hoveredBuilding, interactionState.hoveredDistrict]);
 
   if (!filteredCityData) {
     return (
@@ -1421,13 +1458,7 @@ export function ArchitectureMapHighlightLayers({
           width: '100%',
           height: '100%',
           zIndex: 2,
-          cursor: zoomState.isDragging
-            ? 'grabbing'
-            : interactionState.hoveredBuilding
-              ? 'pointer'
-              : interactionState.hoveredDistrict
-                ? 'pointer'
-                : 'grab',
+          cursor: interactionCursor,
         }}
         onMouseMove={handleMouseMove}
         onMouseDown={handleMouseDown}
