@@ -120,7 +120,7 @@ function createGridLayoutCityData(config: CodebaseView, customFilePaths?: string
     path: path,
     relativePath: path,
     size: Math.random() * 10000, // Random size for demo
-    extension: path.includes('.') ? '.' + path.split('.').pop()! : '',
+    extension: path.includes('.') ? '.' + (path.split('.').pop() || '') : '',
     lastModified: new Date(),
     isDirectory: false,
   }));

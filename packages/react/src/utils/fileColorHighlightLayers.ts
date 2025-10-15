@@ -117,7 +117,10 @@ export function createFileColorHighlightLayers(
       if (!filesBySuffix.has(extension)) {
         filesBySuffix.set(extension, []);
       }
-      filesBySuffix.get(extension)!.push(filePath);
+      const extFiles = filesBySuffix.get(extension);
+      if (extFiles) {
+        extFiles.push(filePath);
+      }
     } else if (includeUnmatched) {
       unmatchedFiles.push(filePath);
     }

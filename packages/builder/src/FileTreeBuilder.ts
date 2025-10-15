@@ -42,7 +42,7 @@ interface FileNodeInternal {
 
 export function getFilesFromGitHubTree(tree: GitHubTreeResponse): FileInfo[] {
   return tree.tree.map(item => ({
-    name: item.path.split('/').pop()!,
+    name: item.path.split('/').pop() || item.path,
     path: item.path,
     relativePath: item.path,
     size: item.size || 0,
@@ -74,7 +74,7 @@ export function buildFileSystemTreeFromFileInfoList(
 
   treeFiles.forEach(file => {
     const pathParts = file.path.split('/');
-    const fileName = pathParts.pop()!;
+    const fileName = pathParts.pop() || file.path;
 
     // Create directory structure
     let currentPath = '';
@@ -99,7 +99,11 @@ export function buildFileSystemTreeFromFileInfoList(
         currentDir.children.push(newDir);
       }
 
-      currentDir = directories.get(currentPath)!;
+      const nextDir = directories.get(currentPath);
+      if (!nextDir) {
+        throw new Error(`Directory not found: ${currentPath}`);
+      }
+      currentDir = nextDir;
     });
 
     // Add file to its directory
@@ -153,7 +157,7 @@ export function buildFileSystemTreeFromFileInfoList(
        // Let CodeCityBuilder handle the analysis
     },
     allFiles: treeFiles.map(f => ({
-      name: f.path.split('/').pop()!,
+      name: f.path.split('/').pop() || f.path,
       path: f.path,
       relativePath: f.path,
       size: f.size || 0,

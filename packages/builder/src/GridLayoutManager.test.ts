@@ -213,25 +213,29 @@ describe('GridLayoutManager', () => {
       // Check Source Code cell (0,0)
       const srcCell = result.get('0,0');
       expect(srcCell).toBeDefined();
-      expect(srcCell!.root.children.length).toBe(1);
-      expect(srcCell!.root.children[0].name).toBe('src');
+      if (!srcCell) throw new Error('srcCell should be defined');
+      expect(srcCell.root.children.length).toBe(1);
+      expect(srcCell.root.children[0].name).toBe('src');
 
       // Check Tests cell (0,1)
       const testCell = result.get('0,1');
       expect(testCell).toBeDefined();
-      expect(testCell!.root.children.length).toBe(1);
-      expect(testCell!.root.children[0].name).toBe('tests');
+      if (!testCell) throw new Error('testCell should be defined');
+      expect(testCell.root.children.length).toBe(1);
+      expect(testCell.root.children[0].name).toBe('tests');
 
       // Check Config cell (1,0)
       const configCell = result.get('1,0');
       expect(configCell).toBeDefined();
-      expect(configCell!.root.children.length).toBe(1);
-      expect(configCell!.root.children[0].name).toBe('package.json');
+      if (!configCell) throw new Error('configCell should be defined');
+      expect(configCell.root.children.length).toBe(1);
+      expect(configCell.root.children[0].name).toBe('package.json');
 
       // Check empty cell (1,1)
       const emptyCell = result.get('1,1');
       expect(emptyCell).toBeDefined();
-      expect(emptyCell!.root.children.length).toBe(0);
+      if (!emptyCell) throw new Error('emptyCell should be defined');
+      expect(emptyCell.root.children.length).toBe(0);
     });
 
     it('should respect cell priority when files could match multiple cells', () => {
@@ -270,12 +274,14 @@ describe('GridLayoutManager', () => {
 
       // High priority cell should get the src directory
       const highPriorityCell = result.get('0,0');
-      expect(highPriorityCell!.root.children.length).toBe(1);
-      expect(highPriorityCell!.root.children[0].name).toBe('src');
+      if (!highPriorityCell) throw new Error('highPriorityCell should be defined');
+      expect(highPriorityCell.root.children.length).toBe(1);
+      expect(highPriorityCell.root.children[0].name).toBe('src');
 
       // Low priority cell should be empty
       const lowPriorityCell = result.get('0,1');
-      expect(lowPriorityCell!.root.children.length).toBe(0);
+      if (!lowPriorityCell) throw new Error('lowPriorityCell should be defined');
+      expect(lowPriorityCell.root.children.length).toBe(0);
     });
 
     it('should include all descendants when a directory is assigned', () => {
@@ -308,17 +314,19 @@ describe('GridLayoutManager', () => {
 
       const cell = result.get('0,0');
       expect(cell).toBeDefined();
+      if (!cell) throw new Error('cell should be defined');
 
       // Should have the src directory
-      expect(cell!.root.children.length).toBe(1);
-      const srcDir = cell!.root.children[0] as DirectoryInfo;
+      expect(cell.root.children.length).toBe(1);
+      const srcDir = cell.root.children[0] as DirectoryInfo;
       expect(srcDir.name).toBe('src');
 
       // Should include all files within src
       expect(srcDir.children).toBeDefined();
-      expect(srcDir.children!.length).toBe(2);
-      expect(srcDir.children![0].name).toBe('index.ts');
-      expect(srcDir.children![1].name).toBe('utils.ts');
+      if (!srcDir.children) throw new Error('srcDir.children should be defined');
+      expect(srcDir.children.length).toBe(2);
+      expect(srcDir.children[0].name).toBe('index.ts');
+      expect(srcDir.children[1].name).toBe('utils.ts');
     });
 
     it('should update tree stats after splitting', () => {
@@ -351,10 +359,11 @@ describe('GridLayoutManager', () => {
 
       const cell = result.get('0,0');
       expect(cell).toBeDefined();
+      if (!cell) throw new Error('cell should be defined');
 
       // Stats should be updated
-      expect(cell!.stats.totalFiles).toBe(2); // index.ts and utils.ts
-      expect(cell!.stats.totalDirectories).toBe(2); // cell-root and src
+      expect(cell.stats.totalFiles).toBe(2); // index.ts and utils.ts
+      expect(cell.stats.totalDirectories).toBe(2); // cell-root and src
     });
   });
 
@@ -428,8 +437,9 @@ describe('GridLayoutManager', () => {
       );
 
       expect(bounds.labelBounds).toBeDefined();
-      expect(bounds.labelBounds!.height).toBeGreaterThan(0);
-      expect(bounds.labelBounds!.y).toBeLessThan(bounds.y); // Label is above content
+      if (!bounds.labelBounds) throw new Error('bounds.labelBounds should be defined');
+      expect(bounds.labelBounds.height).toBeGreaterThan(0);
+      expect(bounds.labelBounds.y).toBeLessThan(bounds.y); // Label is above content
     });
   });
 });

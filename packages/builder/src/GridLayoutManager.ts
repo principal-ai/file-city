@@ -237,7 +237,10 @@ export class GridLayoutManager {
         cellAssignments.set(cellKey, []);
       }
 
-      const cellItems = cellAssignments.get(cellKey)!;
+      const cellItems = cellAssignments.get(cellKey);
+      if (!cellItems) {
+        throw new Error(`Cell items not found for key: ${cellKey}`);
+      }
 
       // Find matching items using their full paths
       for (const { item, path } of allItemsWithPaths) {

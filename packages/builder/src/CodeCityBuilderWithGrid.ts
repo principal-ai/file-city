@@ -5,7 +5,7 @@ import {
 } from '@principal-ai/repository-abstraction';
 import { CodebaseView } from '@a24z/core-library';
 import { hierarchy, treemap, treemapSquarify } from 'd3-hierarchy';
-import type { HierarchyRectangularNode, HierarchyNode } from 'd3-hierarchy';
+import type { HierarchyRectangularNode } from 'd3-hierarchy';
 
 import { CityData, CityBuilding, CityDistrict, Bounds2D } from './types/cityData';
 import { DirectorySortFunction, FileSortFunction } from './types/sorts';

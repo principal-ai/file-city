@@ -76,7 +76,10 @@ export function createSampleCityData(): CityData {
     if (!filesByDir.has(dir)) {
       filesByDir.set(dir, []);
     }
-    filesByDir.get(dir)!.push(file);
+    const dirFiles = filesByDir.get(dir);
+    if (dirFiles) {
+      dirFiles.push(file);
+    }
   });
 
   // Track district bounds
@@ -87,13 +90,14 @@ export function createSampleCityData(): CityData {
   let districtStartX = 0;
 
   sortedDirs.forEach(dir => {
-    const files = filesByDir.get(dir)!;
+    const files = filesByDir.get(dir);
+    if (!files) return;
     const districtMinX = currentX;
     const districtMinZ = currentZ;
 
     files.forEach(file => {
       const extension = file.path.includes('.')
-        ? '.' + file.path.split('.').pop()!
+        ? '.' + (file.path.split('.').pop() || '')
         : '';
 
       // Calculate building dimensions based on file size
@@ -179,14 +183,18 @@ export function createSampleCityData(): CityData {
 
     let bounds;
     if (districtBounds.has(path)) {
-      bounds = districtBounds.get(path)!;
+      const pathBounds = districtBounds.get(path);
+      if (!pathBounds) return;
+      bounds = pathBounds;
     } else if (children.length > 0) {
       // Calculate bounds from children
+      const childBounds = children.map(c => districtBounds.get(c)).filter((b): b is NonNullable<typeof b> => b !== undefined);
+      if (childBounds.length === 0) return;
       bounds = {
-        minX: Math.min(...children.map(c => districtBounds.get(c)!.minX)),
-        maxX: Math.max(...children.map(c => districtBounds.get(c)!.maxX)),
-        minZ: Math.min(...children.map(c => districtBounds.get(c)!.minZ)),
-        maxZ: Math.max(...children.map(c => districtBounds.get(c)!.maxZ)),
+        minX: Math.min(...childBounds.map(c => c.minX)),
+        maxX: Math.max(...childBounds.map(c => c.maxX)),
+        minZ: Math.min(...childBounds.map(c => c.minZ)),
+        maxZ: Math.max(...childBounds.map(c => c.maxZ)),
       };
     } else {
       return; // Skip if no bounds

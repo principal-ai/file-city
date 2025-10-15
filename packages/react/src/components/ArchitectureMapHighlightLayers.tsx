@@ -149,7 +149,10 @@ class SpatialGrid {
       if (!this.grid.has(cellKey)) {
         this.grid.set(cellKey, []);
       }
-      this.grid.get(cellKey)!.push(building);
+      const cellItems = this.grid.get(cellKey);
+      if (cellItems) {
+        cellItems.push(building);
+      }
     });
   }
 
@@ -164,7 +167,10 @@ class SpatialGrid {
       if (!this.grid.has(cellKey)) {
         this.grid.set(cellKey, []);
       }
-      this.grid.get(cellKey)!.push(district);
+      const cellItems = this.grid.get(cellKey);
+      if (cellItems) {
+        cellItems.push(district);
+      }
     });
   }
 
@@ -643,7 +649,8 @@ export function ArchitectureMapHighlightLayers({
       const queue: DirectoryNode[] = [...rootNode.children];
 
       while (queue.length > 0) {
-        const node = queue.shift()!;
+        const node = queue.shift();
+        if (!node) continue;
 
         // Decision logic - using percentage of canvas/viewport area
         // Current screen area of the directory
