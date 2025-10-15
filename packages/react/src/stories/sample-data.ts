@@ -85,7 +85,6 @@ export function createSampleCityData(): CityData {
   // Process each directory group
   const sortedDirs = Array.from(filesByDir.keys()).sort();
   let districtStartX = 0;
-  let districtStartZ = 0;
 
   sortedDirs.forEach(dir => {
     const files = filesByDir.get(dir)!;
@@ -146,7 +145,6 @@ export function createSampleCityData(): CityData {
         currentZ = districtMaxZ + spacing * 3;
       }
       districtStartX = currentX;
-      districtStartZ = currentZ;
       itemsInRow = 0;
     }
   });

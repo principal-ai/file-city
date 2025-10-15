@@ -56,3 +56,9 @@ export type { UseCodeCityDataOptions, UseCodeCityDataReturn } from './hooks/useC
 
 // Re-export FileTree type for convenience
 export type { FileTree } from '@principal-ai/code-city-builder';
+
+// Export React Flow based city view component
+export {
+  CityViewWithReactFlow,
+  type CityViewWithReactFlowProps
+} from './components/CityViewWithReactFlow';

@@ -24,7 +24,7 @@ export class GridLayoutManager {
     let maxRow = 0;
     let maxCol = 0;
 
-    for (const cell of Object.values(config.cells)) {
+    for (const cell of Object.values(config.referenceGroups)) {
       const [row, col] = cell.coordinates;
       maxRow = Math.max(maxRow, row);
       maxCol = Math.max(maxCol, col);
@@ -220,7 +220,7 @@ export class GridLayoutManager {
     const cellAssignments = new Map<string, (DirectoryInfo | FileInfo)[]>();
 
     // Sort cells by priority (higher priority first)
-    const sortedCells = Object.entries(config.cells).sort((a, b) => {
+    const sortedCells = Object.entries(config.referenceGroups).sort((a, b) => {
       const priorityA = a[1].priority || 0;
       const priorityB = b[1].priority || 0;
       return priorityB - priorityA;
@@ -336,13 +336,16 @@ export class GridLayoutManager {
         totalDirectories: 0,
         totalSize: 0,
         maxDepth: 0,
-        buildingTypeDistribution: {},
-        directoryTypeDistribution: {},
-        combinedTypeDistribution: {},
       },
       allFiles: [],
       allDirectories: [],
       sha: '',
+      metadata: {
+        id: 'empty-cell',
+        timestamp: new Date(),
+        sourceType: 'grid-cell',
+        sourceInfo: {},
+      },
     };
   }
 

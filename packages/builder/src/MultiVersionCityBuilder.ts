@@ -221,9 +221,12 @@ export class MultiVersionCityBuilder {
         totalDirectories: allDirectories.length,
         totalSize: 0,
         maxDepth: 0,
-        buildingTypeDistribution: {},
-        directoryTypeDistribution: {},
-        combinedTypeDistribution: {},
+      },
+      metadata: {
+        id: 'union-tree',
+        timestamp: new Date(),
+        sourceType: 'multi-version',
+        sourceInfo: {},
       },
     };
     return unionTree;

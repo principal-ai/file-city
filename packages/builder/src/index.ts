@@ -8,8 +8,9 @@ export type {
   MultiVersionResult
 } from './MultiVersionCityBuilder';
 
-// Grid-based builder
+// Grid-based builder and layout manager
 export { CodeCityBuilderWithGrid } from './CodeCityBuilderWithGrid';
+export { GridLayoutManager } from './GridLayoutManager';
 
 // File tree builder utilities
 export { buildFileSystemTreeFromFileInfoList, getFilesFromGitHubTree } from './FileTreeBuilder';

@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import React, { useState } from 'react';
-import { CityData } from '@principal-ai/code-city-builder';
 
 import { ArchitectureMapHighlightLayers } from '../components/ArchitectureMapHighlightLayers';
 import { HighlightLayer } from '../render/client/drawLayeredBuildings';
@@ -39,7 +38,7 @@ export const Default: Story = {
 
 // Story with highlight layers
 export const WithHighlightLayers: Story = {
-  render: () => {
+  render: function RenderWithHighlightLayers() {
     const [layers, setLayers] = useState<HighlightLayer[]>([
       {
         id: 'modified-files',
@@ -152,7 +151,7 @@ export const SubdirectoryMode: Story = {
 
 // Interactive story with hover and click callbacks
 export const Interactive: Story = {
-  render: () => {
+  render: function RenderInteractive() {
     const [hoveredInfo, setHoveredInfo] = useState<string>('');
     const [clickedPath, setClickedPath] = useState<string>('');
 
@@ -207,7 +206,7 @@ export const WithAbstractionLayer: Story = {
         color: '#1e40af',
         priority: 0,
         items: [],
-        // @ts-ignore - abstraction layer specific properties
+        // @ts-expect-error - abstraction layer specific properties
         abstractionLayer: true,
         abstractionConfig: {
           maxZoomLevel: 2.0,
