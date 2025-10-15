@@ -181,7 +181,6 @@ export function getBuildingColor(
 ): string {
   // Custom color function takes precedence
   if (customColorFn) {
-    console.log('customColorFn', customColorFn);
     const customColor = customColorFn(building);
     if (customColor) return customColor;
   }

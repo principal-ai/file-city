@@ -5,7 +5,7 @@ import {
 } from '@principal-ai/repository-abstraction';
 import { CodebaseView } from '@a24z/core-library';
 import { hierarchy, treemap, treemapSquarify } from 'd3-hierarchy';
-import type { HierarchyRectangularNode } from 'd3-hierarchy';
+import type { HierarchyRectangularNode, HierarchyNode } from 'd3-hierarchy';
 
 import { CityData, CityBuilding, CityDistrict, Bounds2D } from './types/cityData';
 import { DirectorySortFunction, FileSortFunction } from './types/sorts';
@@ -25,6 +25,28 @@ interface D3HierarchyData {
   totalSize?: number;
   children?: D3HierarchyData[];
   weight?: number;
+  originalPath?: string;
+  flattenedFrom?: string;
+  deepNestingBoost?: number;
+}
+
+// File system complexity statistics
+interface FileSystemComplexityStats {
+  totalFiles: number;
+  totalDirectories: number;
+  totalFileSize: number;
+  maxDepth: number;
+  avgFilesPerDirectory: number;
+}
+
+// Building containment violation details
+interface BuildingContainmentViolation {
+  building: string;
+  district: string;
+  leftOverflow: string | number;
+  rightOverflow: string | number;
+  topOverflow: string | number;
+  bottomOverflow: string | number;
 }
 
 // Legend types removed - legends should be handled in the React layer
@@ -50,7 +72,7 @@ export interface TreemapOptions {
   paddingRight?: number;
   paddingInner?: number;
   round?: boolean;
-  tile?: any; // D3 tiling function
+  tile?: typeof treemapSquarify;
   directorySortFn?: DirectorySortFunction;
   fileSortFn?: FileSortFunction;
 }
@@ -113,7 +135,7 @@ export class CodeCityBuilderWithGrid {
    */
   private analyzeFileSystemComplexity(
     directory: DirectoryInfo,
-    stats = {
+    stats: FileSystemComplexityStats = {
       totalFiles: 0,
       totalDirectories: 0,
       totalFileSize: 0,
@@ -121,7 +143,7 @@ export class CodeCityBuilderWithGrid {
       avgFilesPerDirectory: 0,
     },
     currentDepth: number = 0,
-  ): any {
+  ): FileSystemComplexityStats {
     stats.totalDirectories++;
     stats.maxDepth = Math.max(stats.maxDepth, currentDepth);
 
@@ -162,9 +184,6 @@ export class CodeCityBuilderWithGrid {
     const width = Math.min(Math.max(minDimension * scaleFactor, minDimension), maxDimension);
     const height = width; // Keep square
 
-    console.log(
-      `📐 Legacy sqrt sizing: ${width}x${height} (scale factor: ${scaleFactor.toFixed(2)})`,
-    );
     return { width, height };
   }
 
@@ -174,7 +193,7 @@ export class CodeCityBuilderWithGrid {
   private calculateOptimalSize(
     totalFiles: number,
     totalDirectories: number,
-    options: TreemapOptions,
+    _options: TreemapOptions,
   ): { width: number; height: number } {
     const result = this.calculateLegacySqrtSize(totalFiles);
 
@@ -191,9 +210,6 @@ export class CodeCityBuilderWithGrid {
       );
 
       if (result.width < minDimension || result.height < minDimension) {
-        console.log(
-          `⚠️ Dimensions too small for ${totalFiles} files across ${totalDirectories} directories. Adjusting from ${Math.round(result.width)}x${Math.round(result.height)} to ${Math.round(minDimension)}x${Math.round(minDimension)}`,
-        );
         result.width = Math.max(result.width, minDimension);
         result.height = Math.max(result.height, minDimension);
       }
@@ -205,15 +221,9 @@ export class CodeCityBuilderWithGrid {
   /**
    * Apply deep nesting handling to the hierarchy data before treemap layout
    */
-  private handleDeepNesting(hierarchyData: any, options: TreemapOptions): any {
+  private handleDeepNesting(hierarchyData: D3HierarchyData, options: TreemapOptions): D3HierarchyData {
     const strategy = options.deepNestingStrategy || 'hybrid';
     const maxDepth = options.maxNestingDepth || 6;
-    console.log(`🏗️ Deep nesting strategy: ${strategy}, max depth: ${maxDepth}`);
-    console.log('📊 Options passed:', {
-      deepNestingStrategy: options.deepNestingStrategy,
-      maxNestingDepth: options.maxNestingDepth,
-      hasOptions: Object.keys(options).length > 0,
-    });
 
     switch (strategy) {
       case 'flatten':
@@ -237,18 +247,11 @@ export class CodeCityBuilderWithGrid {
    * Flatten directory structure beyond a certain depth
    * Moves deeply nested files to shallower directories with path-based names
    */
-  private flattenDeepStructure(data: any, maxDepth: number, currentDepth: number = 0): any {
-    // Debug: Log when we're processing bracket directories
-    if (data.name?.includes('[')) {
-      console.log(
-        `🔍 [flattenDeepStructure] Processing bracket dir: ${data.name} at depth ${currentDepth} (maxDepth: ${maxDepth})`,
-      );
-    }
-
+  private flattenDeepStructure(data: D3HierarchyData, maxDepth: number, currentDepth: number = 0): D3HierarchyData {
     if (data.type === 'file' || currentDepth < maxDepth) {
       // Process children recursively
       if (data.children) {
-        data.children = data.children.map((child: any) =>
+        data.children = data.children.map((child) =>
           this.flattenDeepStructure(child, maxDepth, currentDepth + 1),
         );
       }
@@ -256,11 +259,8 @@ export class CodeCityBuilderWithGrid {
     }
 
     // We're at max depth - flatten this directory
-    console.log(
-      `⚠️ [flattenDeepStructure] FLATTENING directory at max depth: ${data.name} (depth: ${currentDepth})`,
-    );
-    const flattenedFiles: any[] = [];
-    const remainingDirectories: any[] = [];
+    const flattenedFiles: D3HierarchyData[] = [];
+    const remainingDirectories: D3HierarchyData[] = [];
 
     this.collectDeepFiles(data, flattenedFiles, currentDepth);
 
@@ -281,10 +281,10 @@ export class CodeCityBuilderWithGrid {
   /**
    * Recursively collect files from deeply nested directories
    */
-  private collectDeepFiles(directory: any, collectedFiles: any[], currentDepth: number): void {
+  private collectDeepFiles(directory: D3HierarchyData, collectedFiles: D3HierarchyData[], currentDepth: number): void {
     if (!directory.children) return;
 
-    directory.children.forEach((child: any) => {
+    directory.children.forEach((child) => {
       if (child.type === 'file') {
         collectedFiles.push({
           ...child,
@@ -302,10 +302,10 @@ export class CodeCityBuilderWithGrid {
    * This makes treemap allocate more space to them
    */
   private boostDeepFileImportance(
-    data: any,
+    data: D3HierarchyData,
     options: TreemapOptions,
     currentDepth: number = 0,
-  ): any {
+  ): D3HierarchyData {
     const boostFactor = options.deepNestingSizeBoost || 1.5;
     const boostThreshold = 3; // Start boosting at depth 3
 
@@ -321,7 +321,7 @@ export class CodeCityBuilderWithGrid {
 
     // Process children recursively
     if (data.children) {
-      data.children = data.children.map((child: any) =>
+      data.children = data.children.map((child) =>
         this.boostDeepFileImportance(child, options, currentDepth + 1),
       );
     }
@@ -351,10 +351,6 @@ export class CodeCityBuilderWithGrid {
     }
     const averagePadding = totalPadding / (maxDepth + 1);
 
-    console.log(
-      `🔍 Depth-aware padding: base=${basePadding}, average=${averagePadding.toFixed(1)}`,
-    );
-
     return {
       ...baseOptions,
       paddingInner: Math.max(1, averagePadding), // Ensure minimum padding of 1
@@ -374,13 +370,11 @@ export class CodeCityBuilderWithGrid {
 
     const minSize = 6;
     const minArea = minSize * minSize;
-    let adjustedCount = 0;
 
     const adjustedBuildings = buildings.map(building => {
       const currentArea = building.dimensions[0] * building.dimensions[2];
 
       if (currentArea < minArea) {
-        adjustedCount++;
         const scaleFactor = Math.sqrt(minArea / currentArea);
 
         return {
@@ -395,10 +389,6 @@ export class CodeCityBuilderWithGrid {
 
       return building;
     });
-
-    if (adjustedCount > 0) {
-      console.log(`🔧 Enforced minimum size for ${adjustedCount} deeply nested buildings`);
-    }
 
     return adjustedBuildings;
   }
@@ -425,7 +415,7 @@ export class CodeCityBuilderWithGrid {
       overviewPath: 'README.md',
       category: 'default',
       displayOrder: 0,
-      cells: {
+      referenceGroups: {
         main: {
           files: ['*'],
           coordinates: [0, 0],
@@ -481,12 +471,10 @@ export class CodeCityBuilderWithGrid {
     let maxCellWidth = 0;
     let maxCellHeight = 0;
 
-    console.log('📐 Phase 1: Calculating adaptive dimensions for each grid cell...');
 
-    gridTrees.forEach((cellTree, cellKey) => {
+    gridTrees.forEach((cellTree) => {
       // Skip empty cells
       if (cellTree.root.children.length === 0) {
-        console.log(`⭕ Cell ${cellKey}: empty, skipping`);
         return;
       }
 
@@ -500,18 +488,10 @@ export class CodeCityBuilderWithGrid {
         options,
       );
 
-      console.log(
-        `📏 Cell ${cellKey}: needs ${Math.round(cellDimensions.width)}×${Math.round(cellDimensions.height)} for ${totalFiles} files`,
-      );
-
       // Track maximum dimensions needed
       maxCellWidth = Math.max(maxCellWidth, cellDimensions.width);
       maxCellHeight = Math.max(maxCellHeight, cellDimensions.height);
     });
-
-    console.log(
-      `🏆 Maximum cell dimensions needed: ${Math.round(maxCellWidth)}×${Math.round(maxCellHeight)}`,
-    );
 
     // PHASE 2: Calculate total grid canvas size based on uniform cell size + label space
     const ui = getUIMetadata(gridConfig.metadata);
@@ -553,10 +533,6 @@ export class CodeCityBuilderWithGrid {
     const totalHeight =
       maxCellHeight * rows + cellSpacing * (rows + 1) + totalLabelHeight + outerPadding * 2;
 
-    console.log(
-      `📐 Total grid canvas: ${Math.round(totalWidth)}×${Math.round(totalHeight)} (${rows}×${cols} grid, ${labelHeight}px labels per row)`,
-    );
-
     const allBuildings: CityBuilding[] = [];
     const allDistricts: CityDistrict[] = [];
 
@@ -586,18 +562,6 @@ export class CodeCityBuilderWithGrid {
         ...options,
         gridLayout: undefined, // Prevent recursion
       };
-
-      console.log(
-        `🏗️ Building cell ${cellKey} with uniform dimensions: ${Math.round(effectiveMaxCellWidth)}×${Math.round(maxCellHeight)}`,
-      );
-      console.log(
-        `📍 Cell ${cellKey} bounds: x=${Math.round(cellBounds.x)}, y=${Math.round(cellBounds.y)}, w=${Math.round(cellBounds.width)}, h=${Math.round(cellBounds.height)}`,
-      );
-      if (cellBounds.labelBounds) {
-        console.log(
-          `🏷️ Cell ${cellKey} label bounds: x=${Math.round(cellBounds.labelBounds.x)}, y=${Math.round(cellBounds.labelBounds.y)}, w=${Math.round(cellBounds.labelBounds.width)}, h=${Math.round(cellBounds.labelBounds.height)}`,
-        );
-      }
 
       // Build the city for this cell using treemap layout
       const cellCity = this.buildSingleCellCity(cellTree, rootPath, cellOptions);
@@ -635,7 +599,7 @@ export class CodeCityBuilderWithGrid {
         let labelText = 'Misc';
 
         // Find the cell name for this position
-        for (const [cellName, cellConfig] of Object.entries(gridConfig.cells)) {
+        for (const [cellName, cellConfig] of Object.entries(gridConfig.referenceGroups)) {
           if (cellConfig.coordinates[0] === row && cellConfig.coordinates[1] === col) {
             labelText = cellName;
             break;
@@ -652,9 +616,6 @@ export class CodeCityBuilderWithGrid {
           },
           position: (ui?.cellLabelPosition || 'top') as 'top' | 'bottom',
         };
-        console.log(
-          `🏗️ Created grid cell ${row},${col} with label "${labelText}" at (${cellBounds.labelBounds.x}, ${cellBounds.labelBounds.y})`,
-        );
       }
 
       allBuildings.push(...cellCity.buildings);
@@ -735,7 +696,7 @@ export class CodeCityBuilderWithGrid {
     const processedHierarchyData = hierarchyData;
 
     // Step 3: Create D3 hierarchy and calculate file counts
-    const hierarchyRoot = hierarchy(processedHierarchyData)
+    const hierarchyRoot = hierarchy<D3HierarchyData>(processedHierarchyData)
       .sum(d => {
         if (d.type === 'file') {
           return d.weight || 1;
@@ -751,7 +712,7 @@ export class CodeCityBuilderWithGrid {
       .sort((a, b) => (b.value || 0) - (a.value || 0));
 
     // Step 4: Create D3 treemap layout
-    const treemapLayout = treemap()
+    const treemapLayout = treemap<D3HierarchyData>()
       .size([width, height])
       .padding(padding)
       .paddingOuter(paddingOuter)
@@ -764,7 +725,7 @@ export class CodeCityBuilderWithGrid {
       .round(round);
 
     // Step 5: Apply treemap layout
-    const root = treemapLayout(hierarchyRoot as any) as HierarchyRectangularNode<D3HierarchyData>;
+    const root = treemapLayout(hierarchyRoot);
 
     // Step 6: Convert D3 treemap nodes back to districts and buildings
     this.convertD3TreemapToCityData(root, districts, buildings, rootPath);
@@ -865,24 +826,6 @@ export class CodeCityBuilderWithGrid {
       const hasArea = (node.x1 || 0) > (node.x0 || 0) && (node.y1 || 0) > (node.y0 || 0);
       const hasChildren = node.children && node.children.length > 0;
 
-      // Debug logging for pure-core specifically
-      if (data.name === 'pure-core' || data.relativePath?.includes('pure-core')) {
-        console.log('[District Debug] Processing pure-core:', {
-          name: data.name,
-          relativePath: data.relativePath,
-          hasArea,
-          hasChildren,
-          nodeValue: node.value,
-          bounds: hasArea
-            ? {
-                x0: node.x0,
-                x1: node.x1,
-                y0: node.y0,
-                y1: node.y1,
-              }
-            : 'no area allocated',
-        });
-      }
 
       // Create district if it has area OR if it has children (subdirectories/files)
       if (hasArea || hasChildren) {
@@ -937,16 +880,6 @@ export class CodeCityBuilderWithGrid {
           type: 'directory',
         };
 
-        // Debug: Log when pure-core district is created
-        if (fullPath === 'src/pure-core' || fullPath.includes('pure-core')) {
-          console.log('[District Debug] Created pure-core district:', {
-            path: fullPath,
-            fileCount: directFileCount,
-            bounds,
-            hasArea,
-            hasChildren,
-          });
-        }
 
         districts.push(district);
       }
@@ -980,8 +913,8 @@ export class CodeCityBuilderWithGrid {
    * instead of manual post-processing adjustments.
    */
   private createBuildingFromD3Node(
-    node: HierarchyRectangularNode<any>,
-    fileData: any,
+    node: HierarchyRectangularNode<D3HierarchyData>,
+    fileData: D3HierarchyData,
     rootPath: string = '',
   ): CityBuilding {
     // Calculate building dimensions from treemap rectangle
@@ -1000,7 +933,7 @@ export class CodeCityBuilderWithGrid {
     const centerZ = (node.y0 || 0) + rawDepth / 2;
 
     // Calculate building height based on file size (normalized)
-    const sizeRatio = Math.min(fileData.size / 10000, 1); // Normalize to 10KB max
+    const sizeRatio = Math.min((fileData.size || 0) / 10000, 1); // Normalize to 10KB max
     const buildingHeight =
       this.minBuildingSize + sizeRatio * (this.maxBuildingSize - this.minBuildingSize);
 
@@ -1137,7 +1070,7 @@ export class CodeCityBuilderWithGrid {
       dimensions: [number, number, number];
     }> = [];
 
-    const violationSummary: any[] = [];
+    const violationSummary: BuildingContainmentViolation[] = [];
 
     buildings.forEach(building => {
       // Calculate building's actual bounds

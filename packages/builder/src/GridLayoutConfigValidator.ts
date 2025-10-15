@@ -9,7 +9,7 @@ export interface GridConfigValidationIssue {
   severity: 'error' | 'warning' | 'info';
   message: string;
   field?: string;
-  details?: any;
+  details?: unknown;
 }
 
 export interface GridConfigValidationReport {
@@ -123,22 +123,22 @@ export function validateCodebaseViewConfig(config: CodebaseView): GridConfigVali
   }
 
   // Validate cells
-  if (!config.cells || typeof config.cells !== 'object') {
+  if (!config.referenceGroups || typeof config.referenceGroups !== 'object') {
     issues.push({
-      code: 'config.cells.missing',
+      code: 'config.referenceGroups.missing',
       severity: 'error',
       message: 'cells must be an object',
       field: 'cells',
     });
   } else {
     const cellsUsed = new Set<string>();
-    const cellNames = Object.keys(config.cells);
+    const cellNames = Object.keys(config.referenceGroups);
 
     // Check for empty cells
     const ui = getUIMetadata(config.metadata);
     if (cellNames.length === 0 && ui?.enabled) {
       issues.push({
-        code: 'config.cells.empty',
+        code: 'config.referenceGroups.empty',
         severity: 'warning',
         message: 'No cells defined for enabled grid configuration',
         field: 'cells',
@@ -148,7 +148,7 @@ export function validateCodebaseViewConfig(config: CodebaseView): GridConfigVali
 
     // Validate each cell
     cellNames.forEach(cellName => {
-      const cell = config.cells[cellName];
+      const cell = config.referenceGroups[cellName];
 
       if (!cell) {
         issues.push({
@@ -251,9 +251,9 @@ export function validateCodebaseViewConfig(config: CodebaseView): GridConfigVali
       }
 
       // Validate color (check both UI extension format and metadata format)
-      const cellAsUIType = cell as any; // Cast to avoid TS errors during migration
+      const cellAsUIType = cell as { color?: unknown };
       const colorFromUI = cellAsUIType.color;
-      const colorFromMetadata = (cell.metadata as any)?.ui?.color;
+      const colorFromMetadata = (cell.metadata as { ui?: { color?: unknown } } | undefined)?.ui?.color;
       const actualColor = colorFromUI || colorFromMetadata;
 
       if (actualColor !== undefined) {
@@ -425,8 +425,8 @@ export function autoFixGridConfig(config: CodebaseView): CodebaseView {
     fixed.cols = 1;
   }
 
-  if (!fixed.cells || typeof fixed.cells !== 'object') {
-    fixed.cells = {};
+  if (!fixed.referenceGroups || typeof fixed.referenceGroups !== 'object') {
+    fixed.referenceGroups = {};
   }
 
   // Compute actual dimensions for clamping cell coordinates
@@ -434,8 +434,8 @@ export function autoFixGridConfig(config: CodebaseView): CodebaseView {
   const { rows: actualRows, cols: actualCols } = gridManager.getGridDimensions(fixed);
 
   // Fix each cell
-  Object.keys(fixed.cells).forEach(cellName => {
-    const cell = fixed.cells[cellName];
+  Object.keys(fixed.referenceGroups).forEach(cellName => {
+    const cell = fixed.referenceGroups[cellName];
 
     // Ensure cell is valid
     if (!Array.isArray(cell.coordinates) || cell.coordinates.length !== 2) {
@@ -457,7 +457,7 @@ export function autoFixGridConfig(config: CodebaseView): CodebaseView {
 
   // Fix optional settings in metadata.ui
   if (fixed.metadata?.ui) {
-    const ui = fixed.metadata.ui as any;
+    const ui = fixed.metadata.ui as { cellPadding?: number };
     if (ui.cellPadding !== undefined && ui.cellPadding < 0) {
       ui.cellPadding = 0;
     }

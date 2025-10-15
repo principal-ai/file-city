@@ -1,4 +1,5 @@
 import { FileInfo, FileTree as FileSystemTree } from '@principal-ai/repository-abstraction';
+
 // GitHub API response types
 interface GitHubTreeItem {
   path: string;
@@ -14,6 +15,29 @@ export interface GitHubTreeResponse {
   url: string;
   tree: GitHubTreeItem[];
   truncated: boolean;
+}
+
+// Internal directory node type for building the tree structure
+interface DirectoryNode {
+  name: string;
+  path: string;
+  relativePath: string;
+  type: 'directory';
+  children: Array<DirectoryNode | FileNodeInternal>;
+  fileCount: number;
+  totalSize: number;
+  depth: number;
+}
+
+// Internal file node type for building the tree structure
+interface FileNodeInternal {
+  name: string;
+  path: string;
+  relativePath: string;
+  type: 'file';
+  size: number;
+  extension: string;
+  lastModified: Date;
 }
 
 export function getFilesFromGitHubTree(tree: GitHubTreeResponse): FileInfo[] {
@@ -33,7 +57,7 @@ export function buildFileSystemTreeFromFileInfoList(
   sha: string,
 ): FileSystemTree {
   // Build directory structure
-  const root: any = {
+  const root: DirectoryNode = {
     name: 'root',
     path: '',
     relativePath: '',
@@ -45,7 +69,7 @@ export function buildFileSystemTreeFromFileInfoList(
   };
 
   // Group files by directory
-  const directories = new Map<string, any>();
+  const directories = new Map<string, DirectoryNode>();
   directories.set('', root);
 
   treeFiles.forEach(file => {
@@ -93,11 +117,11 @@ export function buildFileSystemTreeFromFileInfoList(
   });
 
   // Calculate file counts and sizes for directories
-  const calculateStats = (dir: any): void => {
+  const calculateStats = (dir: DirectoryNode): void => {
     let fileCount = 0;
     let totalSize = 0;
 
-    dir.children.forEach((child: any) => {
+    dir.children.forEach((child: DirectoryNode | FileNodeInternal) => {
       if (child.type === 'file') {
         fileCount++;
         totalSize += child.size;
@@ -124,9 +148,9 @@ export function buildFileSystemTreeFromFileInfoList(
       totalDirectories: directories.size - 1, // Exclude root
       totalSize: root.totalSize,
       maxDepth: Math.max(...treeFiles.map(f => f.path.split('/').length)),
-      buildingTypeDistribution: {}, // Let CodeCityBuilder handle the analysis
-      directoryTypeDistribution: {}, // Let CodeCityBuilder handle the analysis
-      combinedTypeDistribution: {}, // Let CodeCityBuilder handle the analysis
+       // Let CodeCityBuilder handle the analysis
+       // Let CodeCityBuilder handle the analysis
+       // Let CodeCityBuilder handle the analysis
     },
     allFiles: treeFiles.map(f => ({
       name: f.path.split('/').pop()!,
@@ -138,6 +162,12 @@ export function buildFileSystemTreeFromFileInfoList(
       isDirectory: false,
     })),
     allDirectories: Array.from(directories.values()).filter(d => d.path !== ''),
+    metadata: {
+      id: 'file-tree',
+      timestamp: new Date(),
+      sourceType: 'github-tree',
+      sourceInfo: {},
+    },
   };
 }
 
@@ -145,14 +175,11 @@ export function filterFileSystemTreeForProject(
   fileSystemTree: FileSystemTree,
   projectPath: string,
 ): FileSystemTree {
-  console.log(`[Project Filter] Filtering for project path: "${projectPath}"`);
-
   // Handle root project case
   if (projectPath === '') {
     // For root project, exclude files that are in subdirectories with package.json files
     // This is more complex and might need the search index profile to know which subdirs to exclude
     // For now, we'll just return the original tree
-    console.log('[Project Filter] Root project - returning full tree');
     return fileSystemTree;
   }
 
@@ -162,10 +189,6 @@ export function filterFileSystemTreeForProject(
     const isInProject = file.relativePath.startsWith(projectPrefix);
     return isInProject;
   });
-
-  console.log(
-    `[Project Filter] Filtered ${fileSystemTree.allFiles.length} files to ${filteredFiles.length} files for project "${projectPath}"`,
-  );
 
   if (filteredFiles.length === 0) {
     throw new Error(`No files found for project path "${projectPath}"`);

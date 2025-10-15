@@ -73,7 +73,7 @@ export function hasUIMetadata(metadata: unknown): metadata is { ui: UIMetadata }
     typeof metadata === 'object' &&
     metadata !== null &&
     'ui' in metadata &&
-    typeof (metadata as any).ui === 'object'
+    typeof (metadata as { ui: unknown }).ui === 'object'
   );
 }
 
@@ -83,8 +83,8 @@ export function hasUIMetadata(metadata: unknown): metadata is { ui: UIMetadata }
  */
 export function getUIMetadata(metadata?: Record<string, unknown>): UIMetadata | undefined {
   if (!metadata || !hasUIMetadata(metadata)) {
-    // Return defaults when no metadata is present
-    return DEFAULT_UI_METADATA;
+    // Return undefined when no UI metadata is present
+    return undefined;
   }
   // Merge provided metadata with defaults
   return mergeWithDefaults(metadata.ui);

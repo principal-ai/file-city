@@ -291,7 +291,9 @@ export function ArchitectureMapHighlightLayers({
   });
 
   const filteredCityData = useMemo(() => {
-    if (!cityData) return undefined;
+    if (!cityData) {
+      return undefined;
+    }
 
     let processedData = cityData;
     if (subdirectoryMode?.enabled) {
@@ -635,8 +637,6 @@ export function ArchitectureMapHighlightLayers({
             items: abstractedItems,
           };
         }
-      } else {
-        console.log('[Abstraction] Root abstraction disabled - allowRootAbstraction is false');
       }
 
       // BFS to determine abstractions for subdirectories
@@ -758,11 +758,15 @@ export function ArchitectureMapHighlightLayers({
 
   // Main canvas drawing with layer-based highlighting
   useEffect(() => {
-    if (!canvasRef.current || !filteredCityData) return;
+    if (!canvasRef.current || !filteredCityData) {
+      return;
+    }
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) {
+      return;
+    }
 
     // Performance monitoring start available for debugging
 
@@ -999,6 +1003,11 @@ export function ArchitectureMapHighlightLayers({
     canvasBackgroundColor,
     showLegend,
     showDirectoryLabels,
+    allLayers,
+    buildingBorderRadius,
+    defaultBuildingColor,
+    districtBorderRadius,
+    showFileTypeIcons,
   ]);
 
   // Optimized hit testing
@@ -1349,7 +1358,7 @@ export function ArchitectureMapHighlightLayers({
 
   if (!filteredCityData) {
     return (
-      <div className={`bg-gray-900 rounded-lg p-4 flex items-center justify-center ${className}`}>
+      <div className={`bg-gray-900 rounded-lg p-4 flex items-center justify-center ${className}`} style={{ width: '100%', height: '100%', minHeight: '250px' }}>
         <div className="text-gray-400">No city data available</div>
       </div>
     );
