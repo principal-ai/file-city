@@ -1,3 +1,4 @@
+import { CanvasRenderingContext2D } from 'canvas';
 import { BuildingTypeResolver } from '../types/buildingTypes';
 import { CityBuilding, CityDistrict } from '@principal-ai/code-city-builder';
 import { ImportanceConfig, DEFAULT_VISUAL_SETTINGS } from '../types/importanceTypes';
@@ -13,9 +14,6 @@ export enum RenderMode {
 }
 // Helper functions for drawing
 
-// Cache for star path to avoid recreating it
-let starPathCache: Path2D | null = null;
-
 /**
  * Draw a star at the given position
  */
@@ -30,26 +28,6 @@ export function drawStar(
 ) {
   ctx.save();
 
-  // Create star path if not cached
-  if (!starPathCache) {
-    starPathCache = new Path2D();
-    // Star path with 5 points
-    const outerRadius = 1;
-    const innerRadius = 0.4;
-    for (let i = 0; i < 10; i++) {
-      const angle = (i * Math.PI) / 5 - Math.PI / 2;
-      const radius = i % 2 === 0 ? outerRadius : innerRadius;
-      const px = Math.cos(angle) * radius;
-      const py = Math.sin(angle) * radius;
-      if (i === 0) {
-        starPathCache.moveTo(px, py);
-      } else {
-        starPathCache.lineTo(px, py);
-      }
-    }
-    starPathCache.closePath();
-  }
-
   // Position and scale
   ctx.translate(x, y);
   ctx.scale(size, size);
@@ -60,14 +38,31 @@ export function drawStar(
     ctx.shadowBlur = 10;
   }
 
+  // Draw star path manually since node-canvas doesn't support fill(path)/stroke(path)
+  ctx.beginPath();
+  const outerRadius = 1;
+  const innerRadius = 0.4;
+  for (let i = 0; i < 10; i++) {
+    const angle = (i * Math.PI) / 5 - Math.PI / 2;
+    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+    const px = Math.cos(angle) * radius;
+    const py = Math.sin(angle) * radius;
+    if (i === 0) {
+      ctx.moveTo(px, py);
+    } else {
+      ctx.lineTo(px, py);
+    }
+  }
+  ctx.closePath();
+
   // Fill star
   ctx.fillStyle = color;
-  ctx.fill(starPathCache);
+  ctx.fill();
 
   // Stroke star
   ctx.strokeStyle = strokeColor;
   ctx.lineWidth = 0.1;
-  ctx.stroke(starPathCache);
+  ctx.stroke();
 
   ctx.restore();
 }
