@@ -14,8 +14,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@a24z/core-library": "^0.1.21",
-    "@principal-ai/repository-abstraction": "^0.2.0",
+    "@principal-ai/alexandria-core-library": "^0.1.36",
+    "@principal-ai/repository-abstraction": "^0.2.4",
     "d3-hierarchy": "^3.1.2",
     "minimatch": "^10.0.3",
     "picomatch": "^4.0.3"

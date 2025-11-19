@@ -45,7 +45,7 @@ The package uses a layered approach:
 ## Dependencies
 
 - `@principal-ai/repository-abstraction`: File system abstraction
-- `@a24z/core-library`: CodebaseView for grid layouts
+- `@principal-ai/alexandria-core-library`: CodebaseView for grid layouts
 - `d3-hierarchy`: Treemap algorithm for spatial layout
 
 ## Recent Changes
@@ -71,7 +71,7 @@ The codebase was using only the `legacy-sqrt` sizing strategy in practice. Remov
 ### Previous Changes
 
 - Removed color/theme dependencies (handled in React layer) ✅
-- Migrated from `a24z-memory` to `@a24z/core-library` ✅
+- Migrated from `a24z-memory` to `@a24z/core-library` to `@principal-ai/alexandria-core-library` ✅
 - Established clean separation between builder logic and presentation concerns ✅
 
 ## Testing

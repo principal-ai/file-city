@@ -8,13 +8,13 @@
 
 ## Level 1: MultiVersionCityBuilder.ts
 - External: `@principal-ai/repository-abstraction`
-- External: `@a24z/core-library` (CodebaseView)
+- External: `@principal-ai/alexandria-core-library` (CodebaseView)
 - Internal: `CodeCityBuilderWithGrid.ts`
 - Internal: `types/cityData`
 
 ## Level 2: CodeCityBuilderWithGrid.ts
 - External: `@principal-ai/repository-abstraction`
-- External: `@a24z/core-library` (CodebaseView)
+- External: `@principal-ai/alexandria-core-library` (CodebaseView)
 - External: `d3-hierarchy`
 - Internal: `types/buildingTypes`
 - Internal: `types/cityData`
@@ -25,7 +25,7 @@
 
 ## Level 3: GridLayoutManager.ts
 - External: `@principal-ai/repository-abstraction`
-- External: `@a24z/core-library` (CodebaseView)
+- External: `@principal-ai/alexandria-core-library` (CodebaseView)
 - Internal: `types/cityData`
 - Internal: `GridLayoutConfigValidator`
 
@@ -43,5 +43,5 @@
 
 ## External Dependencies Needed
 - @principal-ai/repository-abstraction
-- @a24z/core-library
+- @principal-ai/alexandria-core-library
 - d3-hierarchy

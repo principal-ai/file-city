@@ -1,7 +1,7 @@
 import { MultiVersionCityBuilder } from './MultiVersionCityBuilder';
 import { FileTree } from '@principal-ai/repository-abstraction';
 import { CityData } from './types/cityData';
-import { CodebaseView } from '@a24z/core-library';
+import { CodebaseView } from '@principal-ai/alexandria-core-library';
 
 // Mock CodeCityBuilderWithGrid to return predictable city data
 const mockBuildCityFromFileSystem = jest.fn((fileTree, rootPath, options) => {

@@ -1,5 +1,5 @@
 import { FileTree, DirectoryInfo, FileInfo } from '@principal-ai/repository-abstraction';
-import { CodebaseView } from '@a24z/core-library';
+import { CodebaseView } from '@principal-ai/alexandria-core-library';
 
 import { getUIMetadata } from './types/ui-metadata';
 

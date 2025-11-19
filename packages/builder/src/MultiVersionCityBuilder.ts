@@ -3,7 +3,7 @@ import {
   DirectoryInfo,
   FileInfo,
 } from '@principal-ai/repository-abstraction';
-import { CodebaseView } from '@a24z/core-library';
+import { CodebaseView } from '@principal-ai/alexandria-core-library';
 
 import { CityData } from './types/cityData';
 import { CodeCityBuilderWithGrid } from './CodeCityBuilderWithGrid';

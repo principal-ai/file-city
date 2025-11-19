@@ -1,4 +1,9 @@
-import { FileInfo, FileTree as FileSystemTree } from '@principal-ai/repository-abstraction';
+import {
+  FileInfo,
+  DirectoryInfo,
+  FileTree as FileSystemTree,
+  FileTreeNode,
+} from '@principal-ai/repository-abstraction';
 
 // GitHub API response types
 interface GitHubTreeItem {
@@ -84,7 +89,7 @@ export function buildFileSystemTreeFromFileInfoList(
       currentPath = currentPath ? `${currentPath}/${dirName}` : dirName;
 
       if (!directories.has(currentPath)) {
-        const newDir = {
+        const newDir: DirectoryNode = {
           name: dirName,
           path: currentPath,
           relativePath: currentPath,
@@ -107,7 +112,7 @@ export function buildFileSystemTreeFromFileInfoList(
     });
 
     // Add file to its directory
-    const fileNode = {
+    const fileNode: FileNodeInternal = {
       name: fileName,
       path: file.path,
       relativePath: file.path,
@@ -142,11 +147,43 @@ export function buildFileSystemTreeFromFileInfoList(
 
   calculateStats(root);
 
+  // Convert internal types to DirectoryInfo/FileInfo
+  const convertToFileTreeNode = (node: DirectoryNode | FileNodeInternal): FileTreeNode => {
+    if (node.type === 'file') {
+      const fileNode: FileInfo = {
+        name: node.name,
+        path: node.path,
+        relativePath: node.relativePath,
+        size: node.size,
+        extension: node.extension,
+        lastModified: node.lastModified,
+        isDirectory: false,
+      };
+      return fileNode;
+    } else {
+      const dirNode: DirectoryInfo = {
+        name: node.name,
+        path: node.path,
+        relativePath: node.relativePath,
+        children: node.children.map(convertToFileTreeNode),
+        fileCount: node.fileCount,
+        totalSize: node.totalSize,
+        depth: node.depth,
+      };
+      return dirNode;
+    }
+  };
+
+  const rootAsDirectoryInfo = convertToFileTreeNode(root) as DirectoryInfo;
+  const allDirectoriesConverted: DirectoryInfo[] = Array.from(directories.values())
+    .filter(d => d.path !== '')
+    .map(d => convertToFileTreeNode(d) as DirectoryInfo);
+
   // Generate legend data
 
   return {
     sha,
-    root,
+    root: rootAsDirectoryInfo,
     stats: {
       totalFiles: treeFiles.length,
       totalDirectories: directories.size - 1, // Exclude root
@@ -165,7 +202,7 @@ export function buildFileSystemTreeFromFileInfoList(
       lastModified: new Date(),
       isDirectory: false,
     })),
-    allDirectories: Array.from(directories.values()).filter(d => d.path !== ''),
+    allDirectories: allDirectoriesConverted,
     metadata: {
       id: 'file-tree',
       timestamp: new Date(),

@@ -1,7 +1,7 @@
 import { describe, it, expect } from '@jest/globals';
 import { GridLayoutManager } from './GridLayoutManager';
 import { FileTree, DirectoryInfo, FileInfo } from '@principal-ai/repository-abstraction';
-import { CodebaseView } from '@a24z/core-library';
+import { CodebaseView } from '@principal-ai/alexandria-core-library';
 
 describe('GridLayoutManager', () => {
   const createMockFileTree = (): FileTree => ({
