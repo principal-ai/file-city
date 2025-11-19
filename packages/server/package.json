@@ -10,7 +10,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@principal-ai/code-city-builder": "^0.1.1",
+    "@principal-ai/code-city-builder": "^0.2.0",
     "canvas": "^2.11.2"
   },
   "devDependencies": {
