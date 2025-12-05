@@ -62,3 +62,6 @@ export {
   CityViewWithReactFlow,
   type CityViewWithReactFlowProps
 } from './components/CityViewWithReactFlow';
+
+// Re-export theme utilities for consumers
+export { ThemeProvider, useTheme } from '@principal-ade/industry-theme';

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { useTheme } from '@principal-ade/industry-theme';
 
 import {
   filterCityDataForSelectiveRender,
@@ -214,7 +215,7 @@ interface HitTestCache {
   timestamp: number;
 }
 
-export function ArchitectureMapHighlightLayers({
+function ArchitectureMapHighlightLayersInner({
   cityData,
   highlightLayers = [],
   onLayerToggle,
@@ -228,11 +229,11 @@ export function ArchitectureMapHighlightLayers({
   showFileNames = false,
   className = '',
   selectiveRender,
-  canvasBackgroundColor = '#0f1419',
-  hoverBorderColor = '#ffffff',
+  canvasBackgroundColor,
+  hoverBorderColor,
   disableOpacityDimming = true,
-  defaultDirectoryColor = '#111827',
-  defaultBuildingColor = '#36454F',
+  defaultDirectoryColor,
+  defaultBuildingColor,
   subdirectoryMode,
   showLayerControls = false,
   showFileTypeIcons = true,
@@ -243,6 +244,13 @@ export function ArchitectureMapHighlightLayers({
   buildingBorderRadius = 0,
   districtBorderRadius = 0,
 }: ArchitectureMapHighlightLayersProps) {
+  const { theme } = useTheme();
+
+  // Use theme colors as defaults, with prop overrides
+  const resolvedCanvasBackgroundColor = canvasBackgroundColor ?? theme.colors.background;
+  const resolvedHoverBorderColor = hoverBorderColor ?? theme.colors.text;
+  const resolvedDefaultDirectoryColor = defaultDirectoryColor ?? theme.colors.backgroundSecondary;
+  const resolvedDefaultBuildingColor = defaultBuildingColor ?? theme.colors.muted;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -783,7 +791,7 @@ export function ArchitectureMapHighlightLayers({
     canvas.width = displayWidth;
     canvas.height = displayHeight;
 
-    ctx.fillStyle = canvasBackgroundColor;
+    ctx.fillStyle = resolvedCanvasBackgroundColor;
     ctx.fillRect(0, 0, displayWidth, displayHeight);
 
     if (displayOptions.showGrid) {
@@ -876,7 +884,7 @@ export function ArchitectureMapHighlightLayers({
       allLayers,
       interactionState.hoveredDistrict,
       fullSize,
-      defaultDirectoryColor,
+      resolvedDefaultDirectoryColor,
       filteredCityData.metadata.layoutConfig,
       abstractedPathsForDistricts, // Pass abstracted paths to skip labels
       showDirectoryLabels,
@@ -952,9 +960,9 @@ export function ArchitectureMapHighlightLayers({
       scale * zoomState.scale,
       allLayers,
       interactionState.hoveredBuilding,
-      defaultBuildingColor,
+      resolvedDefaultBuildingColor,
       showFileNames,
-      hoverBorderColor,
+      resolvedHoverBorderColor,
       disableOpacityDimming,
       showFileTypeIcons,
       buildingBorderRadius,
@@ -999,20 +1007,20 @@ export function ArchitectureMapHighlightLayers({
     highlightLayers,
     interactionState.hoveredBuilding,
     interactionState.hoveredDistrict,
-    defaultDirectoryColor,
+    resolvedDefaultDirectoryColor,
     showFileNames,
     fullSize,
-    hoverBorderColor,
+    resolvedHoverBorderColor,
     disableOpacityDimming,
     focusDirectory,
     subdirectoryMode,
     cityData,
-    canvasBackgroundColor,
+    resolvedCanvasBackgroundColor,
     showLegend,
     showDirectoryLabels,
     allLayers,
     buildingBorderRadius,
-    defaultBuildingColor,
+    resolvedDefaultBuildingColor,
     districtBorderRadius,
     showFileTypeIcons,
   ]);
@@ -1365,8 +1373,23 @@ export function ArchitectureMapHighlightLayers({
 
   if (!filteredCityData) {
     return (
-      <div className={`bg-gray-900 rounded-lg p-4 flex items-center justify-center ${className}`} style={{ width: '100%', height: '100%', minHeight: '250px' }}>
-        <div className="text-gray-400">No city data available</div>
+      <div
+        className={className}
+        style={{
+          width: '100%',
+          height: '100%',
+          minHeight: '250px',
+          backgroundColor: theme.colors.backgroundSecondary,
+          borderRadius: `${theme.radii[2]}px`,
+          padding: `${theme.space[4]}px`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <div style={{ color: theme.colors.textMuted, fontFamily: theme.fonts.body }}>
+          No city data available
+        </div>
       </div>
     );
   }
@@ -1380,7 +1403,7 @@ export function ArchitectureMapHighlightLayers({
         width: '100%',
         height: '100%',
         overflow: 'hidden',
-        backgroundColor: canvasBackgroundColor,
+        backgroundColor: resolvedCanvasBackgroundColor,
         transform: (() => {
           const transforms = [];
 
@@ -1405,44 +1428,55 @@ export function ArchitectureMapHighlightLayers({
       {/* Layer Controls - Toggle Buttons */}
       {showLayerControls && highlightLayers.length > 0 && (
         <div
-          className="flex flex-col gap-2"
           style={{
             position: 'absolute',
-            bottom: '16px',
-            left: '16px',
+            bottom: `${theme.space[4]}px`,
+            left: `${theme.space[4]}px`,
             zIndex: 10,
             display: 'flex',
             flexDirection: 'column',
-            gap: '8px',
+            gap: `${theme.space[2]}px`,
           }}
         >
           {highlightLayers.map(layer => (
             <button
               key={layer.id}
               onClick={() => onLayerToggle?.(layer.id, !layer.enabled)}
-              className={`
-                px-3 py-2 rounded-lg shadow-lg transition-all duration-200
-                flex items-center gap-2 text-xs font-medium
-                ${
-                  layer.enabled
-                    ? 'bg-gray-700 text-white border-2'
-                    : 'bg-gray-800 bg-opacity-80 text-gray-400 border-2 border-gray-700 hover:border-gray-600'
-                }
-                hover:bg-gray-600
-              `}
               style={{
-                borderColor: layer.enabled ? layer.color : undefined,
+                padding: `${theme.space[2]}px ${theme.space[3]}px`,
+                borderRadius: `${theme.radii[2]}px`,
+                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: `${theme.space[2]}px`,
+                fontSize: `${theme.fontSizes[0]}px`,
+                fontWeight: theme.fontWeights.medium,
+                fontFamily: theme.fonts.body,
+                backgroundColor: layer.enabled ? theme.colors.backgroundSecondary : theme.colors.background,
+                color: layer.enabled ? theme.colors.text : theme.colors.textSecondary,
+                border: `2px solid ${layer.enabled ? layer.color : theme.colors.border}`,
                 minWidth: '120px',
+                cursor: 'pointer',
               }}
               title={`Toggle ${layer.name}`}
             >
               <div
-                className={`w-3 h-3 rounded-full transition-opacity ${layer.enabled ? 'opacity-100' : 'opacity-40'}`}
-                style={{ backgroundColor: layer.color }}
+                style={{
+                  width: '12px',
+                  height: '12px',
+                  borderRadius: '50%',
+                  backgroundColor: layer.color,
+                  opacity: layer.enabled ? 1 : 0.4,
+                  transition: 'opacity 0.2s ease',
+                }}
               />
-              <span className="text-left flex-1">{layer.name}</span>
+              <span style={{ textAlign: 'left', flex: 1 }}>{layer.name}</span>
               {layer.items && layer.items.length > 0 && (
-                <span className={`text-xs ${layer.enabled ? 'text-gray-300' : 'text-gray-500'}`}>
+                <span style={{
+                  fontSize: `${theme.fontSizes[0]}px`,
+                  color: layer.enabled ? theme.colors.textSecondary : theme.colors.textMuted,
+                }}>
                   {layer.items.length}
                 </span>
               )}
@@ -1510,3 +1544,5 @@ function calculateScaleAndOffset(
 
   return { scale, offsetX, offsetZ };
 }
+
+export const ArchitectureMapHighlightLayers = ArchitectureMapHighlightLayersInner;

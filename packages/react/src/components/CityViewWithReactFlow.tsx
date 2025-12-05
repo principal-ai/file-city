@@ -14,8 +14,9 @@ import ReactFlow, {
   BackgroundVariant
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+import { useTheme } from '@principal-ade/industry-theme';
 import { FileTree } from '@principal-ai/repository-abstraction';
-import { CodebaseView } from '@a24z/core-library';
+import { CodebaseView } from '@principal-ai/alexandria-core-library';
 import { GridLayoutManager, CodeCityBuilderWithGrid } from '@principal-ai/code-city-builder';
 import { ArchitectureMapHighlightLayers } from './ArchitectureMapHighlightLayers';
 
@@ -38,6 +39,7 @@ interface CellNodeData {
 
 const CellNode: React.FC<NodeProps<CellNodeData>> = ({ data, selected }) => {
   const { label, fileTree, fileCount, directoryCount } = data;
+  const { theme } = useTheme();
 
   // Build city data for this cell's file tree
   const cityBuilder = useMemo(() => new CodeCityBuilderWithGrid(), []);
@@ -60,53 +62,55 @@ const CellNode: React.FC<NodeProps<CellNodeData>> = ({ data, selected }) => {
       className="cell-node"
       style={{
         background: selected
-          ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-          : 'linear-gradient(135deg, #4a5568 0%, #2d3748 100%)',
-        borderRadius: '12px',
-        padding: '12px',
+          ? `linear-gradient(135deg, ${theme.colors.primary} 0%, ${theme.colors.accent} 100%)`
+          : `linear-gradient(135deg, ${theme.colors.backgroundSecondary} 0%, ${theme.colors.background} 100%)`,
+        borderRadius: `${theme.radii[2]}px`,
+        padding: `${theme.space[3]}px`,
         width: '450px',
         height: '450px',
-        border: selected ? '3px solid #764ba2' : '2px solid #4a5568',
+        border: selected ? `3px solid ${theme.colors.accent}` : `2px solid ${theme.colors.border}`,
         boxShadow: selected
-          ? '0 10px 25px rgba(118, 75, 162, 0.3)'
+          ? `0 10px 25px ${theme.colors.accent}30`
           : '0 4px 6px rgba(0, 0, 0, 0.1)',
         display: 'flex',
         flexDirection: 'column',
         transition: 'all 0.3s ease',
       }}
     >
-      <Handle type="target" position={Position.Top} style={{ background: '#764ba2' }} />
+      <Handle type="target" position={Position.Top} style={{ background: theme.colors.accent }} />
 
       {/* Header with title and stats */}
       <div style={{
-        marginBottom: '8px',
-        paddingBottom: '8px',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+        marginBottom: `${theme.space[2]}px`,
+        paddingBottom: `${theme.space[2]}px`,
+        borderBottom: `1px solid ${theme.colors.border}`,
       }}>
         <h3 style={{
-          margin: '0 0 4px 0',
-          fontSize: '16px',
-          fontWeight: 'bold',
-          color: 'white'
+          margin: `0 0 ${theme.space[1]}px 0`,
+          fontSize: `${theme.fontSizes[2]}px`,
+          fontWeight: theme.fontWeights.bold,
+          fontFamily: theme.fonts.heading,
+          color: theme.colors.text
         }}>
           {label}
         </h3>
         <div style={{
-          fontSize: '12px',
-          color: 'rgba(255, 255, 255, 0.8)',
+          fontSize: `${theme.fontSizes[0]}px`,
+          fontFamily: theme.fonts.body,
+          color: theme.colors.textSecondary,
           display: 'flex',
-          gap: '12px'
+          gap: `${theme.space[3]}px`
         }}>
-          <span>📄 {fileCount} files</span>
-          <span>📁 {directoryCount} directories</span>
+          <span>{fileCount} files</span>
+          <span>{directoryCount} directories</span>
         </div>
       </div>
 
       {/* 3D City Visualization */}
       <div style={{
         position: 'relative',
-        background: '#1a1a1a',
-        borderRadius: '8px',
+        background: theme.colors.background,
+        borderRadius: `${theme.radii[1]}px`,
         overflow: 'hidden',
         width: '350px',
         height: '350px',
@@ -120,7 +124,7 @@ const CellNode: React.FC<NodeProps<CellNodeData>> = ({ data, selected }) => {
                   id: 'typescript',
                   name: 'TypeScript Files',
                   enabled: true,
-                  color: '#00ff00',
+                  color: theme.colors.success,
                   opacity: 0.8,
                   priority: 1,
                   items: cityData.buildings
@@ -135,9 +139,9 @@ const CellNode: React.FC<NodeProps<CellNodeData>> = ({ data, selected }) => {
               showGrid={false}
               showLegend={false}
               showDirectoryLabels={false}
-              canvasBackgroundColor="#1a1a1a"
-              defaultBuildingColor="#4a5568"
-              defaultDirectoryColor="#2d3748"
+              canvasBackgroundColor={theme.colors.background}
+              defaultBuildingColor={theme.colors.muted}
+              defaultDirectoryColor={theme.colors.backgroundSecondary}
               className="w-full h-full"
               // Disable interactions to prevent conflicts with React Flow
               onFileClick={undefined}
@@ -149,15 +153,16 @@ const CellNode: React.FC<NodeProps<CellNodeData>> = ({ data, selected }) => {
             alignItems: 'center',
             justifyContent: 'center',
             height: '100%',
-            color: 'rgba(255, 255, 255, 0.4)',
-            fontSize: '14px',
+            color: theme.colors.textMuted,
+            fontSize: `${theme.fontSizes[1]}px`,
+            fontFamily: theme.fonts.body,
           }}>
             Empty cell
           </div>
         )}
       </div>
 
-      <Handle type="source" position={Position.Bottom} style={{ background: '#764ba2' }} />
+      <Handle type="source" position={Position.Bottom} style={{ background: theme.colors.accent }} />
     </div>
   );
 };
@@ -166,7 +171,7 @@ const nodeTypes = {
   cellNode: CellNode,
 };
 
-export const CityViewWithReactFlow: React.FC<CityViewWithReactFlowProps> = ({
+const CityViewWithReactFlowInner: React.FC<CityViewWithReactFlowProps> = ({
   fileTree,
   gridConfig,
   onCellClick,
@@ -174,6 +179,8 @@ export const CityViewWithReactFlow: React.FC<CityViewWithReactFlowProps> = ({
   cellHeight = 350,
   cellSpacing = 100,
 }) => {
+  const { theme } = useTheme();
+
   const defaultGridConfig: CodebaseView = {
     id: 'default',
     version: '1.0',
@@ -258,7 +265,7 @@ export const CityViewWithReactFlow: React.FC<CityViewWithReactFlowProps> = ({
               type: 'straight',
               animated: false,
               style: {
-                stroke: 'rgba(100, 100, 100, 0.2)',
+                stroke: `${theme.colors.border}40`,
                 strokeWidth: 1,
                 strokeDasharray: '5 10'
               }
@@ -277,7 +284,7 @@ export const CityViewWithReactFlow: React.FC<CityViewWithReactFlowProps> = ({
               type: 'straight',
               animated: false,
               style: {
-                stroke: 'rgba(100, 100, 100, 0.2)',
+                stroke: `${theme.colors.border}40`,
                 strokeWidth: 1,
                 strokeDasharray: '5 10'
               }
@@ -288,7 +295,7 @@ export const CityViewWithReactFlow: React.FC<CityViewWithReactFlowProps> = ({
     }
 
     return { nodes: generatedNodes, edges: generatedEdges };
-  }, [fileTree, config, cellWidth, cellHeight, cellSpacing]);
+  }, [fileTree, config, cellWidth, cellHeight, cellSpacing, theme]);
 
   const [nodesState, , onNodesChange] = useNodesState(nodes);
   const [edgesState, , onEdgesChange] = useEdgesState(edges);
@@ -300,7 +307,7 @@ export const CityViewWithReactFlow: React.FC<CityViewWithReactFlowProps> = ({
   }, [onCellClick]);
 
   return (
-    <div style={{ width: '100%', height: '100%', background: '#0a0a0a' }}>
+    <div style={{ width: '100%', height: '100%', background: theme.colors.background }}>
       <ReactFlowProvider>
         <ReactFlow
           nodes={nodesState}
@@ -320,14 +327,14 @@ export const CityViewWithReactFlow: React.FC<CityViewWithReactFlowProps> = ({
             variant={BackgroundVariant.Dots}
             gap={30}
             size={1}
-            color="rgba(100, 100, 100, 0.2)"
+            color={`${theme.colors.border}40`}
           />
           <Controls />
           <MiniMap
-            nodeColor={() => '#667eea'}
+            nodeColor={() => theme.colors.primary}
             style={{
-              backgroundColor: '#1a1a1a',
-              border: '1px solid #4a5568',
+              backgroundColor: theme.colors.backgroundSecondary,
+              border: `1px solid ${theme.colors.border}`,
             }}
             maskColor="rgba(0, 0, 0, 0.6)"
           />
@@ -336,3 +343,5 @@ export const CityViewWithReactFlow: React.FC<CityViewWithReactFlowProps> = ({
     </div>
   );
 };
+
+export const CityViewWithReactFlow = CityViewWithReactFlowInner;
