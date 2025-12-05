@@ -1,0 +1,102 @@
+version: "1.0.0"
+name: "Code City Component Library"
+
+nodeComponents:
+  # Package types
+  package:
+    label: "Package"
+    description: "A npm package in the monorepo"
+    style:
+      shape: "rectangle"
+      fill: "#3b82f6"
+      stroke: "#1d4ed8"
+      strokeWidth: 2
+
+  core-module:
+    label: "Core Module"
+    description: "A core module/class within a package"
+    style:
+      shape: "rectangle"
+      fill: "#8b5cf6"
+      stroke: "#6d28d9"
+      strokeWidth: 2
+
+  component:
+    label: "React Component"
+    description: "A React UI component"
+    style:
+      shape: "rectangle"
+      fill: "#10b981"
+      stroke: "#047857"
+      strokeWidth: 2
+
+  hook:
+    label: "React Hook"
+    description: "A React custom hook"
+    style:
+      shape: "rectangle"
+      fill: "#06b6d4"
+      stroke: "#0891b2"
+      strokeWidth: 2
+
+  utility:
+    label: "Utility"
+    description: "Utility functions/helpers"
+    style:
+      shape: "rectangle"
+      fill: "#f59e0b"
+      stroke: "#d97706"
+      strokeWidth: 2
+
+  type-def:
+    label: "Type Definition"
+    description: "TypeScript type definitions"
+    style:
+      shape: "rectangle"
+      fill: "#ec4899"
+      stroke: "#db2777"
+      strokeWidth: 2
+
+  external-dep:
+    label: "External Dependency"
+    description: "External npm package dependency"
+    style:
+      shape: "rectangle"
+      fill: "#6b7280"
+      stroke: "#4b5563"
+      strokeWidth: 2
+      strokeDasharray: "4 2"
+
+edgeComponents:
+  depends-on:
+    label: "Depends On"
+    description: "Package/module dependency"
+    style:
+      stroke: "#64748b"
+      strokeWidth: 2
+      markerEnd: "arrow"
+
+  uses:
+    label: "Uses"
+    description: "Uses functionality from"
+    style:
+      stroke: "#94a3b8"
+      strokeWidth: 1
+      strokeDasharray: "4 2"
+      markerEnd: "arrow"
+
+  exports:
+    label: "Exports"
+    description: "Exports module/component"
+    style:
+      stroke: "#22c55e"
+      strokeWidth: 2
+      markerEnd: "arrow"
+
+  renders:
+    label: "Renders"
+    description: "React component renders"
+    style:
+      stroke: "#3b82f6"
+      strokeWidth: 2
+      markerEnd: "arrow"
