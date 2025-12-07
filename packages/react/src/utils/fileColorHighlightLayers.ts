@@ -101,7 +101,21 @@ export function createFileColorHighlightLayers(
 
   files.forEach(file => {
     const filePath = file.path;
+    const lastSlash = filePath.lastIndexOf('/');
+    const fileName = lastSlash === -1 ? filePath : filePath.substring(lastSlash + 1);
     const lastDot = filePath.lastIndexOf('.');
+
+    // Check for exact filename match first (e.g., LICENSE, Makefile)
+    if (suffixConfigs[fileName]) {
+      if (!filesBySuffix.has(fileName)) {
+        filesBySuffix.set(fileName, []);
+      }
+      const fileNameFiles = filesBySuffix.get(fileName);
+      if (fileNameFiles) {
+        fileNameFiles.push(filePath);
+      }
+      return;
+    }
 
     if (lastDot === -1 || lastDot === filePath.length - 1) {
       // No extension or ends with dot
@@ -138,7 +152,8 @@ export function createFileColorHighlightLayers(
   let basePriority = 1;
   sortedSuffixes.forEach(([suffix, files]) => {
     const suffixConfig = suffixConfigs[suffix];
-    const extensionName = suffix.substring(1); // Remove leading dot
+    // Remove leading dot for extensions, use as-is for exact filenames
+    const extensionName = suffix.startsWith('.') ? suffix.substring(1) : suffix;
 
     // Create primary layer
     const primaryLayer: HighlightLayer = {

@@ -551,6 +551,173 @@
       "displayName": "Vim",
       "description": "Vim configuration",
       "category": "Config"
+    },
+    ".canvas": {
+      "primary": {
+        "color": "#7c3aed",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "secondary": {
+        "color": "#a78bfa",
+        "renderStrategy": "glow",
+        "opacity": 0.5
+      },
+      "displayName": "Canvas",
+      "description": "Visual canvas files",
+      "category": "Data"
+    },
+    ".lock": {
+      "primary": {
+        "color": "#6b7280",
+        "renderStrategy": "fill",
+        "opacity": 0.7
+      },
+      "secondary": {
+        "color": "#9ca3af",
+        "renderStrategy": "border",
+        "borderWidth": 1,
+        "opacity": 0.8
+      },
+      "displayName": "Lock",
+      "description": "Lock files for dependency management",
+      "category": "Config"
+    },
+    ".gitignore": {
+      "primary": {
+        "color": "#f05032",
+        "renderStrategy": "fill",
+        "opacity": 0.7
+      },
+      "displayName": "Git Ignore",
+      "description": "Git ignore patterns",
+      "category": "Config"
+    },
+    ".dockerignore": {
+      "primary": {
+        "color": "#2496ed",
+        "renderStrategy": "fill",
+        "opacity": 0.7
+      },
+      "displayName": "Docker Ignore",
+      "description": "Docker ignore patterns",
+      "category": "Config"
+    },
+    ".npmignore": {
+      "primary": {
+        "color": "#cb3837",
+        "renderStrategy": "fill",
+        "opacity": 0.7
+      },
+      "displayName": "NPM Ignore",
+      "description": "NPM ignore patterns",
+      "category": "Config"
+    },
+    ".eslintignore": {
+      "primary": {
+        "color": "#4b32c3",
+        "renderStrategy": "fill",
+        "opacity": 0.7
+      },
+      "displayName": "ESLint Ignore",
+      "description": "ESLint ignore patterns",
+      "category": "Config"
+    },
+    ".prettierignore": {
+      "primary": {
+        "color": "#56b3b4",
+        "renderStrategy": "fill",
+        "opacity": 0.7
+      },
+      "displayName": "Prettier Ignore",
+      "description": "Prettier ignore patterns",
+      "category": "Config"
+    },
+    ".bashrc": {
+      "primary": {
+        "color": "#89e051",
+        "renderStrategy": "fill",
+        "opacity": 0.7
+      },
+      "displayName": "Bash RC",
+      "description": "Bash run commands",
+      "category": "Config"
+    },
+    ".zshrc": {
+      "primary": {
+        "color": "#89e051",
+        "renderStrategy": "fill",
+        "opacity": 0.7
+      },
+      "displayName": "Zsh RC",
+      "description": "Zsh run commands",
+      "category": "Config"
+    },
+    ".vimrc": {
+      "primary": {
+        "color": "#019733",
+        "renderStrategy": "fill",
+        "opacity": 0.7
+      },
+      "displayName": "Vim RC",
+      "description": "Vim run commands",
+      "category": "Config"
+    },
+    ".npmrc": {
+      "primary": {
+        "color": "#cb3837",
+        "renderStrategy": "fill",
+        "opacity": 0.7
+      },
+      "displayName": "NPM RC",
+      "description": "NPM configuration",
+      "category": "Config"
+    },
+    ".eslintrc": {
+      "primary": {
+        "color": "#4b32c3",
+        "renderStrategy": "fill",
+        "opacity": 0.7
+      },
+      "displayName": "ESLint RC",
+      "description": "ESLint configuration",
+      "category": "Config"
+    },
+    ".prettierrc": {
+      "primary": {
+        "color": "#56b3b4",
+        "renderStrategy": "fill",
+        "opacity": 0.7
+      },
+      "displayName": "Prettier RC",
+      "description": "Prettier configuration",
+      "category": "Config"
+    },
+    ".babelrc": {
+      "primary": {
+        "color": "#f5da55",
+        "renderStrategy": "fill",
+        "opacity": 0.7
+      },
+      "displayName": "Babel RC",
+      "description": "Babel configuration",
+      "category": "Config"
+    },
+    "LICENSE": {
+      "primary": {
+        "color": "#d4af37",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "secondary": {
+        "color": "#ffd700",
+        "renderStrategy": "border",
+        "borderWidth": 1,
+        "opacity": 0.9
+      },
+      "displayName": "License",
+      "description": "License file",
+      "category": "Documentation"
     }
   },
   "defaultConfig": {
