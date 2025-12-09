@@ -1,6 +1,6 @@
 {
   "name": "@principal-ai/code-city-react",
-  "version": "0.2.2",
+  "version": "0.2.4",
   "description": "React components for Code City visualization",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

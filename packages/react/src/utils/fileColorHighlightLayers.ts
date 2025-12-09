@@ -97,13 +97,14 @@ export function createFileColorHighlightLayers(
 
   // Group files by their extension
   const filesBySuffix = new Map<string, string[]>();
-  const unmatchedFiles: string[] = [];
+  const unmatchedFilesBySuffix = new Map<string, string[]>();
+  const noExtensionFiles: string[] = [];
 
   files.forEach(file => {
     const filePath = file.path;
     const lastSlash = filePath.lastIndexOf('/');
     const fileName = lastSlash === -1 ? filePath : filePath.substring(lastSlash + 1);
-    const lastDot = filePath.lastIndexOf('.');
+    const lastDot = fileName.lastIndexOf('.');
 
     // Check for exact filename match first (e.g., LICENSE, Makefile)
     if (suffixConfigs[fileName]) {
@@ -117,15 +118,15 @@ export function createFileColorHighlightLayers(
       return;
     }
 
-    if (lastDot === -1 || lastDot === filePath.length - 1) {
+    if (lastDot === -1 || lastDot === fileName.length - 1) {
       // No extension or ends with dot
       if (includeUnmatched) {
-        unmatchedFiles.push(filePath);
+        noExtensionFiles.push(filePath);
       }
       return;
     }
 
-    const extension = filePath.substring(lastDot).toLowerCase();
+    const extension = fileName.substring(lastDot).toLowerCase();
 
     if (suffixConfigs[extension]) {
       if (!filesBySuffix.has(extension)) {
@@ -136,7 +137,14 @@ export function createFileColorHighlightLayers(
         extFiles.push(filePath);
       }
     } else if (includeUnmatched) {
-      unmatchedFiles.push(filePath);
+      // Group unmatched files by their extension for individual legend entries
+      if (!unmatchedFilesBySuffix.has(extension)) {
+        unmatchedFilesBySuffix.set(extension, []);
+      }
+      const unmatchedExtFiles = unmatchedFilesBySuffix.get(extension);
+      if (unmatchedExtFiles) {
+        unmatchedExtFiles.push(filePath);
+      }
     }
   });
 
@@ -215,62 +223,131 @@ export function createFileColorHighlightLayers(
     basePriority += 2; // Leave room for primary + secondary layers
   });
 
-  // Add unmatched files layer if configured
-  if (includeUnmatched && unmatchedFiles.length > 0 && defaultFileConfig) {
-    const defaultLayer: HighlightLayer = {
-      id: 'other-files-primary',
-      name: 'OTHER',
-      color: defaultFileConfig.primary.color,
-      enabled: true,
-      opacity: defaultFileConfig.primary.opacity ?? 1.0,
-      priority: defaultFileConfig.primary.priority ?? basePriority,
-      items: unmatchedFiles.map(
-        (path): LayerItem => ({
-          path,
-          type: 'file' as const,
-          renderStrategy: defaultFileConfig.primary.renderStrategy,
-          ...(defaultFileConfig.primary.coverOptions && {
-            coverOptions: defaultFileConfig.primary.coverOptions,
-          }),
-          ...(defaultFileConfig.primary.customRender && {
-            customRender: defaultFileConfig.primary.customRender,
-          }),
-        }),
-      ),
-    };
+  // Add layers for unmatched file extensions (each extension gets its own legend entry)
+  if (includeUnmatched && defaultFileConfig) {
+    // Sort unmatched extensions by file count
+    const sortedUnmatchedSuffixes = Array.from(unmatchedFilesBySuffix.entries()).sort(
+      ([, filesA], [, filesB]) => filesB.length - filesA.length,
+    );
 
-    if (defaultFileConfig.primary.borderWidth) {
-      defaultLayer.borderWidth = defaultFileConfig.primary.borderWidth;
-    }
+    sortedUnmatchedSuffixes.forEach(([suffix, files]) => {
+      const extensionName = suffix.startsWith('.') ? suffix.substring(1) : suffix;
 
-    layers.push(defaultLayer);
-
-    // Add default secondary layer if configured
-    if (defaultFileConfig.secondary) {
-      const secondary = defaultFileConfig.secondary;
-      const defaultSecondaryLayer: HighlightLayer = {
-        id: 'other-files-secondary',
-        name: 'OTHER Secondary',
-        color: secondary.color,
+      const unmatchedLayer: HighlightLayer = {
+        id: `ext-${extensionName}-primary`,
+        name: extensionName.toUpperCase(),
+        color: defaultFileConfig.primary.color,
         enabled: true,
-        opacity: secondary.opacity ?? 1.0,
-        priority: secondary.priority ?? basePriority + 100,
-        items: unmatchedFiles.map(
+        opacity: defaultFileConfig.primary.opacity ?? 1.0,
+        priority: defaultFileConfig.primary.priority ?? basePriority,
+        items: files.map(
           (path): LayerItem => ({
             path,
             type: 'file' as const,
-            renderStrategy: secondary.renderStrategy,
-            ...(secondary.coverOptions && { coverOptions: secondary.coverOptions }),
-            ...(secondary.customRender && { customRender: secondary.customRender }),
+            renderStrategy: defaultFileConfig.primary.renderStrategy,
+            ...(defaultFileConfig.primary.coverOptions && {
+              coverOptions: defaultFileConfig.primary.coverOptions,
+            }),
+            ...(defaultFileConfig.primary.customRender && {
+              customRender: defaultFileConfig.primary.customRender,
+            }),
           }),
         ),
       };
 
-      if (secondary.borderWidth) {
-        defaultSecondaryLayer.borderWidth = secondary.borderWidth;
+      if (defaultFileConfig.primary.borderWidth) {
+        unmatchedLayer.borderWidth = defaultFileConfig.primary.borderWidth;
       }
 
-      layers.push(defaultSecondaryLayer);
+      layers.push(unmatchedLayer);
+
+      // Add secondary layer if configured
+      if (defaultFileConfig.secondary) {
+        const secondary = defaultFileConfig.secondary;
+        const unmatchedSecondaryLayer: HighlightLayer = {
+          id: `ext-${extensionName}-secondary`,
+          name: `${extensionName.toUpperCase()} Secondary`,
+          color: secondary.color,
+          enabled: true,
+          opacity: secondary.opacity ?? 1.0,
+          priority: secondary.priority ?? basePriority + 100,
+          items: files.map(
+            (path): LayerItem => ({
+              path,
+              type: 'file' as const,
+              renderStrategy: secondary.renderStrategy,
+              ...(secondary.coverOptions && { coverOptions: secondary.coverOptions }),
+              ...(secondary.customRender && { customRender: secondary.customRender }),
+            }),
+          ),
+        };
+
+        if (secondary.borderWidth) {
+          unmatchedSecondaryLayer.borderWidth = secondary.borderWidth;
+        }
+
+        layers.push(unmatchedSecondaryLayer);
+      }
+
+      basePriority += 2;
+    });
+
+    // Add layer for files with no extension
+    if (noExtensionFiles.length > 0) {
+      const noExtLayer: HighlightLayer = {
+        id: 'other-files-primary',
+        name: 'OTHER',
+        color: defaultFileConfig.primary.color,
+        enabled: true,
+        opacity: defaultFileConfig.primary.opacity ?? 1.0,
+        priority: defaultFileConfig.primary.priority ?? basePriority,
+        items: noExtensionFiles.map(
+          (path): LayerItem => ({
+            path,
+            type: 'file' as const,
+            renderStrategy: defaultFileConfig.primary.renderStrategy,
+            ...(defaultFileConfig.primary.coverOptions && {
+              coverOptions: defaultFileConfig.primary.coverOptions,
+            }),
+            ...(defaultFileConfig.primary.customRender && {
+              customRender: defaultFileConfig.primary.customRender,
+            }),
+          }),
+        ),
+      };
+
+      if (defaultFileConfig.primary.borderWidth) {
+        noExtLayer.borderWidth = defaultFileConfig.primary.borderWidth;
+      }
+
+      layers.push(noExtLayer);
+
+      if (defaultFileConfig.secondary) {
+        const secondary = defaultFileConfig.secondary;
+        const noExtSecondaryLayer: HighlightLayer = {
+          id: 'other-files-secondary',
+          name: 'OTHER Secondary',
+          color: secondary.color,
+          enabled: true,
+          opacity: secondary.opacity ?? 1.0,
+          priority: secondary.priority ?? basePriority + 100,
+          items: noExtensionFiles.map(
+            (path): LayerItem => ({
+              path,
+              type: 'file' as const,
+              renderStrategy: secondary.renderStrategy,
+              ...(secondary.coverOptions && { coverOptions: secondary.coverOptions }),
+              ...(secondary.customRender && { customRender: secondary.customRender }),
+            }),
+          ),
+        };
+
+        if (secondary.borderWidth) {
+          noExtSecondaryLayer.borderWidth = secondary.borderWidth;
+        }
+
+        layers.push(noExtSecondaryLayer);
+      }
     }
   }
 
