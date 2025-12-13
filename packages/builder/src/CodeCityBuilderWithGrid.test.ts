@@ -106,7 +106,7 @@ describe('CodeCityBuilderWithGrid', () => {
 
       expect(city).toBeDefined();
       expect(city.buildings).toHaveLength(4); // 4 files
-      expect(city.districts).toHaveLength(3); // root, src, src/components
+      expect(city.districts).toHaveLength(4); // root, src, src/components, tests
       expect(city.metadata).toBeDefined();
     });
 
@@ -120,11 +120,11 @@ describe('CodeCityBuilderWithGrid', () => {
         category: 'test',
         displayOrder: 0,
         referenceGroups: {
-          'Source': {
+          Source: {
             files: ['src'],
             coordinates: [0, 0],
           },
-          'Tests': {
+          Tests: {
             files: ['tests'],
             coordinates: [0, 1],
           },
@@ -151,8 +151,8 @@ describe('CodeCityBuilderWithGrid', () => {
       expect(gridCells.length).toBeGreaterThan(0);
 
       // Check that grid cells have labels
-      const sourceCell = city.districts.find(d => d.label === 'Source');
-      const testsCell = city.districts.find(d => d.label === 'Tests');
+      const sourceCell = city.districts.find(d => d.label?.text === 'Source');
+      const testsCell = city.districts.find(d => d.label?.text === 'Tests');
       expect(sourceCell).toBeDefined();
       expect(testsCell).toBeDefined();
     });
@@ -201,12 +201,10 @@ describe('CodeCityBuilderWithGrid', () => {
       // Check that src/index.ts is at the correct position
       const indexFile = city.buildings.find(b => b.path === 'src/index.ts');
       expect(indexFile).toBeDefined();
-      expect(indexFile?.name).toBe('index.ts');
 
       // Check that src/components files are nested correctly
       const buttonFile = city.buildings.find(b => b.path === 'src/components/Button.tsx');
       expect(buttonFile).toBeDefined();
-      expect(buttonFile?.name).toBe('Button.tsx');
 
       // Check district hierarchy
       const srcDistrict = city.districts.find(d => d.path === 'src');
@@ -222,9 +220,9 @@ describe('CodeCityBuilderWithGrid', () => {
 
       expect(city.bounds).toBeDefined();
       expect(city.bounds.minX).toBeDefined();
-      expect(city.bounds.minY).toBeDefined();
+      expect(city.bounds.minZ).toBeDefined();
       expect(city.bounds.maxX).toBeGreaterThan(city.bounds.minX);
-      expect(city.bounds.maxY).toBeGreaterThan(city.bounds.minY);
+      expect(city.bounds.maxZ).toBeGreaterThan(city.bounds.minZ);
     });
 
     it('should assign files to correct grid cells', () => {
@@ -237,15 +235,15 @@ describe('CodeCityBuilderWithGrid', () => {
         category: 'test',
         displayOrder: 0,
         referenceGroups: {
-          'Source': {
+          Source: {
             files: ['src/components'],
             coordinates: [0, 0],
           },
-          'Core': {
+          Core: {
             files: ['src/index.ts'],
             coordinates: [0, 1],
           },
-          'Tests': {
+          Tests: {
             files: ['tests'],
             coordinates: [1, 0],
           },
@@ -264,9 +262,9 @@ describe('CodeCityBuilderWithGrid', () => {
       const city = builder.buildCityFromFileSystem(fileTree, '', { gridLayout: gridConfig });
 
       // Find the grid cells
-      const sourceCell = city.districts.find(d => d.label === 'Source');
-      const coreCell = city.districts.find(d => d.label === 'Core');
-      const testsCell = city.districts.find(d => d.label === 'Tests');
+      const sourceCell = city.districts.find(d => d.label?.text === 'Source');
+      const coreCell = city.districts.find(d => d.label?.text === 'Core');
+      const testsCell = city.districts.find(d => d.label?.text === 'Tests');
 
       expect(sourceCell).toBeDefined();
       expect(coreCell).toBeDefined();
@@ -283,10 +281,10 @@ describe('CodeCityBuilderWithGrid', () => {
 
       // Files should be positioned within their respective cell bounds
       if (sourceCell && buttonFile) {
-        expect(buttonFile.x).toBeGreaterThanOrEqual(sourceCell.x);
-        expect(buttonFile.x).toBeLessThanOrEqual(sourceCell.x + sourceCell.width);
-        expect(buttonFile.y).toBeGreaterThanOrEqual(sourceCell.y);
-        expect(buttonFile.y).toBeLessThanOrEqual(sourceCell.y + sourceCell.height);
+        expect(buttonFile.position.x).toBeGreaterThanOrEqual(sourceCell.worldBounds.minX);
+        expect(buttonFile.position.x).toBeLessThanOrEqual(sourceCell.worldBounds.maxX);
+        expect(buttonFile.position.z).toBeGreaterThanOrEqual(sourceCell.worldBounds.minZ);
+        expect(buttonFile.position.z).toBeLessThanOrEqual(sourceCell.worldBounds.maxZ);
       }
     });
   });

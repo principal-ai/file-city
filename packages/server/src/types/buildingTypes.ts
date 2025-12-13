@@ -377,7 +377,9 @@ export class BuildingTypeResolver {
       typeof directory.name !== 'string'
     ) {
       throw new Error(
-        `BuildingTypeResolver.classifyDirectory: Invalid path or name provided. Path: ${typeof directory.path} (${directory.path}), Name: ${typeof directory.name} (${directory.name})`,
+        `BuildingTypeResolver.classifyDirectory: Invalid path or name provided. Path: ${typeof directory.path} (${
+          directory.path
+        }), Name: ${typeof directory.name} (${directory.name})`,
       );
     }
 
@@ -440,7 +442,9 @@ export class BuildingTypeResolver {
     // Defensive check for undefined/null path
     if (!building.path || typeof building.path !== 'string') {
       throw new Error(
-        `BuildingTypeResolver.classifyBuilding: Invalid path provided. Expected string, got: ${typeof building.path} (${building.path})`,
+        `BuildingTypeResolver.classifyBuilding: Invalid path provided. Expected string, got: ${typeof building.path} (${
+          building.path
+        })`,
       );
     }
 
@@ -576,7 +580,7 @@ export class BuildingTypeResolver {
    * 3. Default directory color
    */
   private determineDirectoryColor(
-    directory: {
+    _directory: {
       path: string;
       name: string;
       fileCount?: number;

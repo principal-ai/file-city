@@ -70,9 +70,7 @@ export function createSampleCityData(): CityData {
   // Group files by directory
   const filesByDir = new Map<string, typeof fileStructure>();
   fileStructure.forEach(file => {
-    const dir = file.path.includes('/')
-      ? file.path.substring(0, file.path.lastIndexOf('/'))
-      : '';
+    const dir = file.path.includes('/') ? file.path.substring(0, file.path.lastIndexOf('/')) : '';
     if (!filesByDir.has(dir)) {
       filesByDir.set(dir, []);
     }
@@ -83,7 +81,10 @@ export function createSampleCityData(): CityData {
   });
 
   // Track district bounds
-  const districtBounds = new Map<string, { minX: number; maxX: number; minZ: number; maxZ: number }>();
+  const districtBounds = new Map<
+    string,
+    { minX: number; maxX: number; minZ: number; maxZ: number }
+  >();
 
   // Process each directory group
   const sortedDirs = Array.from(filesByDir.keys()).sort();
@@ -96,9 +97,7 @@ export function createSampleCityData(): CityData {
     const districtMinZ = currentZ;
 
     files.forEach(file => {
-      const extension = file.path.includes('.')
-        ? '.' + (file.path.split('.').pop() || '')
-        : '';
+      const extension = file.path.includes('.') ? '.' + (file.path.split('.').pop() || '') : '';
 
       // Calculate building dimensions based on file size
       const height = Math.log(file.size + 1) * 2;
@@ -177,8 +176,8 @@ export function createSampleCityData(): CityData {
     if (processedPaths.has(path)) return;
 
     // Find all children of this path
-    const children = Array.from(districtBounds.keys()).filter(p =>
-      p.startsWith(path + '/') && !p.slice(path.length + 1).includes('/')
+    const children = Array.from(districtBounds.keys()).filter(
+      p => p.startsWith(path + '/') && !p.slice(path.length + 1).includes('/'),
     );
 
     let bounds;
@@ -188,7 +187,9 @@ export function createSampleCityData(): CityData {
       bounds = pathBounds;
     } else if (children.length > 0) {
       // Calculate bounds from children
-      const childBounds = children.map(c => districtBounds.get(c)).filter((b): b is NonNullable<typeof b> => b !== undefined);
+      const childBounds = children
+        .map(c => districtBounds.get(c))
+        .filter((b): b is NonNullable<typeof b> => b !== undefined);
       if (childBounds.length === 0) return;
       bounds = {
         minX: Math.min(...childBounds.map(c => c.minX)),
@@ -200,8 +201,8 @@ export function createSampleCityData(): CityData {
       return; // Skip if no bounds
     }
 
-    const fileCount = buildings.filter(b =>
-      b.path === path || b.path.startsWith(path + '/')
+    const fileCount = buildings.filter(
+      b => b.path === path || b.path.startsWith(path + '/'),
     ).length;
 
     districts.push({

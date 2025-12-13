@@ -143,31 +143,6 @@ export function drawGrid(
   ctx.restore();
 }
 
-// Draw legend helper (copied from original)
-export function drawLegend(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  highlightedCount: number,
-  focusDirectory: string | null,
-  fullSize: boolean,
-  _rootDirectoryName?: string,
-) {
-  ctx.fillStyle = '#ffffff';
-  ctx.font = fullSize ? '12px monospace' : '10px monospace';
-
-  if (focusDirectory) {
-    ctx.fillText(`Focus: ${focusDirectory}`, 10, height - 22);
-  }
-
-  ctx.save();
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'bottom';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-  ctx.font = fullSize ? '11px monospace' : '9px monospace';
-  ctx.restore();
-}
-
 // Helper function to break text intelligently
 function breakTextIntelligently(text: string): string[] {
   // First try hyphen
@@ -593,7 +568,10 @@ export function drawLayeredDistricts(
     }
 
     // Border with configurable border radius
-    ctx.strokeStyle = `rgba(${Math.min(255, baseColor[0] + 40)}, ${Math.min(255, baseColor[1] + 40)}, ${Math.min(255, baseColor[2] + 40)}, ${borderOpacity})`;
+    ctx.strokeStyle = `rgba(${Math.min(255, baseColor[0] + 40)}, ${Math.min(
+      255,
+      baseColor[1] + 40,
+    )}, ${Math.min(255, baseColor[2] + 40)}, ${borderOpacity})`;
     ctx.lineWidth = 1;
     if (borderRadius > 0) {
       drawRoundedRect(

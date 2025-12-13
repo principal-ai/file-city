@@ -189,9 +189,9 @@ export function buildFileSystemTreeFromFileInfoList(
       totalDirectories: directories.size - 1, // Exclude root
       totalSize: root.totalSize,
       maxDepth: Math.max(...treeFiles.map(f => f.path.split('/').length)),
-       // Let CodeCityBuilder handle the analysis
-       // Let CodeCityBuilder handle the analysis
-       // Let CodeCityBuilder handle the analysis
+      // Let CodeCityBuilder handle the analysis
+      // Let CodeCityBuilder handle the analysis
+      // Let CodeCityBuilder handle the analysis
     },
     allFiles: treeFiles.map(f => ({
       name: f.path.split('/').pop() || f.path,

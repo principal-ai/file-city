@@ -39,16 +39,6 @@ interface FileSystemComplexityStats {
   avgFilesPerDirectory: number;
 }
 
-// Building containment violation details
-interface BuildingContainmentViolation {
-  building: string;
-  district: string;
-  leftOverflow: string | number;
-  rightOverflow: string | number;
-  topOverflow: string | number;
-  bottomOverflow: string | number;
-}
-
 // Legend types removed - legends should be handled in the React layer
 
 export interface TreemapOptions {
@@ -101,20 +91,6 @@ export class CodeCityBuilderWithGrid {
   }
 
   /**
-   * Default alphabetical sort for directories
-   */
-  private defaultDirectorySort(a: DirectoryInfo, b: DirectoryInfo): number {
-    return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
-  }
-
-  /**
-   * Default alphabetical sort for files
-   */
-  private defaultFileSort(a: FileInfo, b: FileInfo): number {
-    return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
-  }
-
-  /**
    * Calculate maximum depth of directory hierarchy
    */
   private calculateMaxDepth(directory: DirectoryInfo, currentDepth: number = 0): number {
@@ -164,17 +140,10 @@ export class CodeCityBuilderWithGrid {
     return stats;
   }
 
-
-
-
-
-
   /**
    * Legacy square root scaling (original method)
    */
-  private calculateLegacySqrtSize(
-    totalFiles: number,
-  ): { width: number; height: number } {
+  private calculateLegacySqrtSize(totalFiles: number): { width: number; height: number } {
     const minDimension = 500;
     const maxDimension = 1200;
 
@@ -216,145 +185,6 @@ export class CodeCityBuilderWithGrid {
     }
 
     return result;
-  }
-
-  /**
-   * Apply deep nesting handling to the hierarchy data before treemap layout
-   */
-  private handleDeepNesting(hierarchyData: D3HierarchyData, options: TreemapOptions): D3HierarchyData {
-    const strategy = options.deepNestingStrategy || 'hybrid';
-    const maxDepth = options.maxNestingDepth || 6;
-
-    switch (strategy) {
-      case 'flatten':
-        return this.flattenDeepStructure(hierarchyData, maxDepth);
-      case 'boost-size':
-        return this.boostDeepFileImportance(hierarchyData, options);
-      case 'reduce-padding':
-        // This will be handled in the treemap configuration
-        return hierarchyData;
-      case 'hybrid':
-      default: {
-        // Apply multiple strategies
-        let processed = this.flattenDeepStructure(hierarchyData, maxDepth);
-        processed = this.boostDeepFileImportance(processed, options);
-        return processed;
-      }
-    }
-  }
-
-  /**
-   * Flatten directory structure beyond a certain depth
-   * Moves deeply nested files to shallower directories with path-based names
-   */
-  private flattenDeepStructure(data: D3HierarchyData, maxDepth: number, currentDepth: number = 0): D3HierarchyData {
-    if (data.type === 'file' || currentDepth < maxDepth) {
-      // Process children recursively
-      if (data.children) {
-        data.children = data.children.map((child) =>
-          this.flattenDeepStructure(child, maxDepth, currentDepth + 1),
-        );
-      }
-      return data;
-    }
-
-    // We're at max depth - flatten this directory
-    const flattenedFiles: D3HierarchyData[] = [];
-    const remainingDirectories: D3HierarchyData[] = [];
-
-    this.collectDeepFiles(data, flattenedFiles, currentDepth);
-
-    // Create flattened structure
-    return {
-      ...data,
-      children: [
-        ...remainingDirectories,
-        ...flattenedFiles.map(file => ({
-          ...file,
-          name: `${data.name}/${file.originalPath || file.name}`, // Show full path in name
-          flattenedFrom: file.originalPath || file.relativePath,
-        })),
-      ],
-    };
-  }
-
-  /**
-   * Recursively collect files from deeply nested directories
-   */
-  private collectDeepFiles(directory: D3HierarchyData, collectedFiles: D3HierarchyData[], currentDepth: number): void {
-    if (!directory.children) return;
-
-    directory.children.forEach((child) => {
-      if (child.type === 'file') {
-        collectedFiles.push({
-          ...child,
-          originalPath: child.relativePath,
-        });
-      } else if (child.type === 'directory') {
-        // Recursively collect from subdirectories
-        this.collectDeepFiles(child, collectedFiles, currentDepth + 1);
-      }
-    });
-  }
-
-  /**
-   * Boost the importance (value) of files in deeply nested directories
-   * This makes treemap allocate more space to them
-   */
-  private boostDeepFileImportance(
-    data: D3HierarchyData,
-    options: TreemapOptions,
-    currentDepth: number = 0,
-  ): D3HierarchyData {
-    const boostFactor = options.deepNestingSizeBoost || 1.5;
-    const boostThreshold = 3; // Start boosting at depth 3
-
-    if (data.type === 'file' && currentDepth >= boostThreshold) {
-      // Boost file importance for treemap calculation
-      const depthBoost = Math.pow(boostFactor, currentDepth - boostThreshold + 1);
-      return {
-        ...data,
-        weight: depthBoost, // Custom weight property
-        deepNestingBoost: depthBoost,
-      };
-    }
-
-    // Process children recursively
-    if (data.children) {
-      data.children = data.children.map((child) =>
-        this.boostDeepFileImportance(child, options, currentDepth + 1),
-      );
-    }
-
-    return data;
-  }
-
-  /**
-   * Calculate depth-aware padding that reduces at deeper levels
-   */
-  private calculateDepthAwarePadding(
-    baseOptions: TreemapOptions,
-    maxDepth: number,
-  ): TreemapOptions {
-    if (!baseOptions.depthBasedPaddingReduction) {
-      return baseOptions;
-    }
-
-    const basePadding = baseOptions.paddingInner || 4;
-    const reductionFactor = 0.7; // Reduce padding by 30% at each level
-
-    // Calculate average padding across all depths
-    let totalPadding = 0;
-    for (let depth = 0; depth <= maxDepth; depth++) {
-      const depthPadding = basePadding * Math.pow(reductionFactor, depth);
-      totalPadding += depthPadding;
-    }
-    const averagePadding = totalPadding / (maxDepth + 1);
-
-    return {
-      ...baseOptions,
-      paddingInner: Math.max(1, averagePadding), // Ensure minimum padding of 1
-    };
   }
 
   /**
@@ -471,8 +301,7 @@ export class CodeCityBuilderWithGrid {
     let maxCellWidth = 0;
     let maxCellHeight = 0;
 
-
-    gridTrees.forEach((cellTree) => {
+    gridTrees.forEach(cellTree => {
       // Skip empty cells
       if (cellTree.root.children.length === 0) {
         return;
@@ -482,11 +311,7 @@ export class CodeCityBuilderWithGrid {
       const totalDirectories = cellTree.stats.totalDirectories;
 
       // Calculate optimal size for this cell using adaptive sizing
-      const cellDimensions = this.calculateOptimalSize(
-        totalFiles,
-        totalDirectories,
-        options,
-      );
+      const cellDimensions = this.calculateOptimalSize(totalFiles, totalDirectories, options);
 
       // Track maximum dimensions needed
       maxCellWidth = Math.max(maxCellWidth, cellDimensions.width);
@@ -677,11 +502,7 @@ export class CodeCityBuilderWithGrid {
     const totalFiles = fileSystemTree.stats.totalFiles;
     const totalDirectories = fileSystemTree.stats.totalDirectories;
 
-    const sizeResult = this.calculateOptimalSize(
-      totalFiles,
-      totalDirectories,
-      options,
-    );
+    const sizeResult = this.calculateOptimalSize(totalFiles, totalDirectories, options);
 
     const width = sizeResult.width;
     const height = sizeResult.height;
@@ -825,7 +646,6 @@ export class CodeCityBuilderWithGrid {
       const hasArea = (node.x1 || 0) > (node.x0 || 0) && (node.y1 || 0) > (node.y0 || 0);
       const hasChildren = node.children && node.children.length > 0;
 
-
       // Create district if it has area OR if it has children (subdirectories/files)
       if (hasArea || hasChildren) {
         // Use the relativePath from the data
@@ -878,7 +698,6 @@ export class CodeCityBuilderWithGrid {
           fileCount: directFileCount, // Direct files only, not D3 sum
           type: 'directory',
         };
-
 
         districts.push(district);
       }
@@ -1014,7 +833,6 @@ export class CodeCityBuilderWithGrid {
   // - getDistrictColor: Colors should be determined by React components
   // - getBuildingColor: Colors should be determined by React components
 
-
   /**
    * Calculate overall bounds of the city
    *
@@ -1053,95 +871,4 @@ export class CodeCityBuilderWithGrid {
 
     return { minX, maxX, minZ, maxZ };
   }
-
-  /**
-   * Validate that buildings are properly contained within their parent districts
-   * This helps debug coordinate system issues with the D3 treemap layout
-   */
-  private validateBuildingDistrictContainment(
-    buildings: CityBuilding[],
-    districts: CityDistrict[],
-  ): void {
-    // NEW: Calculate areas to test equal importance theory
-    const buildingAreas: Array<{
-      name: string;
-      area: number;
-      dimensions: [number, number, number];
-    }> = [];
-
-    const violationSummary: BuildingContainmentViolation[] = [];
-
-    buildings.forEach(building => {
-      // Calculate building's actual bounds
-      const buildingBounds = {
-        minX: building.position.x - building.dimensions[0] / 2,
-        maxX: building.position.x + building.dimensions[0] / 2,
-        minZ: building.position.z - building.dimensions[2] / 2,
-        maxZ: building.position.z + building.dimensions[2] / 2,
-      };
-
-      // Calculate area (width × depth, ignoring height)
-      const area = building.dimensions[0] * building.dimensions[2];
-      buildingAreas.push({
-        name: building.path,
-        area: area,
-        dimensions: building.dimensions,
-      });
-
-      // Find the most specific district that should contain this building
-      // FIXED: Handle different path structures correctly
-      const containingDistricts = districts
-        .filter(district => {
-          // Handle empty/root district path
-          if (district.path === '' || district.path === '/') {
-            return !building.path.includes('/');
-          }
-
-          // Handle case where building path is relative and doesn't include the root directory name
-          // e.g., building: "index.js", district: "minimal-project"
-          if (!building.path.includes('/') && district.path && !district.path.includes('/')) {
-            // This is likely a root-level file in the root directory
-            return true;
-          }
-
-          // Standard subdirectory case
-          return building.path.startsWith(district.path + '/');
-        })
-        .sort((a, b) => b.path.length - a.path.length); // Most specific first
-
-      if (containingDistricts.length === 0) {
-        return;
-      }
-
-      const parentDistrict = containingDistricts[0];
-
-      // Check if building extends beyond district boundaries
-      const overflowsLeft = buildingBounds.minX < parentDistrict.worldBounds.minX;
-      const overflowsRight = buildingBounds.maxX > parentDistrict.worldBounds.maxX;
-      const overflowsTop = buildingBounds.minZ < parentDistrict.worldBounds.minZ;
-      const overflowsBottom = buildingBounds.maxZ > parentDistrict.worldBounds.maxZ;
-
-      const hasOverflow = overflowsLeft || overflowsRight || overflowsTop || overflowsBottom;
-
-      if (hasOverflow) {
-        violationSummary.push({
-          building: building.path,
-          district: parentDistrict.path || 'root',
-          leftOverflow: overflowsLeft
-            ? (buildingBounds.minX - parentDistrict.worldBounds.minX).toFixed(1)
-            : 'OK',
-          rightOverflow: overflowsRight
-            ? (buildingBounds.maxX - parentDistrict.worldBounds.maxX).toFixed(1)
-            : 'OK',
-          topOverflow: overflowsTop
-            ? (buildingBounds.minZ - parentDistrict.worldBounds.minZ).toFixed(1)
-            : 'OK',
-          bottomOverflow: overflowsBottom
-            ? (buildingBounds.maxZ - parentDistrict.worldBounds.maxZ).toFixed(1)
-            : 'OK',
-        });
-      }
-    });
-  }
 }
-

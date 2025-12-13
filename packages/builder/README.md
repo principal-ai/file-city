@@ -28,10 +28,10 @@ const v1View = getVersionView('v1.0');
 
 ## Key Features
 
-* **Multi-Version Support**: Visualize multiple versions of a codebase simultaneously
-* **Grid Layout**: Optional grid-based layout for organizing directories
-* **Treemap Algorithm**: Uses D3's treemap algorithm for optimal space utilization
-* **Flexible Filtering**: Get filtered views for specific versions or directory prefixes
+- **Multi-Version Support**: Visualize multiple versions of a codebase simultaneously
+- **Grid Layout**: Optional grid-based layout for organizing directories
+- **Treemap Algorithm**: Uses D3's treemap algorithm for optimal space utilization
+- **Flexible Filtering**: Get filtered views for specific versions or directory prefixes
 
 ## Architecture
 
@@ -44,9 +44,9 @@ The package uses a layered approach:
 
 ## Dependencies
 
-* `@principal-ai/repository-abstraction`: File system abstraction
-* `@principal-ai/alexandria-core-library`: CodebaseView for grid layouts
-* `d3-hierarchy`: Treemap algorithm for spatial layout
+- `@principal-ai/repository-abstraction`: File system abstraction
+- `@principal-ai/alexandria-core-library`: CodebaseView for grid layouts
+- `d3-hierarchy`: Treemap algorithm for spatial layout
 
 ## Recent Changes
 
@@ -56,25 +56,25 @@ Simplified the codebase by removing unused sizing strategies and keeping only th
 
 **Removed Components:**
 
-* `SizingStrategy` enum and all alternative sizing strategies
-* `calculateMinimumAreaSize`, `calculateHierarchicalSize`, `calculateBracketedSize`, `calculateContentAwareSize`, `calculateViewportOptimizedSize` methods
-* `SizingPresets` constant with all preset configurations
-* Unused sizing-related options from `TreemapOptions`: `sizingStrategy`, `minBuildingVisualSize`, `guaranteedMinArea`, `hierarchyDepthWeight`, `contentAwareScaling`, `aspectRatioOptimization`, `disableAutomaticSpacing`, `bufferMultiplier`
+- `SizingStrategy` enum and all alternative sizing strategies
+- `calculateMinimumAreaSize`, `calculateHierarchicalSize`, `calculateBracketedSize`, `calculateContentAwareSize`, `calculateViewportOptimizedSize` methods
+- `SizingPresets` constant with all preset configurations
+- Unused sizing-related options from `TreemapOptions`: `sizingStrategy`, `minBuildingVisualSize`, `guaranteedMinArea`, `hierarchyDepthWeight`, `contentAwareScaling`, `aspectRatioOptimization`, `disableAutomaticSpacing`, `bufferMultiplier`
 
 **Simplified Components:**
 
-* `calculateOptimalSize` method now directly uses legacy square root scaling
-* `calculateLegacySqrtSize` method signature simplified (removed unused width/height parameters)
-* `TreemapOptions` interface streamlined to focus on core functionality
+- `calculateOptimalSize` method now directly uses legacy square root scaling
+- `calculateLegacySqrtSize` method signature simplified (removed unused width/height parameters)
+- `TreemapOptions` interface streamlined to focus on core functionality
 
 **Rationale:**
 The codebase was using only the `legacy-sqrt` sizing strategy in practice. Removing the unused alternatives reduces complexity, improves maintainability, and eliminates dead code paths.
 
 ### Previous Changes
 
-* Removed color/theme dependencies (handled in React layer) ✅
-* Migrated from `a24z-memory` to `@a24z/core-library` to `@principal-ai/alexandria-core-library` ✅
-* Established clean separation between builder logic and presentation concerns ✅
+- Removed color/theme dependencies (handled in React layer) ✅
+- Migrated from `a24z-memory` to `@a24z/core-library` to `@principal-ai/alexandria-core-library` ✅
+- Established clean separation between builder logic and presentation concerns ✅
 
 ## Testing
 
@@ -88,12 +88,12 @@ npm test
 
 Tests cover:
 
-* Multi-version city building with union trees
-* Version filtering and presence tracking
-* Grid layout integration with CodebaseView
-* Building and district filtering logic
+- Multi-version city building with union trees
+- Version filtering and presence tracking
+- Grid layout integration with CodebaseView
+- Building and district filtering logic
 
 ## Future Enhancements
 
-* Optimize performance for large codebases (1000+ files)
-* Additional deep nesting optimization strategies
+- Optimize performance for large codebases (1000+ files)
+- Additional deep nesting optimization strategies

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 import { ArchitectureMapHighlightLayers } from '../components/ArchitectureMapHighlightLayers';
 import { HighlightLayer } from '../render/client/drawLayeredBuildings';
@@ -12,7 +12,7 @@ const meta = {
     layout: 'fullscreen',
   },
   decorators: [
-    (Story) => (
+    Story => (
       <div style={{ width: '100vw', height: '100vh', backgroundColor: '#1a1a1a' }}>
         <Story />
       </div>
@@ -69,18 +69,12 @@ export const WithHighlightLayers: Story = {
         enabled: false,
         color: '#ef4444',
         priority: 3,
-        items: [
-          { path: 'src/deprecated/OldComponent.tsx', type: 'file' },
-        ],
+        items: [{ path: 'src/deprecated/OldComponent.tsx', type: 'file' }],
       },
     ]);
 
     const handleLayerToggle = (layerId: string, enabled: boolean) => {
-      setLayers(prev =>
-        prev.map(layer =>
-          layer.id === layerId ? { ...layer, enabled } : layer
-        )
-      );
+      setLayers(prev => prev.map(layer => (layer.id === layerId ? { ...layer, enabled } : layer)));
     };
 
     return (
@@ -161,7 +155,7 @@ export const Interactive: Story = {
           cityData={createSampleCityData()}
           fullSize={true}
           enableZoom={true}
-          onHover={(info) => {
+          onHover={info => {
             if (info.hoveredBuilding) {
               setHoveredInfo(`File: ${info.hoveredBuilding.path}`);
             } else if (info.hoveredDistrict) {

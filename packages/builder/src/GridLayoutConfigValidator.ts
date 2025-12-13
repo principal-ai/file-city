@@ -253,7 +253,8 @@ export function validateCodebaseViewConfig(config: CodebaseView): GridConfigVali
       // Validate color (check both UI extension format and metadata format)
       const cellAsUIType = cell as { color?: unknown };
       const colorFromUI = cellAsUIType.color;
-      const colorFromMetadata = (cell.metadata as { ui?: { color?: unknown } } | undefined)?.ui?.color;
+      const colorFromMetadata = (cell.metadata as { ui?: { color?: unknown } } | undefined)?.ui
+        ?.color;
       const actualColor = colorFromUI || colorFromMetadata;
 
       if (actualColor !== undefined) {

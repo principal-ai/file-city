@@ -1,11 +1,15 @@
-import { MultiVersionCityBuilder } from './MultiVersionCityBuilder';
+import { mock, describe, it, expect, beforeEach } from 'bun:test';
 import { FileTree } from '@principal-ai/repository-abstraction';
 import { CityData } from './types/cityData';
 import { CodebaseView } from '@principal-ai/alexandria-core-library';
 
-// Mock CodeCityBuilderWithGrid to return predictable city data
-const mockBuildCityFromFileSystem = jest.fn((fileTree, rootPath, options) => {
-  const hasGrid = options?.gridLayout?.cells;
+// Mock function to return predictable city data
+const mockBuildCityFromFileSystem = (
+  _fileTree: FileTree,
+  _rootPath: string,
+  options?: { gridLayout?: CodebaseView },
+) => {
+  const hasGrid = options?.gridLayout?.referenceGroups;
   const gridConfig = options?.gridLayout?.metadata?.ui;
 
   // Return city data with grid labels if grid is enabled
@@ -14,7 +18,7 @@ const mockBuildCityFromFileSystem = jest.fn((fileTree, rootPath, options) => {
       path: '',
       worldBounds: { minX: 0, maxX: 100, minZ: 0, maxZ: 100 },
       fileCount: 1,
-      type: 'directory',
+      type: 'directory' as const,
       ...(hasGrid &&
         gridConfig?.showCellLabels !== false && {
           label: {
@@ -28,7 +32,7 @@ const mockBuildCityFromFileSystem = jest.fn((fileTree, rootPath, options) => {
       path: 'src',
       worldBounds: { minX: 10, maxX: 90, minZ: 10, maxZ: 90 },
       fileCount: 2,
-      type: 'directory',
+      type: 'directory' as const,
       ...(hasGrid &&
         gridConfig?.showCellLabels !== false && {
           label: {
@@ -45,20 +49,20 @@ const mockBuildCityFromFileSystem = jest.fn((fileTree, rootPath, options) => {
       {
         path: 'test.js',
         position: { x: 50, y: 5, z: 50 },
-        dimensions: [10, 10, 10],
-        type: 'file',
+        dimensions: [10, 10, 10] as [number, number, number],
+        type: 'file' as const,
       },
       {
         path: 'src/index.js',
         position: { x: 30, y: 5, z: 30 },
-        dimensions: [8, 8, 8],
-        type: 'file',
+        dimensions: [8, 8, 8] as [number, number, number],
+        type: 'file' as const,
       },
       {
         path: 'src/utils.js',
         position: { x: 70, y: 5, z: 70 },
-        dimensions: [8, 8, 8],
-        type: 'file',
+        dimensions: [8, 8, 8] as [number, number, number],
+        type: 'file' as const,
       },
     ],
     districts,
@@ -78,13 +82,17 @@ const mockBuildCityFromFileSystem = jest.fn((fileTree, rootPath, options) => {
       },
     },
   };
-});
+};
 
-jest.mock('./CodeCityBuilderWithGrid', () => ({
-  CodeCityBuilderWithGrid: jest.fn().mockImplementation(() => ({
-    buildCityFromFileSystem: mockBuildCityFromFileSystem,
-  })),
+// Mock the module using Bun's mock API
+mock.module('./CodeCityBuilderWithGrid', () => ({
+  CodeCityBuilderWithGrid: class {
+    buildCityFromFileSystem = mockBuildCityFromFileSystem;
+  },
 }));
+
+// Import after mocking
+import { MultiVersionCityBuilder } from './MultiVersionCityBuilder';
 
 describe('MultiVersionCityBuilder', () => {
   const createMockFileTree = (files: string[] = ['test.js']): FileTree => {
@@ -131,10 +139,6 @@ describe('MultiVersionCityBuilder', () => {
     } as any;
   };
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
   describe('build', () => {
     it('should build a union city from multiple file trees', () => {
       const tree1 = createMockFileTree(['test.js', 'src/index.js']);
@@ -161,15 +165,19 @@ describe('MultiVersionCityBuilder', () => {
         id: 'test-grid',
         version: '1.0',
         name: 'Test Grid',
+        description: 'Test grid configuration',
+        overviewPath: '',
         category: 'default',
         displayOrder: 0,
-        cells: {
+        referenceGroups: {
           test: {
-            patterns: ['test'],
+            coordinates: [0, 0],
+            files: ['test.js'],
             priority: 1,
           },
           src: {
-            patterns: ['src'],
+            coordinates: [0, 1],
+            files: ['src/index.js', 'src/utils.js'],
             priority: 2,
           },
         },
@@ -180,8 +188,8 @@ describe('MultiVersionCityBuilder', () => {
             cols: 2,
             showCellLabels: true,
             cellLabelPosition: 'top',
-          }
-        }
+          },
+        },
       };
 
       const result = MultiVersionCityBuilder.build(versionTrees, { gridLayout: gridConfig });
@@ -249,11 +257,13 @@ describe('MultiVersionCityBuilder', () => {
         id: 'test-grid',
         version: '1.0',
         name: 'Test Grid',
+        description: 'Test grid configuration',
+        overviewPath: '',
         category: 'default',
         displayOrder: 0,
-        cells: {
-          test: { patterns: ['test'], priority: 1 },
-          src: { patterns: ['src'], priority: 2 },
+        referenceGroups: {
+          test: { coordinates: [0, 0], files: ['test.js'], priority: 1 },
+          src: { coordinates: [0, 1], files: ['src/index.js', 'src/utils.js'], priority: 2 },
         },
         metadata: {
           ui: {
@@ -262,8 +272,8 @@ describe('MultiVersionCityBuilder', () => {
             cols: 2,
             showCellLabels: true,
             cellLabelPosition: 'bottom',
-          }
-        }
+          },
+        },
       };
 
       const result = MultiVersionCityBuilder.build(versionTrees, { gridLayout: gridConfig });
@@ -348,7 +358,7 @@ describe('MultiVersionCityBuilder', () => {
       expect(versionView.metadata.totalFiles).toBe(1);
       expect(versionView.metadata.totalDirectories).toBe(1);
       expect(versionView.metadata.rootPath).toBe(unionCity.metadata.rootPath);
-      expect(versionView.metadata.layoutConfig).toEqual(unionCity.metadata.layoutConfig);
+      expect(versionView.metadata.layoutConfig).toEqual(unionCity.metadata.layoutConfig!);
     });
   });
 });

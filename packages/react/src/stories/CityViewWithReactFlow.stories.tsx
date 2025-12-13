@@ -1,4 +1,3 @@
-import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { CityViewWithReactFlow } from '../components/CityViewWithReactFlow';
 import { FileTree, FileInfo, DirectoryInfo } from '@principal-ai/repository-abstraction';
@@ -11,7 +10,7 @@ const meta = {
     layout: 'fullscreen',
   },
   decorators: [
-    (Story) => (
+    Story => (
       <div style={{ height: '100vh', width: '100vw' }}>
         <Story />
       </div>
@@ -226,7 +225,7 @@ const createSampleFileTree = (): FileTree => ({
     totalSize: 24500,
     maxDepth: 3,
   },
-  allFiles: (function() {
+  allFiles: (function () {
     const files: FileInfo[] = [];
     const collectFiles = (node: DirectoryInfo | FileInfo) => {
       if (!('children' in node)) {
@@ -436,7 +435,7 @@ const createSampleFileTree = (): FileTree => ({
     collectFiles(root);
     return files;
   })(),
-  allDirectories: (function() {
+  allDirectories: (function () {
     const dirs: DirectoryInfo[] = [];
     const collectDirs = (node: DirectoryInfo | FileInfo) => {
       if ('children' in node) {
@@ -701,15 +700,15 @@ export const MultiCell: Story = {
           files: ['src'],
           coordinates: [0, 0],
         },
-        'Tests': {
+        Tests: {
           files: ['tests'],
           coordinates: [0, 1],
         },
-        'Documentation': {
+        Documentation: {
           files: ['docs'],
           coordinates: [1, 0],
         },
-        'Configuration': {
+        Configuration: {
           files: ['config', 'package.json'],
           coordinates: [1, 1],
         },
@@ -738,15 +737,15 @@ export const LargeGrid: Story = {
       category: 'custom',
       displayOrder: 0,
       referenceGroups: {
-        'Components': {
+        Components: {
           files: ['src/components/**/*'],
           coordinates: [0, 0],
         },
-        'Utils': {
+        Utils: {
           files: ['src/utils/**/*'],
           coordinates: [0, 1],
         },
-        'Core': {
+        Core: {
           files: ['src/index.ts'],
           coordinates: [0, 2],
         },
@@ -754,23 +753,23 @@ export const LargeGrid: Story = {
           files: ['tests/**/*.test.*'],
           coordinates: [1, 0],
         },
-        'Documentation': {
+        Documentation: {
           files: ['docs/**/*'],
           coordinates: [1, 1],
         },
-        'Config': {
+        Config: {
           files: ['config/**/*'],
           coordinates: [1, 2],
         },
-        'Package': {
+        Package: {
           files: ['package.json'],
           coordinates: [2, 0],
         },
-        'Other': {
+        Other: {
           files: ['*'],
           coordinates: [2, 1],
         },
-        'Empty': {
+        Empty: {
           files: [],
           coordinates: [2, 2],
         },

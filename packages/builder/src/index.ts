@@ -3,10 +3,7 @@ export { buildMultiVersionCity } from './buildMultiVersionCity';
 
 // Multi-version builder and options
 export { MultiVersionCityBuilder } from './MultiVersionCityBuilder';
-export type {
-  MultiVersionOptions,
-  MultiVersionResult
-} from './MultiVersionCityBuilder';
+export type { MultiVersionOptions, MultiVersionResult } from './MultiVersionCityBuilder';
 
 // Grid-based builder and layout manager
 export { CodeCityBuilderWithGrid } from './CodeCityBuilderWithGrid';
@@ -35,9 +32,6 @@ export type {
 export type { FileTree } from '@principal-ai/repository-abstraction';
 
 // Sort functions
-export type {
-  DirectorySortFunction,
-  FileSortFunction,
-} from './types/sorts';
+export type { DirectorySortFunction, FileSortFunction } from './types/sorts';
 
 export { CommonSorts } from './types/sorts';

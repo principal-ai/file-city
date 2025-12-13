@@ -38,21 +38,21 @@ FileTree → GridLayoutManager → Multiple CityData → Canvas Rendering
    }
    ```
 2. **Tree Splitting** (`GridLayoutManager.splitTreeIntoGrid`)
-   * Takes the full `FileTree` and `CodebaseView` config
-   * Creates an empty `FileTree` for each grid cell
-   * **IMPORTANT**: Currently uses exact path matching, NOT glob patterns
-   * Assigns files/directories to cells based on `files` array
-   * Returns `Map<string, FileTree>` where key is "row,col"
+   - Takes the full `FileTree` and `CodebaseView` config
+   - Creates an empty `FileTree` for each grid cell
+   - **IMPORTANT**: Currently uses exact path matching, NOT glob patterns
+   - Assigns files/directories to cells based on `files` array
+   - Returns `Map<string, FileTree>` where key is "row,col"
 3. **City Building** (`CodeCityBuilderWithGrid.buildCityWithGridLayout`)
-   * For each cell's `FileTree`:
-     * Builds a separate `CityData` using D3 treemap
-     * Calculates cell bounds based on grid position
-     * Translates all buildings/districts to cell's position
-     * Adds cell boundary districts
+   - For each cell's `FileTree`:
+     - Builds a separate `CityData` using D3 treemap
+     - Calculates cell bounds based on grid position
+     - Translates all buildings/districts to cell's position
+     - Adds cell boundary districts
 4. **Canvas Rendering**
-   * Single canvas renders all cells
-   * Each cell's buildings and districts are drawn at calculated positions
-   * Labels and spacing handled by grid layout calculations
+   - Single canvas renders all cells
+   - Each cell's buildings and districts are drawn at calculated positions
+   - Labels and spacing handled by grid layout calculations
 
 ## React Flow Integration Approach
 
@@ -65,12 +65,13 @@ FileTree → GridLayoutManager → Multiple FileTrees → React Flow Nodes → I
 #### What We've Built:
 
 1. **CityViewWithReactFlow Component**
-   * Creates React Flow nodes for each grid cell
-   * Each node contains:
-     * Header with cell name and stats
-     * `ArchitectureMapHighlightLayers` component for 3D visualization
-   * Nodes are draggable and connected with edges
+   - Creates React Flow nodes for each grid cell
+   - Each node contains:
+     - Header with cell name and stats
+     - `ArchitectureMapHighlightLayers` component for 3D visualization
+   - Nodes are draggable and connected with edges
 2. **CellNode Component**
+
    ```typescript
    const CellNode = ({ data }) => {
      const { fileTree } = data;
@@ -89,17 +90,17 @@ FileTree → GridLayoutManager → Multiple FileTrees → React Flow Nodes → I
 ### Current Issues
 
 1. **Pattern Matching Problem**
-   * `GridLayoutManager` expects exact paths: `['src', 'src/components/Button.tsx']`
-   * Does NOT support glob patterns: `['src/**/*']`
-   * This means we must list every file/directory explicitly
+   - `GridLayoutManager` expects exact paths: `['src', 'src/components/Button.tsx']`
+   - Does NOT support glob patterns: `['src/**/*']`
+   - This means we must list every file/directory explicitly
 2. **Empty Cell Problem**
-   * Cells show as "empty" because file matching fails
-   * The `splitTreeIntoGrid` returns FileTrees with no children
-   * City builder gets empty trees and produces no buildings
+   - Cells show as "empty" because file matching fails
+   - The `splitTreeIntoGrid` returns FileTrees with no children
+   - City builder gets empty trees and produces no buildings
 3. **Data Structure Mismatch**
-   * `GridLayoutManager` creates: `{ root: { name: 'cell-root', children: [...] } }`
-   * City builder might expect different structure
-   * Stats might not be properly updated after splitting
+   - `GridLayoutManager` creates: `{ root: { name: 'cell-root', children: [...] } }`
+   - City builder might expect different structure
+   - Stats might not be properly updated after splitting
 
 ## Proposed Solutions
 
@@ -111,19 +112,18 @@ Add glob pattern support to `GridLayoutManager`:
 // In GridLayoutManager.assignDirectoriesToCells
 import micromatch from 'micromatch';
 
-const matches = cellConfig.files &&
-  micromatch.isMatch(path, cellConfig.files);
+const matches = cellConfig.files && micromatch.isMatch(path, cellConfig.files);
 ```
 
 **Pros:**
 
-* Works with intuitive patterns like `'src/**/*'`
-* No need to list every file explicitly
+- Works with intuitive patterns like `'src/**/*'`
+- No need to list every file explicitly
 
 **Cons:**
 
-* Requires adding a glob matching library
-* Need to handle edge cases (nested patterns, exclusions)
+- Requires adding a glob matching library
+- Need to handle edge cases (nested patterns, exclusions)
 
 ### Option 2: Pre-process File Lists
 
@@ -143,13 +143,13 @@ function expandGlobPatterns(fileTree: FileTree, patterns: string[]): string[] {
 
 **Pros:**
 
-* Keeps GridLayoutManager simple
-* Pattern expansion happens at component level
+- Keeps GridLayoutManager simple
+- Pattern expansion happens at component level
 
 **Cons:**
 
-* Duplicates logic
-* Performance overhead for large trees
+- Duplicates logic
+- Performance overhead for large trees
 
 ### Option 3: Create Dedicated React Flow Builder
 
@@ -159,8 +159,8 @@ New class specifically for React Flow integration:
 class ReactFlowCityBuilder {
   buildNodesFromFileTree(
     fileTree: FileTree,
-    config: CodebaseView
-  ): { nodes: Node[], edges: Edge[] } {
+    config: CodebaseView,
+  ): { nodes: Node[]; edges: Edge[] } {
     // Handle splitting and city building
     // Return React Flow compatible structure
   }
@@ -169,59 +169,59 @@ class ReactFlowCityBuilder {
 
 **Pros:**
 
-* Optimized for React Flow use case
-* Can handle patterns and splitting together
-* Better encapsulation
+- Optimized for React Flow use case
+- Can handle patterns and splitting together
+- Better encapsulation
 
 **Cons:**
 
-* Some code duplication with existing builder
-* Need to maintain two systems
+- Some code duplication with existing builder
+- Need to maintain two systems
 
 ## Recommended Approach
 
 1. **Short term**: Fix the pattern matching in `GridLayoutManager` (Option 1)
-   * Add micromatch or similar for glob support
-   * Update `assignDirectoriesToCells` to use pattern matching
-   * This fixes the immediate "empty cell" issue
+   - Add micromatch or similar for glob support
+   - Update `assignDirectoriesToCells` to use pattern matching
+   - This fixes the immediate "empty cell" issue
 2. **Long term**: Create dedicated React Flow builder (Option 3)
-   * Better separation of concerns
-   * Optimize for interactive use cases
-   * Can add React Flow specific features (dynamic loading, etc.)
+   - Better separation of concerns
+   - Optimize for interactive use cases
+   - Can add React Flow specific features (dynamic loading, etc.)
 
 ## Testing Strategy
 
 1. **Unit Tests**
-   * Test pattern matching with various glob patterns
-   * Test tree splitting produces correct FileTrees
-   * Test city building from split trees
+   - Test pattern matching with various glob patterns
+   - Test tree splitting produces correct FileTrees
+   - Test city building from split trees
 2. **Integration Tests**
-   * Test full flow from FileTree to React Flow nodes
-   * Test cell interactions (click, drag, zoom)
-   * Test performance with large codebases
+   - Test full flow from FileTree to React Flow nodes
+   - Test cell interactions (click, drag, zoom)
+   - Test performance with large codebases
 3. **Visual Tests**
-   * Storybook stories for different grid configurations
-   * Test responsive behavior
-   * Test highlight layers work in each cell
+   - Storybook stories for different grid configurations
+   - Test responsive behavior
+   - Test highlight layers work in each cell
 
 ## Benefits of React Flow Integration
 
 1. **Interactivity**
-   * Drag and rearrange cells
-   * Zoom into specific cells
-   * Create custom layouts on the fly
+   - Drag and rearrange cells
+   - Zoom into specific cells
+   - Create custom layouts on the fly
 2. **Extensibility**
-   * Easy to add new node types (metrics, dependencies, etc.)
-   * Can add edges to show relationships
-   * Plugin ecosystem for additional features
+   - Easy to add new node types (metrics, dependencies, etc.)
+   - Can add edges to show relationships
+   - Plugin ecosystem for additional features
 3. **Performance**
-   * Only render visible nodes
-   * Virtualization for large grids
-   * Independent cell updates
+   - Only render visible nodes
+   - Virtualization for large grids
+   - Independent cell updates
 4. **User Experience**
-   * Familiar node-graph interface
-   * Better navigation with minimap
-   * Can save/load custom layouts
+   - Familiar node-graph interface
+   - Better navigation with minimap
+   - Can save/load custom layouts
 
 ## Next Steps
 

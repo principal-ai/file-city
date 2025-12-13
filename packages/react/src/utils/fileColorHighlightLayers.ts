@@ -371,11 +371,8 @@ export function getDefaultFileColorConfig(): FileSuffixColorConfig {
  */
 export function getFileColorMapping(config?: FileSuffixColorConfig): Record<string, string> {
   const colorConfig = config || (defaultConfig as FileSuffixColorConfig);
-  return Object.entries(colorConfig.suffixConfigs).reduce(
-    (acc, [extension, suffixConfig]) => {
-      acc[extension] = suffixConfig.primary.color;
-      return acc;
-    },
-    {} as Record<string, string>,
-  );
+  return Object.entries(colorConfig.suffixConfigs).reduce((acc, [extension, suffixConfig]) => {
+    acc[extension] = suffixConfig.primary.color;
+    return acc;
+  }, {} as Record<string, string>);
 }

@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["packages/builder/src/**/*", "packages/react/src/**/*", "packages/server/src/**/*"],
+  "exclude": ["node_modules", "dist", "build"]
+}

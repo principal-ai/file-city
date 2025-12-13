@@ -10,7 +10,6 @@ import {
   drawLayeredBuildings,
   drawLayeredDistricts,
   drawGrid,
-  drawLegend,
   HighlightLayer,
   LayerItem,
 } from '../render/client/drawLayeredBuildings';
@@ -20,10 +19,7 @@ import {
   CityDistrict,
   SelectiveRenderOptions,
 } from '@principal-ai/code-city-builder';
-import {
-  MapInteractionState,
-  MapDisplayOptions,
-} from '../types/react-types';
+import { MapInteractionState, MapDisplayOptions } from '../types/react-types';
 
 const DEFAULT_DISPLAY_OPTIONS: MapDisplayOptions = {
   showGrid: false,
@@ -78,7 +74,6 @@ export interface ArchitectureMapHighlightLayersProps {
 
   // Additional display options
   showFileTypeIcons?: boolean;
-  showLegend?: boolean; // Control visibility of legend
   showDirectoryLabels?: boolean; // Control visibility of directory labels
 
   // Transformation options
@@ -114,12 +109,6 @@ class SpatialGrid {
   ) {
     this.bounds = bounds;
     this.cellSize = cellSize;
-  }
-
-  private getCellKey(x: number, z: number): string {
-    const cellX = Math.floor((x - this.bounds.minX) / this.cellSize);
-    const cellZ = Math.floor((z - this.bounds.minZ) / this.cellSize);
-    return `${cellX},${cellZ}`;
   }
 
   private getCellsForBounds(minX: number, maxX: number, minZ: number, maxZ: number): string[] {
@@ -237,7 +226,6 @@ function ArchitectureMapHighlightLayersInner({
   subdirectoryMode,
   showLayerControls = false,
   showFileTypeIcons = true,
-  showLegend = false,
   showDirectoryLabels = true,
   transform = { rotation: 0 }, // Default to no rotation
   onHover,
@@ -258,7 +246,7 @@ function ArchitectureMapHighlightLayersInner({
     hoveredDistrict: null,
     hoveredBuilding: null,
     mousePos: { x: 0, y: 0 },
-    });
+  });
 
   const [zoomState, setZoomState] = useState({
     scale: 1,
@@ -968,32 +956,6 @@ function ArchitectureMapHighlightLayersInner({
       buildingBorderRadius,
     );
 
-    const displayRootName =
-      subdirectoryMode?.enabled && subdirectoryMode.rootPath
-        ? subdirectoryMode.rootPath
-          ? subdirectoryMode.rootPath
-          : subdirectoryMode.rootPath.split('/').pop() || rootDirectoryName
-        : selectiveRender?.mode === 'drilldown'
-          ? selectiveRender.rootDirectory?.split('/').pop() || rootDirectoryName
-          : rootDirectoryName;
-
-    // Get total highlighted items count from all enabled layers
-    const totalHighlighted = highlightLayers
-      .filter(layer => layer.enabled)
-      .reduce((sum, layer) => sum + layer.items.length, 0);
-
-    if (showLegend) {
-      drawLegend(
-        ctx,
-        displayWidth,
-        displayHeight,
-        totalHighlighted,
-        focusDirectory,
-        fullSize,
-        displayRootName,
-      );
-    }
-
     // Performance monitoring end available for debugging
     // Performance stats available but not logged to reduce console noise
     // Uncomment for debugging: render time, buildings/districts counts, layer counts
@@ -1016,7 +978,6 @@ function ArchitectureMapHighlightLayersInner({
     subdirectoryMode,
     cityData,
     resolvedCanvasBackgroundColor,
-    showLegend,
     showDirectoryLabels,
     allLayers,
     buildingBorderRadius,
@@ -1369,7 +1330,12 @@ function ArchitectureMapHighlightLayersInner({
     }
 
     return 'default';
-  }, [enableZoom, zoomState.isDragging, interactionState.hoveredBuilding, interactionState.hoveredDistrict]);
+  }, [
+    enableZoom,
+    zoomState.isDragging,
+    interactionState.hoveredBuilding,
+    interactionState.hoveredDistrict,
+  ]);
 
   if (!filteredCityData) {
     return (
@@ -1453,7 +1419,9 @@ function ArchitectureMapHighlightLayersInner({
                 fontSize: `${theme.fontSizes[0]}px`,
                 fontWeight: theme.fontWeights.medium,
                 fontFamily: theme.fonts.body,
-                backgroundColor: layer.enabled ? theme.colors.backgroundSecondary : theme.colors.background,
+                backgroundColor: layer.enabled
+                  ? theme.colors.backgroundSecondary
+                  : theme.colors.background,
                 color: layer.enabled ? theme.colors.text : theme.colors.textSecondary,
                 border: `2px solid ${layer.enabled ? layer.color : theme.colors.border}`,
                 minWidth: '120px',
@@ -1473,10 +1441,12 @@ function ArchitectureMapHighlightLayersInner({
               />
               <span style={{ textAlign: 'left', flex: 1 }}>{layer.name}</span>
               {layer.items && layer.items.length > 0 && (
-                <span style={{
-                  fontSize: `${theme.fontSizes[0]}px`,
-                  color: layer.enabled ? theme.colors.textSecondary : theme.colors.textMuted,
-                }}>
+                <span
+                  style={{
+                    fontSize: `${theme.fontSizes[0]}px`,
+                    color: layer.enabled ? theme.colors.textSecondary : theme.colors.textMuted,
+                  }}
+                >
                   {layer.items.length}
                 </span>
               )}

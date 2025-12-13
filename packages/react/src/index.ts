@@ -1,7 +1,7 @@
 // Main component export
 export {
   ArchitectureMapHighlightLayers,
-  type ArchitectureMapHighlightLayersProps
+  type ArchitectureMapHighlightLayersProps,
 } from './components/ArchitectureMapHighlightLayers';
 
 // Layer and rendering types
@@ -12,10 +12,7 @@ export {
 } from './render/client/drawLayeredBuildings';
 
 // React-specific types
-export {
-  type MapInteractionState,
-  type MapDisplayOptions,
-} from './types/react-types';
+export { type MapInteractionState, type MapDisplayOptions } from './types/react-types';
 
 // Utility functions
 export {
@@ -60,7 +57,7 @@ export type { FileTree } from '@principal-ai/code-city-builder';
 // Export React Flow based city view component
 export {
   CityViewWithReactFlow,
-  type CityViewWithReactFlowProps
+  type CityViewWithReactFlowProps,
 } from './components/CityViewWithReactFlow';
 
 // Re-export theme utilities for consumers

@@ -3,11 +3,7 @@ import { BuildingTypeResolver } from '../types/buildingTypes';
 import { CityBuilding, CityDistrict } from '@principal-ai/code-city-builder';
 import { ImportanceConfig, DEFAULT_VISUAL_SETTINGS } from '../types/importanceTypes';
 import { ColorTheme, ColorFunction } from '../types/themes';
-import {
-  calculateImportance,
-  getStarCount,
-  shouldShowImportance,
-} from '../utils/importanceUtils';
+import { calculateImportance, getStarCount, shouldShowImportance } from '../utils/importanceUtils';
 export enum RenderMode {
   HIGHLIGHT = 'highlight',
   ISOLATE = 'isolate',
@@ -126,34 +122,6 @@ export function drawGrid(
   ctx.restore();
 }
 
-export function drawLegend(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  highlightedCount: number,
-  focusDirectory: string | null,
-  fullSize: boolean,
-  _rootDirectoryName?: string,
-) {
-  ctx.fillStyle = '#ffffff';
-  ctx.font = fullSize ? '12px monospace' : '10px monospace';
-  //ctx.fillText(`${highlightedCount} files highlighted`, 10, height - 10);
-
-  if (focusDirectory) {
-    ctx.fillText(`Focus: ${focusDirectory}`, 10, height - 22);
-  }
-
-  // Draw root directory name in bottom right corner
-  //const displayName = rootDirectoryName || 'workspace';
-  ctx.save();
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'bottom';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'; // Slightly transparent
-  ctx.font = fullSize ? '11px monospace' : '9px monospace';
-  //ctx.fillText(displayName, width - 10, height - 10);
-  ctx.restore();
-}
-
 // Border-based highlighting functions
 export function drawBuildingBorder(
   ctx: CanvasRenderingContext2D,
@@ -217,7 +185,6 @@ export function drawDistricts(
   hoveredDirectories?: Set<string>,
   hoveredDistrict?: CityDistrict,
   fullSize?: boolean,
-  emphasizedDirectories?: Set<string>,
   selectedPaths?: Set<string>,
   changedFiles?: Map<string, 'added' | 'modified' | 'deleted' | 'renamed'>,
   theme?: ColorTheme,
@@ -347,16 +314,10 @@ export function drawDistricts(
     const isInHoveredPath = hoveredDirectories?.has(districtPath) || false;
     const isDirectlyHovered = hoveredDistrict === district;
     const isHovered = isInHoveredPath || isDirectlyHovered;
-    const isEmphasized = false; //emphasizedDirectories?.has(districtPath);
 
     if (isHighlighted) {
       opacity = 0.5;
       borderOpacity = 0.8;
-    }
-
-    if (isEmphasized) {
-      opacity = Math.max(opacity, 0.6);
-      borderOpacity = Math.max(borderOpacity, 0.9);
     }
 
     if (isHovered) {
@@ -368,9 +329,6 @@ export function drawDistricts(
     if (isHighlighted) {
       // Subtle white/gray highlight instead of blue
       ctx.fillStyle = `rgba(120, 120, 120, ${opacity})`;
-    } else if (isEmphasized) {
-      // Warmer orange for emphasized
-      ctx.fillStyle = `rgba(255, 140, 60, ${opacity})`;
     } else {
       // Use the elegant grey colors
       ctx.fillStyle = `rgba(${baseColor[0]}, ${baseColor[1]}, ${baseColor[2]}, ${opacity})`;
@@ -381,14 +339,14 @@ export function drawDistricts(
     if (isHighlighted) {
       // White/light gray border instead of blue
       ctx.strokeStyle = `rgba(180, 180, 180, ${borderOpacity})`;
-    } else if (isEmphasized) {
-      // Golden border for emphasized
-      ctx.strokeStyle = `rgba(255, 180, 80, ${borderOpacity})`;
     } else {
       // Lighter grey borders for better definition
-      ctx.strokeStyle = `rgba(${Math.min(255, baseColor[0] + 40)}, ${Math.min(255, baseColor[1] + 40)}, ${Math.min(255, baseColor[2] + 40)}, ${borderOpacity})`;
+      ctx.strokeStyle = `rgba(${Math.min(255, baseColor[0] + 40)}, ${Math.min(
+        255,
+        baseColor[1] + 40,
+      )}, ${Math.min(255, baseColor[2] + 40)}, ${borderOpacity})`;
     }
-    ctx.lineWidth = isHighlighted || isEmphasized ? 2 : 1;
+    ctx.lineWidth = isHighlighted ? 2 : 1;
     ctx.strokeRect(canvasPos.x, canvasPos.y, width, depth);
 
     // Hover highlight - white border for directly hovered district and all districts in hover path
@@ -442,7 +400,6 @@ export function drawBuildings(
   hoveredBuilding?: CityBuilding,
   theme?: ColorTheme,
   customColorFn?: ColorFunction,
-  emphasizedDirectories?: Set<string>,
   showFileNames?: boolean,
   fullSize?: boolean,
   changedFiles?: Map<string, 'added' | 'modified' | 'deleted' | 'renamed'>,
@@ -480,11 +437,6 @@ export function drawBuildings(
     const isHovered = hoveredBuilding === building;
     const isInHoveredPath = hoveredBuilding?.path === building.path;
     const isInFocus = !focusDirectory || building.path.startsWith(focusDirectory);
-
-    // Check if building is in an emphasized directory
-    const isInEmphasizedDirectory = false;
-    //emphasizedDirectories ?
-    //  Array.from(emphasizedDirectories).some(dir => building.path.startsWith(dir + '/')) : false;
 
     // Check if this file has changes (for PR visualization)
     const changeType = changedFiles?.get(building.path);
@@ -616,9 +568,6 @@ export function drawBuildings(
           : 'rgba(255, 255, 255, 0.8)';
         ctx.lineWidth = 2;
         ctx.strokeRect(pos.x - width / 2 - 1, pos.y - height / 2 - 1, width + 2, height + 2);
-      } else if (isInEmphasizedDirectory) {
-        ctx.fillStyle = 'rgba(255, 165, 0, 0.3)';
-        ctx.fillRect(pos.x - width / 2 - 1, pos.y - height / 2 - 1, width + 2, height + 2);
       }
     }
 

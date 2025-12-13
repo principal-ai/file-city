@@ -1,9 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import React from 'react';
 import {
   CodeCityBuilderWithGrid,
   buildFileSystemTreeFromFileInfoList,
-  CityData
+  CityData,
 } from '@principal-ai/code-city-builder';
 
 import { ArchitectureMapHighlightLayers } from '../components/ArchitectureMapHighlightLayers';
@@ -50,7 +49,7 @@ const meta = {
     layout: 'fullscreen',
   },
   decorators: [
-    (Story) => (
+    Story => (
       <div style={{ width: '100vw', height: '100vh' }}>
         <Story />
       </div>
@@ -353,9 +352,7 @@ export const GridWithHighlights: Story = {
         enabled: true,
         color: '#10b981',
         priority: 2,
-        items: [
-          { path: 'tests', type: 'directory' },
-        ],
+        items: [{ path: 'tests', type: 'directory' }],
       },
     ],
     showLayerControls: true,
@@ -376,33 +373,33 @@ export const LargeGrid: Story = {
       overviewPath: 'README.md',
       cells: {
         'Core Source': { files: ['src/core'], coordinates: [0, 0] },
-        'Components': { files: ['src/components'], coordinates: [1, 0] },
-        'Utils': { files: ['src/utils'], coordinates: [2, 0] },
-        'Hooks': { files: ['src/hooks'], coordinates: [3, 0] },
-        'Types': { files: ['src/types'], coordinates: [4, 0] },
+        Components: { files: ['src/components'], coordinates: [1, 0] },
+        Utils: { files: ['src/utils'], coordinates: [2, 0] },
+        Hooks: { files: ['src/hooks'], coordinates: [3, 0] },
+        Types: { files: ['src/types'], coordinates: [4, 0] },
 
         'Unit Tests': { files: ['tests/unit'], coordinates: [0, 1] },
-        'Integration': { files: ['tests/integration'], coordinates: [1, 1] },
-        'E2E': { files: ['tests/e2e'], coordinates: [2, 1] },
+        Integration: { files: ['tests/integration'], coordinates: [1, 1] },
+        E2E: { files: ['tests/e2e'], coordinates: [2, 1] },
         'Test Utils': { files: ['test-utils'], coordinates: [3, 1] },
-        'Fixtures': { files: ['fixtures'], coordinates: [4, 1] },
+        Fixtures: { files: ['fixtures'], coordinates: [4, 1] },
 
-        'Config': { files: ['config'], coordinates: [0, 2] },
-        'Scripts': { files: ['scripts'], coordinates: [1, 2] },
-        'Tools': { files: ['tools'], coordinates: [2, 2] },
+        Config: { files: ['config'], coordinates: [0, 2] },
+        Scripts: { files: ['scripts'], coordinates: [1, 2] },
+        Tools: { files: ['tools'], coordinates: [2, 2] },
         'CI/CD': { files: ['.github', '.gitlab'], coordinates: [3, 2] },
-        'Docker': { files: ['docker', 'Dockerfile'], coordinates: [4, 2] },
+        Docker: { files: ['docker', 'Dockerfile'], coordinates: [4, 2] },
 
-        'Docs': { files: ['docs'], coordinates: [0, 3] },
-        'Examples': { files: ['examples'], coordinates: [1, 3] },
-        'API': { files: ['api'], coordinates: [2, 3] },
-        'Packages': { files: ['packages'], coordinates: [3, 3] },
-        'Libs': { files: ['lib'], coordinates: [4, 3] },
+        Docs: { files: ['docs'], coordinates: [0, 3] },
+        Examples: { files: ['examples'], coordinates: [1, 3] },
+        API: { files: ['api'], coordinates: [2, 3] },
+        Packages: { files: ['packages'], coordinates: [3, 3] },
+        Libs: { files: ['lib'], coordinates: [4, 3] },
 
-        'Build': { files: ['dist'], coordinates: [0, 4] },
-        'Public': { files: ['public'], coordinates: [1, 4] },
-        'Assets': { files: ['assets'], coordinates: [2, 4] },
-        'Static': { files: ['static'], coordinates: [3, 4] },
+        Build: { files: ['dist'], coordinates: [0, 4] },
+        Public: { files: ['public'], coordinates: [1, 4] },
+        Assets: { files: ['assets'], coordinates: [2, 4] },
+        Static: { files: ['static'], coordinates: [3, 4] },
         'Node Modules': { files: ['node_modules'], coordinates: [4, 4] },
       },
     }),

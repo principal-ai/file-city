@@ -1,4 +1,9 @@
-import { CityBuilding, CityData, CityDistrict, SelectiveRenderOptions } from '@principal-ai/code-city-builder';
+import {
+  CityBuilding,
+  CityData,
+  CityDistrict,
+  SelectiveRenderOptions,
+} from '@principal-ai/code-city-builder';
 
 // Utility functions for selective rendering
 export const filterCityDataForSelectiveRender = (
@@ -84,8 +89,8 @@ const drilldownCityData = (
       path: district.path.startsWith(rootDirectory + '/')
         ? district.path.substring(rootDirectory.length + 1)
         : district.path === rootDirectory
-          ? ''
-          : district.path,
+        ? ''
+        : district.path,
     }));
 
   // If showing parent context, add immediate parent district

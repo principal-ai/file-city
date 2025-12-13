@@ -11,7 +11,7 @@ import ReactFlow, {
   Position,
   useNodesState,
   useEdgesState,
-  BackgroundVariant
+  BackgroundVariant,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useTheme } from '@principal-ade/industry-theme';
@@ -80,43 +80,53 @@ const CellNode: React.FC<NodeProps<CellNodeData>> = ({ data, selected }) => {
       <Handle type="target" position={Position.Top} style={{ background: theme.colors.accent }} />
 
       {/* Header with title and stats */}
-      <div style={{
-        marginBottom: `${theme.space[2]}px`,
-        paddingBottom: `${theme.space[2]}px`,
-        borderBottom: `1px solid ${theme.colors.border}`,
-      }}>
-        <h3 style={{
-          margin: `0 0 ${theme.space[1]}px 0`,
-          fontSize: `${theme.fontSizes[2]}px`,
-          fontWeight: theme.fontWeights.bold,
-          fontFamily: theme.fonts.heading,
-          color: theme.colors.text
-        }}>
+      <div
+        style={{
+          marginBottom: `${theme.space[2]}px`,
+          paddingBottom: `${theme.space[2]}px`,
+          borderBottom: `1px solid ${theme.colors.border}`,
+        }}
+      >
+        <h3
+          style={{
+            margin: `0 0 ${theme.space[1]}px 0`,
+            fontSize: `${theme.fontSizes[2]}px`,
+            fontWeight: theme.fontWeights.bold,
+            fontFamily: theme.fonts.heading,
+            color: theme.colors.text,
+          }}
+        >
           {label}
         </h3>
-        <div style={{
-          fontSize: `${theme.fontSizes[0]}px`,
-          fontFamily: theme.fonts.body,
-          color: theme.colors.textSecondary,
-          display: 'flex',
-          gap: `${theme.space[3]}px`
-        }}>
+        <div
+          style={{
+            fontSize: `${theme.fontSizes[0]}px`,
+            fontFamily: theme.fonts.body,
+            color: theme.colors.textSecondary,
+            display: 'flex',
+            gap: `${theme.space[3]}px`,
+          }}
+        >
           <span>{fileCount} files</span>
           <span>{directoryCount} directories</span>
         </div>
       </div>
 
       {/* 3D City Visualization */}
-      <div style={{
-        position: 'relative',
-        background: theme.colors.background,
-        borderRadius: `${theme.radii[1]}px`,
-        overflow: 'hidden',
-        width: '350px',
-        height: '350px',
-      }}>
+      <div
+        style={{
+          position: 'relative',
+          background: theme.colors.background,
+          borderRadius: `${theme.radii[1]}px`,
+          overflow: 'hidden',
+          width: '350px',
+          height: '350px',
+        }}
+      >
         {cityData ? (
-          <div style={{ width: '100%', height: '100%', position: 'relative', pointerEvents: 'none' }}>
+          <div
+            style={{ width: '100%', height: '100%', position: 'relative', pointerEvents: 'none' }}
+          >
             <ArchitectureMapHighlightLayers
               cityData={cityData}
               highlightLayers={[
@@ -132,12 +142,11 @@ const CellNode: React.FC<NodeProps<CellNodeData>> = ({ data, selected }) => {
                     .map(b => ({
                       path: b.path,
                       type: 'file' as const,
-                      opacity: 1
-                    }))
-                }
+                      opacity: 1,
+                    })),
+                },
               ]}
               showGrid={false}
-              showLegend={false}
               showDirectoryLabels={false}
               canvasBackgroundColor={theme.colors.background}
               defaultBuildingColor={theme.colors.muted}
@@ -148,21 +157,27 @@ const CellNode: React.FC<NodeProps<CellNodeData>> = ({ data, selected }) => {
             />
           </div>
         ) : (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            color: theme.colors.textMuted,
-            fontSize: `${theme.fontSizes[1]}px`,
-            fontFamily: theme.fonts.body,
-          }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              color: theme.colors.textMuted,
+              fontSize: `${theme.fontSizes[1]}px`,
+              fontFamily: theme.fonts.body,
+            }}
+          >
             Empty cell
           </div>
         )}
       </div>
 
-      <Handle type="source" position={Position.Bottom} style={{ background: theme.colors.accent }} />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        style={{ background: theme.colors.accent }}
+      />
     </div>
   );
 };
@@ -233,15 +248,15 @@ const CityViewWithReactFlowInner: React.FC<CityViewWithReactFlowProps> = ({
         type: 'cellNode',
         position: {
           x: col * (cellWidth + cellSpacing),
-          y: row * (cellHeight + cellSpacing)
+          y: row * (cellHeight + cellSpacing),
         },
         data: {
           label: cellName,
           fileTree: cellTree,
           fileCount: cellTree.stats.totalFiles,
           directoryCount: cellTree.stats.totalDirectories,
-          coordinates: [row, col]
-        }
+          coordinates: [row, col],
+        },
       };
 
       generatedNodes.push(cellNode);
@@ -267,8 +282,8 @@ const CityViewWithReactFlowInner: React.FC<CityViewWithReactFlowProps> = ({
               style: {
                 stroke: `${theme.colors.border}40`,
                 strokeWidth: 1,
-                strokeDasharray: '5 10'
-              }
+                strokeDasharray: '5 10',
+              },
             });
           }
         }
@@ -286,8 +301,8 @@ const CityViewWithReactFlowInner: React.FC<CityViewWithReactFlowProps> = ({
               style: {
                 stroke: `${theme.colors.border}40`,
                 strokeWidth: 1,
-                strokeDasharray: '5 10'
-              }
+                strokeDasharray: '5 10',
+              },
             });
           }
         }
@@ -300,11 +315,14 @@ const CityViewWithReactFlowInner: React.FC<CityViewWithReactFlowProps> = ({
   const [nodesState, , onNodesChange] = useNodesState(nodes);
   const [edgesState, , onEdgesChange] = useEdgesState(edges);
 
-  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    if (node.type === 'cellNode' && onCellClick) {
-      onCellClick(node.id);
-    }
-  }, [onCellClick]);
+  const onNodeClick = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      if (node.type === 'cellNode' && onCellClick) {
+        onCellClick(node.id);
+      }
+    },
+    [onCellClick],
+  );
 
   return (
     <div style={{ width: '100%', height: '100%', background: theme.colors.background }}>

@@ -19,7 +19,7 @@ const config: StorybookConfig = {
   docs: {
     autodocs: 'tag',
   },
-  viteFinal: async (config) => {
+  viteFinal: async config => {
     // Add alias for the local builder package
     config.resolve = config.resolve || {};
     config.resolve.alias = {

@@ -188,11 +188,11 @@ describe('GridLayoutManager', () => {
             files: ['src'],
             coordinates: [0, 0],
           },
-          'Tests': {
+          Tests: {
             files: ['tests'],
             coordinates: [0, 1],
           },
-          'Config': {
+          Config: {
             files: ['package.json'],
             coordinates: [1, 0],
           },
@@ -294,7 +294,7 @@ describe('GridLayoutManager', () => {
         category: 'test',
         displayOrder: 0,
         referenceGroups: {
-          'Source': {
+          Source: {
             files: ['src'],
             coordinates: [0, 0],
           },
@@ -339,7 +339,7 @@ describe('GridLayoutManager', () => {
         category: 'test',
         displayOrder: 0,
         referenceGroups: {
-          'Source': {
+          Source: {
             files: ['src'],
             coordinates: [0, 0],
           },
@@ -389,13 +389,13 @@ describe('GridLayoutManager', () => {
 
       const bounds = manager.calculateCellBounds(
         1000, // totalWidth
-        800,  // totalHeight
-        0,    // row
-        1,    // col
-        2,    // rows
-        2,    // cols
-        10,   // padding
-        config
+        800, // totalHeight
+        0, // row
+        1, // col
+        2, // rows
+        2, // cols
+        10, // padding
+        config,
       );
 
       expect(bounds.x).toBeGreaterThan(0);
@@ -427,13 +427,13 @@ describe('GridLayoutManager', () => {
 
       const bounds = manager.calculateCellBounds(
         1000, // totalWidth
-        800,  // totalHeight
-        0,    // row
-        0,    // col
-        1,    // rows
-        1,    // cols
-        10,   // padding
-        config
+        800, // totalHeight
+        0, // row
+        0, // col
+        1, // rows
+        1, // cols
+        10, // padding
+        config,
       );
 
       expect(bounds.labelBounds).toBeDefined();
