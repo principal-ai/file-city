@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+
+# Run principal view linting on staged .principal-views files
+npx @principal-ai/principal-view-cli lint --quiet

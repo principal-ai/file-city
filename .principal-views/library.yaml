@@ -1,0 +1,71 @@
+version: "1.0.0"
+name: "Code City Component Library"
+
+nodeComponents:
+  # Package types
+  package:
+    defaultLabel: "Package"
+    description: "A npm package in the monorepo"
+    shape: "rectangle"
+    color: "#3b82f6"
+
+  core-module:
+    defaultLabel: "Core Module"
+    description: "A core module/class within a package"
+    shape: "rectangle"
+    color: "#8b5cf6"
+
+  component:
+    defaultLabel: "React Component"
+    description: "A React UI component"
+    shape: "rectangle"
+    color: "#10b981"
+
+  hook:
+    defaultLabel: "React Hook"
+    description: "A React custom hook"
+    shape: "rectangle"
+    color: "#06b6d4"
+
+  utility:
+    defaultLabel: "Utility"
+    description: "Utility functions/helpers"
+    shape: "rectangle"
+    color: "#f59e0b"
+
+  type-def:
+    defaultLabel: "Type Definition"
+    description: "TypeScript type definitions"
+    shape: "rectangle"
+    color: "#ec4899"
+
+  external-dep:
+    defaultLabel: "External Dependency"
+    description: "External npm package dependency"
+    shape: "rectangle"
+    color: "#6b7280"
+
+edgeComponents:
+  depends-on:
+    label: "Depends On"
+    description: "Package/module dependency"
+    color: "#64748b"
+    directed: true
+
+  uses:
+    label: "Uses"
+    description: "Uses functionality from"
+    color: "#94a3b8"
+    directed: true
+
+  exports:
+    label: "Exports"
+    description: "Exports module/component"
+    color: "#22c55e"
+    directed: true
+
+  renders:
+    label: "Renders"
+    description: "React component renders"
+    color: "#3b82f6"
+    directed: true

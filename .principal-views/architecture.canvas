@@ -1,0 +1,446 @@
+{
+  "pv": {
+    "name": "Code City Architecture",
+    "version": "1.0.0"
+  },
+  "nodes": [
+    {
+      "id": "pkg-builder",
+      "type": "text",
+      "x": 925,
+      "y": 260,
+      "width": 250,
+      "height": 80,
+      "pv": {
+        "nodeType": "package",
+        "shape": "rectangle",
+        "description": "@principal-ai/code-city-builder - Core algorithms and data structures for code city visualization (v0.2.0)"
+      }
+    },
+    {
+      "id": "pkg-react",
+      "type": "text",
+      "x": 371,
+      "y": 58,
+      "width": 250,
+      "height": 80,
+      "pv": {
+        "nodeType": "package",
+        "shape": "rectangle",
+        "description": "@principal-ai/code-city-react - React components for interactive code city visualization (v0.2.1)"
+      }
+    },
+    {
+      "id": "pkg-server",
+      "type": "text",
+      "x": 1221,
+      "y": 58,
+      "width": 250,
+      "height": 80,
+      "pv": {
+        "nodeType": "package",
+        "shape": "rectangle",
+        "description": "@principal-ai/code-city-server - Server-side rendering utilities for code city visualization (v0.2.0)"
+      }
+    },
+    {
+      "id": "mod-multi-version-builder",
+      "type": "text",
+      "x": 536,
+      "y": 473,
+      "width": 200,
+      "height": 60,
+      "pv": {
+        "nodeType": "core-module",
+        "shape": "rectangle",
+        "description": "MultiVersionCityBuilder - Orchestrates multi-version city building with tree merging & presence tracking (packages/builder/src/MultiVersionCityBuilder.ts)"
+      }
+    },
+    {
+      "id": "mod-city-builder-grid",
+      "type": "text",
+      "x": 887,
+      "y": 688,
+      "width": 200,
+      "height": 60,
+      "pv": {
+        "nodeType": "core-module",
+        "shape": "rectangle",
+        "description": "CodeCityBuilderWithGrid - D3 treemap-based layout engine with grid support (packages/builder/src/CodeCityBuilderWithGrid.ts)"
+      }
+    },
+    {
+      "id": "mod-grid-layout-manager",
+      "type": "text",
+      "x": 880,
+      "y": 817,
+      "width": 180,
+      "height": 60,
+      "pv": {
+        "nodeType": "core-module",
+        "shape": "rectangle",
+        "description": "GridLayoutManager - Manages grid-based spatial organization (packages/builder/src/GridLayoutManager.ts)"
+      }
+    },
+    {
+      "id": "comp-architecture-map",
+      "type": "text",
+      "x": 324,
+      "y": 267,
+      "width": 220,
+      "height": 60,
+      "pv": {
+        "nodeType": "component",
+        "shape": "rectangle",
+        "description": "ArchitectureMapHighlightLayers - Main interactive map component with layer-based highlighting (packages/react/src/components/ArchitectureMapHighlightLayers.tsx)"
+      }
+    },
+    {
+      "id": "comp-city-view-reactflow",
+      "type": "text",
+      "x": 26,
+      "y": 267,
+      "width": 180,
+      "height": 60,
+      "pv": {
+        "nodeType": "component",
+        "shape": "rectangle",
+        "description": "CityViewWithReactFlow - ReactFlow-based interactive city view (packages/react/src/components/CityViewWithReactFlow.tsx)"
+      }
+    },
+    {
+      "id": "hook-use-code-city-data",
+      "type": "text",
+      "x": 68,
+      "y": 475,
+      "width": 160,
+      "height": 50,
+      "pv": {
+        "nodeType": "hook",
+        "shape": "rectangle",
+        "description": "useCodeCityData - Hook for managing city data state with build/filter capabilities (packages/react/src/hooks/useCodeCityData.ts)"
+      }
+    },
+    {
+      "id": "util-city-data-utils",
+      "type": "text",
+      "x": 324,
+      "y": 473,
+      "width": 140,
+      "height": 50,
+      "pv": {
+        "nodeType": "utility",
+        "shape": "rectangle",
+        "description": "cityDataUtils - Filtering, drilldown, multi-directory support utilities (packages/react/src/builder/cityDataUtils.ts)"
+      }
+    },
+    {
+      "id": "util-render-server",
+      "type": "text",
+      "x": 1493,
+      "y": 273,
+      "width": 140,
+      "height": 50,
+      "pv": {
+        "nodeType": "utility",
+        "shape": "rectangle",
+        "description": "renderUtils - Building/district canvas rendering with importance visualization (packages/server/src/render/renderUtils.ts)"
+      }
+    },
+    {
+      "id": "util-drawing-server",
+      "type": "text",
+      "x": 1490,
+      "y": 477,
+      "width": 140,
+      "height": 50,
+      "pv": {
+        "nodeType": "utility",
+        "shape": "rectangle",
+        "description": "drawingUtils - Canvas context creation and manipulation (packages/server/src/render/drawingUtils.ts)"
+      }
+    },
+    {
+      "id": "types-city-data",
+      "type": "text",
+      "x": 1328,
+      "y": 473,
+      "width": 140,
+      "height": 50,
+      "pv": {
+        "nodeType": "type-def",
+        "shape": "rectangle",
+        "description": "CityData Types - Core types: CityData, CityBuilding, CityDistrict, Bounds2D/3D (packages/builder/src/types/cityData.ts)"
+      }
+    },
+    {
+      "id": "ext-d3-hierarchy",
+      "type": "text",
+      "x": 1162,
+      "y": 473,
+      "width": 120,
+      "height": 50,
+      "pv": {
+        "nodeType": "external-dep",
+        "shape": "rectangle",
+        "description": "d3-hierarchy - Treemap layout algorithm"
+      }
+    },
+    {
+      "id": "ext-reactflow",
+      "type": "text",
+      "x": 539,
+      "y": 265,
+      "width": 120,
+      "height": 50,
+      "pv": {
+        "nodeType": "external-dep",
+        "shape": "rectangle",
+        "description": "reactflow - Interactive graph/flow visualization library"
+      }
+    },
+    {
+      "id": "ext-canvas",
+      "type": "text",
+      "x": 1226,
+      "y": 275,
+      "width": 100,
+      "height": 50,
+      "pv": {
+        "nodeType": "external-dep",
+        "shape": "rectangle",
+        "description": "canvas - Node.js server-side canvas rendering"
+      }
+    },
+    {
+      "id": "ext-alexandria",
+      "type": "text",
+      "x": 999,
+      "y": 473,
+      "width": 260,
+      "height": 50,
+      "pv": {
+        "nodeType": "external-dep",
+        "shape": "rectangle",
+        "description": "@principal-ai/alexandria-core-library - CodebaseView for grid layouts"
+      }
+    },
+    {
+      "id": "ext-repo-abstraction",
+      "type": "text",
+      "x": 775,
+      "y": 473,
+      "width": 260,
+      "height": 50,
+      "pv": {
+        "nodeType": "external-dep",
+        "shape": "rectangle",
+        "description": "@principal-ai/repository-abstraction - FileTree abstraction"
+      }
+    },
+    {
+      "id": "ext-industry-theme",
+      "type": "text",
+      "x": 694,
+      "y": 262,
+      "width": 200,
+      "height": 50,
+      "pv": {
+        "nodeType": "external-dep",
+        "shape": "rectangle",
+        "description": "@principal-ade/industry-theme - Consistent styling/theming"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-react-builder",
+      "fromNode": "pkg-react",
+      "toNode": "pkg-builder",
+      "label": "depends on",
+      "pv": {
+        "edgeType": "depends-on"
+      }
+    },
+    {
+      "id": "e-server-builder",
+      "fromNode": "pkg-server",
+      "toNode": "pkg-builder",
+      "label": "depends on",
+      "pv": {
+        "edgeType": "depends-on"
+      }
+    },
+    {
+      "id": "e-builder-d3",
+      "fromNode": "pkg-builder",
+      "toNode": "ext-d3-hierarchy",
+      "label": "uses",
+      "pv": {
+        "edgeType": "uses"
+      }
+    },
+    {
+      "id": "e-builder-alexandria",
+      "fromNode": "pkg-builder",
+      "toNode": "ext-alexandria",
+      "label": "uses",
+      "pv": {
+        "edgeType": "uses"
+      }
+    },
+    {
+      "id": "e-builder-repo",
+      "fromNode": "pkg-builder",
+      "toNode": "ext-repo-abstraction",
+      "label": "uses",
+      "pv": {
+        "edgeType": "uses"
+      }
+    },
+    {
+      "id": "e-react-reactflow",
+      "fromNode": "pkg-react",
+      "toNode": "ext-reactflow",
+      "label": "uses",
+      "pv": {
+        "edgeType": "uses"
+      }
+    },
+    {
+      "id": "e-react-theme",
+      "fromNode": "pkg-react",
+      "toNode": "ext-industry-theme",
+      "label": "uses",
+      "pv": {
+        "edgeType": "uses"
+      }
+    },
+    {
+      "id": "e-server-canvas",
+      "fromNode": "pkg-server",
+      "toNode": "ext-canvas",
+      "label": "uses",
+      "pv": {
+        "edgeType": "uses"
+      }
+    },
+    {
+      "id": "e-builder-exports-multi",
+      "fromNode": "pkg-builder",
+      "toNode": "mod-multi-version-builder",
+      "label": "exports",
+      "pv": {
+        "edgeType": "exports"
+      }
+    },
+    {
+      "id": "e-builder-exports-grid",
+      "fromNode": "pkg-builder",
+      "toNode": "mod-city-builder-grid",
+      "label": "exports",
+      "pv": {
+        "edgeType": "exports"
+      }
+    },
+    {
+      "id": "e-builder-exports-types",
+      "fromNode": "pkg-builder",
+      "toNode": "types-city-data",
+      "label": "exports",
+      "pv": {
+        "edgeType": "exports"
+      }
+    },
+    {
+      "id": "e-grid-uses-layout",
+      "fromNode": "mod-city-builder-grid",
+      "toNode": "mod-grid-layout-manager",
+      "label": "uses",
+      "pv": {
+        "edgeType": "uses"
+      }
+    },
+    {
+      "id": "e-multi-uses-grid",
+      "fromNode": "mod-multi-version-builder",
+      "toNode": "mod-city-builder-grid",
+      "label": "uses",
+      "pv": {
+        "edgeType": "uses"
+      }
+    },
+    {
+      "id": "e-react-exports-arch",
+      "fromNode": "pkg-react",
+      "toNode": "comp-architecture-map",
+      "label": "exports",
+      "pv": {
+        "edgeType": "exports"
+      }
+    },
+    {
+      "id": "e-react-exports-cityview",
+      "fromNode": "pkg-react",
+      "toNode": "comp-city-view-reactflow",
+      "label": "exports",
+      "pv": {
+        "edgeType": "exports"
+      }
+    },
+    {
+      "id": "e-react-exports-hook",
+      "fromNode": "pkg-react",
+      "toNode": "hook-use-code-city-data",
+      "label": "exports",
+      "pv": {
+        "edgeType": "exports"
+      }
+    },
+    {
+      "id": "e-comp-uses-hook",
+      "fromNode": "comp-architecture-map",
+      "toNode": "hook-use-code-city-data",
+      "label": "uses",
+      "pv": {
+        "edgeType": "uses"
+      }
+    },
+    {
+      "id": "e-comp-uses-utils",
+      "fromNode": "comp-architecture-map",
+      "toNode": "util-city-data-utils",
+      "label": "uses",
+      "pv": {
+        "edgeType": "uses"
+      }
+    },
+    {
+      "id": "e-server-exports-render",
+      "fromNode": "pkg-server",
+      "toNode": "util-render-server",
+      "label": "exports",
+      "pv": {
+        "edgeType": "exports"
+      }
+    },
+    {
+      "id": "e-server-exports-drawing",
+      "fromNode": "pkg-server",
+      "toNode": "util-drawing-server",
+      "label": "exports",
+      "pv": {
+        "edgeType": "exports"
+      }
+    },
+    {
+      "id": "e-render-uses-drawing",
+      "fromNode": "util-render-server",
+      "toNode": "util-drawing-server",
+      "label": "uses",
+      "pv": {
+        "edgeType": "uses"
+      }
+    }
+  ]
+}

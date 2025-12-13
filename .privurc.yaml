@@ -1,0 +1,31 @@
+# Principal View Configuration Lint Rules
+
+# File patterns to include
+include:
+  - ".principal-views/**/*.yaml"
+  - ".principal-views/**/*.yml"
+  - ".principal-views/**/*.canvas"
+
+# File patterns to exclude
+exclude:
+  - "**/node_modules/**"
+
+# Path to component library
+library: ".principal-views/library.yaml"
+
+# Rule configuration
+rules:
+  # Schema rules
+  no-unknown-fields: error
+  required-metadata: error
+  valid-node-types: warn
+  valid-edge-types: warn
+  valid-color-format: error
+
+  # Reference rules
+  connection-type-references: warn
+  state-transition-references: warn
+
+  # Structure rules
+  orphaned-node-types: warn
+  orphaned-edge-types: warn

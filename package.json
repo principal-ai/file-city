@@ -20,7 +20,8 @@
     "publish:react": "cd packages/react && npm publish --access restricted",
     "publish:server": "cd packages/server && npm publish --access restricted",
     "version:sync": "bun run version:set",
-    "version:set": "echo 'Setting version...' && bun scripts/sync-versions.js"
+    "version:set": "echo 'Setting version...' && bun scripts/sync-versions.js",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -30,6 +31,7 @@
     "eslint-config-prettier": "^9.1.2",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^4.6.2",
+    "husky": "^9.1.7",
     "prettier": "^2.8.8",
     "typescript": "^5.0.4"
   }

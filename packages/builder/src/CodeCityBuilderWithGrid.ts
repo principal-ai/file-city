@@ -702,10 +702,9 @@ export class CodeCityBuilderWithGrid {
           return d.weight || 1;
         }
         if (d.type === 'directory') {
-          // Give directories a meaningful value to ensure they get allocated space
-          // For directories that only contain subdirectories, this ensures they are visible
-          // Must be significant enough for D3 treemap to allocate space
-          return 1; // Increased from 0.1 to ensure visibility of directory-only structures
+          // Directories should not take space themselves - only their file children should
+          // Previously set to 1, but this created empty space at every directory level
+          return 0;
         }
         return 0;
       })
