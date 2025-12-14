@@ -30,6 +30,29 @@ interface D3HierarchyData {
   deepNestingBoost?: number;
 }
 
+// Cache entry for treemap results
+interface TreemapCacheEntry {
+  cityData: CityData;
+  createdAt: number;
+}
+
+// Options that affect cache key (layout-related only)
+interface CacheRelevantOptions {
+  padding?: number;
+  paddingOuter?: number;
+  paddingTop?: number;
+  paddingBottom?: number;
+  paddingLeft?: number;
+  paddingRight?: number;
+  paddingInner?: number;
+  round?: boolean;
+  maxNestingDepth?: number;
+  deepNestingStrategy?: string;
+  minimumBuildingSizeOverride?: boolean;
+  deepNestingSizeBoost?: number;
+  flattenThreshold?: number;
+}
+
 // File system complexity statistics
 interface FileSystemComplexityStats {
   totalFiles: number;
@@ -86,8 +109,130 @@ export class CodeCityBuilderWithGrid {
   private minBuildingSize: number = 4;
   private maxBuildingSize: number = 40;
 
-  constructor() {
+  // LRU cache for treemap results
+  private layoutCache: Map<string, TreemapCacheEntry> = new Map();
+  private readonly maxCacheSize: number;
+  private cacheHits: number = 0;
+  private cacheMisses: number = 0;
+
+  constructor(options?: { maxCacheSize?: number }) {
     // Removed theme and color parameters - these should be handled in the React layer
+    this.maxCacheSize = options?.maxCacheSize ?? 20;
+  }
+
+  /**
+   * Generate a cache key from file tree and options
+   * Uses a fast hash of the structural properties that affect layout
+   */
+  private generateCacheKey(
+    fileSystemTree: FileSystemTree,
+    rootPath: string,
+    options: TreemapOptions,
+  ): string {
+    // Extract only the options that affect treemap layout
+    const cacheRelevantOptions: CacheRelevantOptions = {
+      padding: options.padding,
+      paddingOuter: options.paddingOuter,
+      paddingTop: options.paddingTop,
+      paddingBottom: options.paddingBottom,
+      paddingLeft: options.paddingLeft,
+      paddingRight: options.paddingRight,
+      paddingInner: options.paddingInner,
+      round: options.round,
+      maxNestingDepth: options.maxNestingDepth,
+      deepNestingStrategy: options.deepNestingStrategy,
+      minimumBuildingSizeOverride: options.minimumBuildingSizeOverride,
+      deepNestingSizeBoost: options.deepNestingSizeBoost,
+      flattenThreshold: options.flattenThreshold,
+    };
+
+    // Build tree identity from multiple factors to ensure uniqueness
+    // For grid cells, metadata.id may be 'empty-cell' for all cells, so we need
+    // additional differentiators based on actual content
+    const statsKey = `${fileSystemTree.stats.totalFiles}:${fileSystemTree.stats.totalDirectories}:${fileSystemTree.stats.totalSize}`;
+
+    // Include top-level children names to differentiate grid cells with same stats
+    const childrenKey = fileSystemTree.root.children
+      .map(child => child.name)
+      .sort()
+      .join(',');
+
+    // Use metadata ID if it's meaningful (not 'empty-cell' from grid splitting)
+    const metadataId = fileSystemTree.metadata?.id;
+    const isGridCell = metadataId === 'empty-cell';
+
+    const treeIdentity = isGridCell
+      ? `grid:${statsKey}:${childrenKey}`
+      : metadataId
+        ? `${metadataId}:${fileSystemTree.metadata?.timestamp?.getTime() ?? 0}`
+        : `stats:${statsKey}:${childrenKey}`;
+
+    const optionsHash = JSON.stringify(cacheRelevantOptions);
+
+    return `${treeIdentity}|${rootPath}|${optionsHash}`;
+  }
+
+  /**
+   * Get cached result or undefined if not cached
+   */
+  private getCached(key: string): CityData | undefined {
+    const entry = this.layoutCache.get(key);
+    if (entry) {
+      this.cacheHits++;
+      // Move to end for LRU behavior (delete and re-add)
+      this.layoutCache.delete(key);
+      this.layoutCache.set(key, entry);
+      return entry.cityData;
+    }
+    this.cacheMisses++;
+    return undefined;
+  }
+
+  /**
+   * Store result in cache with LRU eviction
+   */
+  private setCached(key: string, cityData: CityData): void {
+    // Evict oldest entries if at capacity
+    while (this.layoutCache.size >= this.maxCacheSize) {
+      const oldestKey = this.layoutCache.keys().next().value;
+      if (oldestKey) {
+        this.layoutCache.delete(oldestKey);
+      }
+    }
+
+    this.layoutCache.set(key, {
+      cityData,
+      createdAt: Date.now(),
+    });
+  }
+
+  /**
+   * Clear all cached treemap results
+   */
+  public clearCache(): void {
+    this.layoutCache.clear();
+    this.cacheHits = 0;
+    this.cacheMisses = 0;
+  }
+
+  /**
+   * Get cache statistics for debugging/monitoring
+   */
+  public getCacheStats(): {
+    size: number;
+    maxSize: number;
+    hits: number;
+    misses: number;
+    hitRate: number;
+  } {
+    const total = this.cacheHits + this.cacheMisses;
+    return {
+      size: this.layoutCache.size,
+      maxSize: this.maxCacheSize,
+      hits: this.cacheHits,
+      misses: this.cacheMisses,
+      hitRate: total > 0 ? this.cacheHits / total : 0,
+    };
   }
 
   /**
@@ -480,12 +625,22 @@ export class CodeCityBuilderWithGrid {
   /**
    * Build city for a single grid cell using treemap layout
    * This is the core treemap implementation without grid splitting
+   *
+   * Results are cached based on file tree identity and layout options.
+   * Cache hits skip the expensive D3 treemap computation entirely.
    */
   private buildSingleCellCity(
     fileSystemTree: FileSystemTree,
     rootPath: string = '',
     options: TreemapOptions = {},
   ): CityData {
+    // Check cache first
+    const cacheKey = this.generateCacheKey(fileSystemTree, rootPath, options);
+    const cached = this.getCached(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const {
       padding = 4,
       paddingOuter = 8,
@@ -556,7 +711,7 @@ export class CodeCityBuilderWithGrid {
     // Post-process buildings to enforce minimum sizes for deeply nested items
     const finalBuildings = this.enforceMinimumBuildingSizes(buildings, options);
 
-    return {
+    const result: CityData = {
       buildings: finalBuildings,
       districts,
       bounds,
@@ -575,6 +730,11 @@ export class CodeCityBuilderWithGrid {
         },
       },
     };
+
+    // Cache the result before returning
+    this.setCached(cacheKey, result);
+
+    return result;
   }
 
   /**
