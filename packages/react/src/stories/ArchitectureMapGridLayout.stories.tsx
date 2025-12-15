@@ -3,7 +3,7 @@ import {
   CodeCityBuilderWithGrid,
   buildFileSystemTreeFromFileInfoList,
   CityData,
-} from '@principal-ai/code-city-builder';
+} from '@principal-ai/file-city-builder';
 
 import { ArchitectureMapHighlightLayers } from '../components/ArchitectureMapHighlightLayers';
 

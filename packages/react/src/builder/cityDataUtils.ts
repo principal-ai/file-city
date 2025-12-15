@@ -3,7 +3,7 @@ import {
   CityData,
   CityDistrict,
   SelectiveRenderOptions,
-} from '@principal-ai/code-city-builder';
+} from '@principal-ai/file-city-builder';
 
 // Utility functions for selective rendering
 export const filterCityDataForSelectiveRender = (

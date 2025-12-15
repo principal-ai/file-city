@@ -24,7 +24,7 @@ const config: StorybookConfig = {
     config.resolve = config.resolve || {};
     config.resolve.alias = {
       ...config.resolve.alias,
-      '@principal-ai/code-city-builder': resolve(__dirname, '../../builder/dist/index.js'),
+      '@principal-ai/file-city-builder': resolve(__dirname, '../../builder/dist/index.js'),
     };
     return config;
   },

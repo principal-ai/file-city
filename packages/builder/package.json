@@ -1,7 +1,7 @@
 {
-  "name": "@principal-ai/code-city-builder",
-  "version": "0.2.2",
-  "description": "Core algorithms and data structures for code city visualization",
+  "name": "@principal-ai/file-city-builder",
+  "version": "0.3.0",
+  "description": "Core algorithms and data structures for file city visualization",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",

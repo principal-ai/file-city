@@ -1,5 +1,5 @@
 {
-  "name": "code-city-monorepo",
+  "name": "file-city-monorepo",
   "private": true,
   "workspaces": [
     "packages/*"

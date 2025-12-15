@@ -1,4 +1,4 @@
-# @principal-ai/code-city-builder
+# @principal-ai/file-city-builder
 
 Core algorithms and data structures for generating code city visualizations.
 
@@ -11,7 +11,7 @@ This package provides the multi-version city builder functionality, which allows
 The primary export is `buildMultiVersionCity`:
 
 ```typescript
-import { buildMultiVersionCity } from '@principal-ai/code-city-builder';
+import { buildMultiVersionCity } from '@principal-ai/file-city-builder';
 import { FileTree } from '@principal-ai/repository-abstraction';
 
 // Create a map of version trees

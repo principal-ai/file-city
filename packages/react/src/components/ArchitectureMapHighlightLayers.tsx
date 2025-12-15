@@ -18,7 +18,7 @@ import {
   CityBuilding,
   CityDistrict,
   SelectiveRenderOptions,
-} from '@principal-ai/code-city-builder';
+} from '@principal-ai/file-city-builder';
 import { MapInteractionState, MapDisplayOptions } from '../types/react-types';
 
 const DEFAULT_DISPLAY_OPTIONS: MapDisplayOptions = {

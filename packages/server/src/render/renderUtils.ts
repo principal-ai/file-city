@@ -1,6 +1,6 @@
 import { CanvasRenderingContext2D } from 'canvas';
 import { BuildingTypeResolver } from '../types/buildingTypes';
-import { CityBuilding, CityDistrict } from '@principal-ai/code-city-builder';
+import { CityBuilding, CityDistrict } from '@principal-ai/file-city-builder';
 import { ImportanceConfig, DEFAULT_VISUAL_SETTINGS } from '../types/importanceTypes';
 import { ColorTheme, ColorFunction } from '../types/themes';
 import { calculateImportance, getStarCount, shouldShowImportance } from '../utils/importanceUtils';

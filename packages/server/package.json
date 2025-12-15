@@ -1,7 +1,7 @@
 {
-  "name": "@principal-ai/code-city-server",
-  "version": "0.2.0",
-  "description": "Server-side rendering utilities for Code City visualization",
+  "name": "@principal-ai/file-city-server",
+  "version": "0.3.0",
+  "description": "Server-side rendering utilities for File City visualization",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -10,7 +10,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@principal-ai/code-city-builder": "^0.2.0",
+    "@principal-ai/file-city-builder": "^0.3.0",
     "canvas": "^2.11.2"
   },
   "devDependencies": {
@@ -22,7 +22,7 @@
     "src"
   ],
   "keywords": [
-    "code-city",
+    "file-city",
     "visualization",
     "server",
     "canvas",

@@ -1,4 +1,4 @@
-import { CityData, CityBuilding, CityDistrict } from '@principal-ai/code-city-builder';
+import { CityData, CityBuilding, CityDistrict } from '@principal-ai/file-city-builder';
 
 // Helper function to create sample city data for stories
 export function createSampleCityData(): CityData {

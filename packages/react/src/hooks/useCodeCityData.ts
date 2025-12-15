@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { FileTree as FileSystemTree } from '@principal-ai/code-city-builder';
-import { MultiVersionCityBuilder, CityData } from '@principal-ai/code-city-builder';
+import { FileTree as FileSystemTree } from '@principal-ai/file-city-builder';
+import { MultiVersionCityBuilder, CityData } from '@principal-ai/file-city-builder';
 
 export interface UseCodeCityDataOptions {
   fileSystemTree?: FileSystemTree;

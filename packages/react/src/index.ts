@@ -42,17 +42,17 @@ export type {
   SelectiveRenderOptions,
   Bounds2D,
   Position3D,
-} from '@principal-ai/code-city-builder';
+} from '@principal-ai/file-city-builder';
 
 // Re-export MultiVersionCityBuilder which was requested
-export { MultiVersionCityBuilder } from '@principal-ai/code-city-builder';
+export { MultiVersionCityBuilder } from '@principal-ai/file-city-builder';
 
 // Export the useCodeCityData hook
 export { useCodeCityData } from './hooks/useCodeCityData';
 export type { UseCodeCityDataOptions, UseCodeCityDataReturn } from './hooks/useCodeCityData';
 
 // Re-export FileTree type for convenience
-export type { FileTree } from '@principal-ai/code-city-builder';
+export type { FileTree } from '@principal-ai/file-city-builder';
 
 // Export React Flow based city view component
 export {

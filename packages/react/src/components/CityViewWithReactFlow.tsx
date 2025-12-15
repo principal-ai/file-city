@@ -17,7 +17,7 @@ import 'reactflow/dist/style.css';
 import { useTheme } from '@principal-ade/industry-theme';
 import { FileTree } from '@principal-ai/repository-abstraction';
 import { CodebaseView } from '@principal-ai/alexandria-core-library';
-import { GridLayoutManager, CodeCityBuilderWithGrid } from '@principal-ai/code-city-builder';
+import { GridLayoutManager, CodeCityBuilderWithGrid } from '@principal-ai/file-city-builder';
 import { ArchitectureMapHighlightLayers } from './ArchitectureMapHighlightLayers';
 
 export interface CityViewWithReactFlowProps {

@@ -1,7 +1,7 @@
 // React-specific types for code city visualization
-// These extend the core types from @principal-ai/code-city-builder
+// These extend the core types from @principal-ai/file-city-builder
 
-import { CityBuilding, CityDistrict } from '@principal-ai/code-city-builder';
+import { CityBuilding, CityDistrict } from '@principal-ai/file-city-builder';
 
 export interface MapInteractionState {
   hoveredDistrict: CityDistrict | null;

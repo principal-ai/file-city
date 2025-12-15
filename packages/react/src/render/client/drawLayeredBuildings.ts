@@ -1,4 +1,4 @@
-import { CityBuilding, CityDistrict } from '@principal-ai/code-city-builder';
+import { CityBuilding, CityDistrict } from '@principal-ai/file-city-builder';
 
 // Layer types and interfaces
 export type LayerRenderStrategy =

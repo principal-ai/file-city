@@ -1,4 +1,4 @@
-// Server-side rendering utilities for Code City
+// Server-side rendering utilities for File City
 
 // Drawing utilities
 export { createDrawContext, clearCanvas, type DrawContext } from './render/drawingUtils';
@@ -12,4 +12,4 @@ export type { ImportanceConfig } from './types/importanceTypes';
 export type { ColorTheme, ColorFunction } from './types/themes';
 
 // Re-export types from builder for convenience
-export type { CityData, CityBuilding, CityDistrict } from '@principal-ai/code-city-builder';
+export type { CityData, CityBuilding, CityDistrict } from '@principal-ai/file-city-builder';

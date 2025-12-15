@@ -1,6 +1,6 @@
 {
   "pv": {
-    "name": "Code City Architecture",
+    "name": "File City Architecture",
     "version": "1.0.0"
   },
   "nodes": [
@@ -14,7 +14,7 @@
       "pv": {
         "nodeType": "package",
         "shape": "rectangle",
-        "description": "@principal-ai/code-city-builder - Core algorithms and data structures for code city visualization (v0.2.0)"
+        "description": "@principal-ai/file-city-builder - Core algorithms and data structures for code city visualization (v0.2.0)"
       }
     },
     {
@@ -27,7 +27,7 @@
       "pv": {
         "nodeType": "package",
         "shape": "rectangle",
-        "description": "@principal-ai/code-city-react - React components for interactive code city visualization (v0.2.1)"
+        "description": "@principal-ai/file-city-react - React components for interactive code city visualization (v0.2.1)"
       }
     },
     {
@@ -40,7 +40,7 @@
       "pv": {
         "nodeType": "package",
         "shape": "rectangle",
-        "description": "@principal-ai/code-city-server - Server-side rendering utilities for code city visualization (v0.2.0)"
+        "description": "@principal-ai/file-city-server - Server-side rendering utilities for code city visualization (v0.2.0)"
       }
     },
     {
@@ -109,7 +109,7 @@
       }
     },
     {
-      "id": "hook-use-code-city-data",
+      "id": "hook-use-file-city-data",
       "type": "text",
       "x": 68,
       "y": 475,
@@ -391,7 +391,7 @@
     {
       "id": "e-react-exports-hook",
       "fromNode": "pkg-react",
-      "toNode": "hook-use-code-city-data",
+      "toNode": "hook-use-file-city-data",
       "label": "exports",
       "pv": {
         "edgeType": "exports"
@@ -400,7 +400,7 @@
     {
       "id": "e-comp-uses-hook",
       "fromNode": "comp-architecture-map",
-      "toNode": "hook-use-code-city-data",
+      "toNode": "hook-use-file-city-data",
       "label": "uses",
       "pv": {
         "edgeType": "uses"

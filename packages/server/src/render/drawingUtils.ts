@@ -1,4 +1,4 @@
-import { CityData } from '@principal-ai/code-city-builder';
+import { CityData } from '@principal-ai/file-city-builder';
 
 export interface DrawContext {
   ctx: CanvasRenderingContext2D;
