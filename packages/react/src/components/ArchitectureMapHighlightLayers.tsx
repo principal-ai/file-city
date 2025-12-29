@@ -50,6 +50,7 @@ export interface ArchitectureMapHighlightLayersProps {
   zoomToPath?: string | null; // When set, animates zoom to frame this directory/file
   onZoomComplete?: () => void; // Called when zoom animation completes
   zoomAnimationSpeed?: number; // Animation easing factor (0-1), default 0.12
+  allowZoomToPath?: boolean; // Allow programmatic zoomToPath even when enableZoom is false (default: true)
 
   // Display options
   fullSize?: boolean;
@@ -195,6 +196,78 @@ class SpatialGrid {
   }
 }
 
+/**
+ * Hierarchical path lookup for O(depth) containment checks instead of O(A) iteration.
+ * Given a set of abstracted paths, efficiently checks if a path is contained within any of them.
+ */
+class PathHierarchyLookup {
+  private abstractedPaths: Set<string>;
+
+  constructor(paths: Set<string> | string[]) {
+    this.abstractedPaths = paths instanceof Set ? paths : new Set(paths);
+  }
+
+  /**
+   * Check if the given path is inside any abstracted directory.
+   * Walks up the path hierarchy checking each ancestor.
+   * Complexity: O(depth) where depth is the path depth, instead of O(A) for each abstracted path.
+   */
+  isPathAbstracted(path: string): boolean {
+    // Check for root abstraction
+    if (this.abstractedPaths.has('')) {
+      return true;
+    }
+
+    // Walk up the path hierarchy
+    let currentPath = path;
+    while (currentPath.includes('/')) {
+      currentPath = currentPath.substring(0, currentPath.lastIndexOf('/'));
+      if (this.abstractedPaths.has(currentPath)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if the path is a direct child of an abstracted directory
+   * (the path itself is abstracted, not just its ancestors).
+   */
+  isDirectlyAbstracted(path: string): boolean {
+    return this.abstractedPaths.has(path);
+  }
+
+  /**
+   * Check if the path is a child (not itself) of any abstracted directory.
+   */
+  isChildOfAbstracted(path: string): boolean {
+    if (!path) return false;
+
+    // Check for root abstraction first
+    if (this.abstractedPaths.has('')) {
+      return true;
+    }
+
+    // Check each abstracted path to see if this path starts with it
+    for (const abstractedPath of this.abstractedPaths) {
+      if (abstractedPath && path.startsWith(abstractedPath + '/')) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  get size(): number {
+    return this.abstractedPaths.size;
+  }
+
+  has(path: string): boolean {
+    return this.abstractedPaths.has(path);
+  }
+}
+
 interface HitTestCache {
   spatialGrid: SpatialGrid;
   transformParams: {
@@ -206,6 +279,7 @@ interface HitTestCache {
     zoomOffsetY: number;
   };
   abstractedPaths: Set<string>;
+  pathLookup: PathHierarchyLookup;
   timestamp: number;
 }
 
@@ -221,6 +295,7 @@ function ArchitectureMapHighlightLayersInner({
   zoomToPath = null,
   onZoomComplete,
   zoomAnimationSpeed = 0.12,
+  allowZoomToPath = true,
   fullSize = false,
   showGrid = false,
   showFileNames = false,
@@ -272,22 +347,37 @@ function ArchitectureMapHighlightLayersInner({
     offsetY: number;
   } | null>(null);
 
+  // Stable zoom scale - only updates when animation completes or user stops zooming
+  // Used for expensive calculations that shouldn't run every frame
+  const [stableZoomScale, setStableZoomScale] = useState(1);
+  const stableZoomTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Track if we're currently animating
+  const isAnimating = targetZoom !== null;
+
   // Track the last zoomToPath to detect changes
   const lastZoomToPathRef = useRef<string | null>(null);
 
   useEffect(() => {
+    // Reset user interaction state when enableZoom is disabled
     if (!enableZoom) {
+      setZoomState(prev => ({
+        ...prev,
+        isDragging: false,
+        hasMouseMoved: false,
+      }));
+    }
+    // Only reset zoom position when both user zoom AND programmatic zoom are disabled
+    if (!enableZoom && !allowZoomToPath) {
       setZoomState(prev => ({
         ...prev,
         scale: 1,
         offsetX: 0,
         offsetY: 0,
-        isDragging: false,
-        hasMouseMoved: false,
       }));
       setTargetZoom(null);
     }
-  }, [enableZoom]);
+  }, [enableZoom, allowZoomToPath]);
 
   // Animation loop for smooth zoom transitions
   useEffect(() => {
@@ -331,6 +421,39 @@ function ArchitectureMapHighlightLayersInner({
     const frameId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(frameId);
   }, [targetZoom, zoomState, zoomAnimationSpeed, onZoomComplete]);
+
+  // Update stable zoom scale with debouncing
+  // This ensures expensive calculations only run when zoom stabilizes
+  useEffect(() => {
+    // Clear any pending timeout
+    if (stableZoomTimeoutRef.current) {
+      clearTimeout(stableZoomTimeoutRef.current);
+    }
+
+    // If animating, wait for animation to complete
+    if (isAnimating) {
+      return;
+    }
+
+    // Debounce the stable zoom update (100ms after last zoom change)
+    stableZoomTimeoutRef.current = setTimeout(() => {
+      setStableZoomScale(zoomState.scale);
+    }, 100);
+
+    return () => {
+      if (stableZoomTimeoutRef.current) {
+        clearTimeout(stableZoomTimeoutRef.current);
+      }
+    };
+  }, [zoomState.scale, isAnimating]);
+
+  // Immediately update stable zoom when animation completes
+  useEffect(() => {
+    if (!isAnimating && targetZoom === null) {
+      // Animation just completed, update stable zoom immediately
+      setStableZoomScale(zoomState.scale);
+    }
+  }, [isAnimating, targetZoom, zoomState.scale]);
 
   const [hitTestCache, setHitTestCache] = useState<HitTestCache | null>(null);
 
@@ -393,8 +516,8 @@ function ArchitectureMapHighlightLayersInner({
 
   // Handle zoomToPath changes - calculate target zoom to frame the specified path
   useEffect(() => {
-    // Skip if zoom is not enabled or path hasn't changed
-    if (!enableZoom || zoomToPath === lastZoomToPathRef.current) {
+    // Skip if programmatic zoom is not allowed or path hasn't changed
+    if (!allowZoomToPath || zoomToPath === lastZoomToPathRef.current) {
       return;
     }
 
@@ -498,7 +621,7 @@ function ArchitectureMapHighlightLayersInner({
     });
   }, [
     zoomToPath,
-    enableZoom,
+    allowZoomToPath,
     filteredCityData,
     canvasSizingData,
     canvasSize,
@@ -523,21 +646,12 @@ function ArchitectureMapHighlightLayersInner({
       abstractedPaths: Set<string>,
     ): HitTestCache => {
       const spatialGrid = new SpatialGrid(cityData.bounds);
+      const pathLookup = new PathHierarchyLookup(abstractedPaths);
 
       // Only add visible buildings to spatial grid
+      // Use PathHierarchyLookup for O(depth) checks instead of O(A) iteration
       cityData.buildings.forEach(building => {
-        // Check if this building is inside any abstracted directory
-        let currentPath = building.path;
-        let isAbstracted = false;
-        while (currentPath.includes('/')) {
-          currentPath = currentPath.substring(0, currentPath.lastIndexOf('/'));
-          if (abstractedPaths.has(currentPath)) {
-            isAbstracted = true;
-            break;
-          }
-        }
-
-        if (!isAbstracted) {
+        if (!pathLookup.isPathAbstracted(building.path)) {
           spatialGrid.addBuilding(building);
         }
       });
@@ -552,15 +666,7 @@ function ArchitectureMapHighlightLayersInner({
         // For hit testing, we need to include abstracted districts too
         // because they have visual covers that users can click on.
         // Only skip children of abstracted directories.
-        let isChildOfAbstracted = false;
-        for (const abstractedPath of abstractedPaths) {
-          if (abstractedPath && district.path.startsWith(abstractedPath + '/')) {
-            isChildOfAbstracted = true;
-            break;
-          }
-        }
-
-        if (!isChildOfAbstracted) {
+        if (!pathLookup.isChildOfAbstracted(district.path)) {
           spatialGrid.addDistrict(district);
         }
       });
@@ -576,6 +682,7 @@ function ArchitectureMapHighlightLayersInner({
           zoomOffsetY: zoomState.offsetY,
         },
         abstractedPaths,
+        pathLookup,
         timestamp: Date.now(),
       };
     },
@@ -651,8 +758,9 @@ function ArchitectureMapHighlightLayersInner({
     const config = abstractionLayerDef.abstractionConfig;
 
     // Disable abstraction when zoomed in beyond a certain threshold
+    // Use stableZoomScale to avoid recalculating during animation
     const maxZoomForAbstraction = config?.maxZoomLevel ?? 5.0;
-    if (zoomState.scale > maxZoomForAbstraction) {
+    if (stableZoomScale > maxZoomForAbstraction) {
       return null; // No abstractions when zoomed in
     }
 
@@ -675,7 +783,8 @@ function ArchitectureMapHighlightLayersInner({
         displayOptions.padding,
       );
 
-      const totalScale = scale * zoomState.scale;
+      // Use stableZoomScale for abstraction calculation to avoid recalculating during animation
+      const totalScale = scale * stableZoomScale;
 
       // Get all highlighted paths from enabled layers
       const highlightedPaths = new Set<string>();
@@ -873,7 +982,7 @@ function ArchitectureMapHighlightLayersInner({
     filteredCityData,
     canvasSize,
     displayOptions.padding,
-    zoomState.scale,
+    stableZoomScale, // Use stable zoom scale instead of live zoomState.scale
     subdirectoryMode,
     cityData,
     allLayersWithoutAbstraction,
@@ -895,6 +1004,10 @@ function ArchitectureMapHighlightLayersInner({
   }, [stableLayers, dynamicLayers, abstractionLayer]);
 
   // Update hit test cache when geometry or abstraction changes
+  // Note: We don't depend on zoomState here because:
+  // 1. The spatial grid only depends on buildings/districts and abstraction
+  // 2. performHitTest calculates coordinates using the current zoomState directly
+  // 3. This avoids expensive cache rebuilds during zoom animation
   useEffect(() => {
     if (!filteredCityData) return;
 
@@ -917,12 +1030,22 @@ function ArchitectureMapHighlightLayersInner({
       });
     }
 
+    // Pass a stable zoom state for cache metadata (not used for coordinate calculations)
+    const stableZoomState = {
+      scale: stableZoomScale,
+      offsetX: 0,
+      offsetY: 0,
+      isDragging: false,
+      lastMousePos: { x: 0, y: 0 },
+      hasMouseMoved: false,
+    };
+
     const newCache = buildHitTestCache(
       filteredCityData,
       scale,
       offsetX,
       offsetZ,
-      zoomState,
+      stableZoomState,
       abstractedPaths,
     );
     setHitTestCache(newCache);
@@ -930,7 +1053,7 @@ function ArchitectureMapHighlightLayersInner({
     filteredCityData,
     canvasSize,
     displayOptions.padding,
-    zoomState,
+    stableZoomScale, // Only rebuild when zoom stabilizes
     buildHitTestCache,
     abstractionLayer,
   ]);
@@ -994,12 +1117,15 @@ function ArchitectureMapHighlightLayersInner({
       });
     }
 
+    // Create PathHierarchyLookup for O(depth) containment checks
+    const pathLookup = new PathHierarchyLookup(abstractedPathsForDistricts);
+
     // Keep abstracted districts (for covers) but filter out their children
     let visibleDistricts =
-      abstractedPathsForDistricts.size > 0
+      pathLookup.size > 0
         ? filteredCityData.districts.filter(district => {
             // Check for root abstraction first
-            if (abstractedPathsForDistricts.has('')) {
+            if (pathLookup.has('')) {
               // If root is abstracted, only show root district
               return !district.path || district.path === '';
             }
@@ -1007,18 +1133,12 @@ function ArchitectureMapHighlightLayersInner({
             if (!district.path) return true; // Keep root
 
             // Keep the abstracted district itself (we need it for the cover)
-            if (abstractedPathsForDistricts.has(district.path)) {
+            if (pathLookup.has(district.path)) {
               return true;
             }
 
-            // Filter out children of abstracted directories
-            for (const abstractedPath of abstractedPathsForDistricts) {
-              if (district.path.startsWith(abstractedPath + '/')) {
-                return false; // Skip child of abstracted directory
-              }
-            }
-
-            return true;
+            // Filter out children of abstracted directories using O(depth) lookup
+            return !pathLookup.isChildOfAbstracted(district.path);
           })
         : filteredCityData.districts;
 
@@ -1055,66 +1175,15 @@ function ArchitectureMapHighlightLayersInner({
       districtBorderRadius,
     );
 
-    // Get abstracted directory paths for filtering from the actual layers being rendered
-    const abstractedPaths = new Set<string>();
-    const activeAbstractionLayer = allLayers.find(l => l.id === 'directory-abstraction');
-    if (activeAbstractionLayer && activeAbstractionLayer.enabled) {
-      activeAbstractionLayer.items.forEach(item => {
-        if (item.type === 'directory') {
-          abstractedPaths.add(item.path);
-        }
-      });
-    }
-
     // Filter out buildings that are in abstracted directories
+    // Reuse the pathLookup created earlier for O(depth) containment checks
     const visibleBuildings =
-      abstractedPaths.size > 0
+      pathLookup.size > 0
         ? filteredCityData.buildings.filter(building => {
-            // Check for root abstraction first
-            if (abstractedPaths.has('')) {
-              // If root is abstracted, hide all buildings
-              return false;
-            }
-
-            const buildingDir = building.path.substring(0, building.path.lastIndexOf('/')) || '';
-
-            // Simple direct check first
-            for (const abstractedPath of abstractedPaths) {
-              if (buildingDir === abstractedPath) {
-                return false;
-              }
-              // Also check if building is in a subdirectory of abstracted path
-              if (buildingDir.startsWith(abstractedPath + '/')) {
-                return false;
-              }
-            }
-
-            return true;
+            // Use PathHierarchyLookup for efficient O(depth) check
+            return !pathLookup.isPathAbstracted(building.path);
           })
         : filteredCityData.buildings;
-
-    // Log only if we see buildings that should have been filtered
-    if (abstractedPaths.size > 0) {
-      const suspiciousBuildings = visibleBuildings.filter(building => {
-        const buildingDir = building.path.substring(0, building.path.lastIndexOf('/')) || '';
-        // Check if this building's parent is visually covered
-        for (const abstractedPath of abstractedPaths) {
-          if (buildingDir === abstractedPath || buildingDir.startsWith(abstractedPath + '/')) {
-            return true;
-          }
-        }
-        return false;
-      });
-
-      if (suspiciousBuildings.length > 0) {
-        console.error(
-          `[Building Filter] WARNING: ${suspiciousBuildings.length} buildings are being rendered in abstracted directories!`,
-        );
-        suspiciousBuildings.slice(0, 3).forEach(building => {
-          console.error(`  - ${building.path}`);
-        });
-      }
-    }
 
     // Draw buildings with layer support
     drawLayeredBuildings(

@@ -311,6 +311,166 @@ export const WithBorderRadius: Story = {
   },
 };
 
+// Story with programmatic zoom only (no user interaction)
+// Demonstrates allowZoomToPath={true} with enableZoom={false}
+export const ProgrammaticZoomOnly: Story = {
+  render: function RenderProgrammaticZoomOnly() {
+    const [zoomToPath, setZoomToPath] = useState<string | null>(null);
+    const [isAnimating, setIsAnimating] = useState(false);
+    const cityData = createSampleCityData();
+
+    // Get unique top-level directories for navigation buttons
+    const topLevelDirs = Array.from(
+      new Set(
+        cityData.districts
+          .map(d => d.path.split('/')[0])
+          .filter(Boolean),
+      ),
+    ).sort();
+
+    const handleZoomTo = (path: string | null) => {
+      setIsAnimating(true);
+      setZoomToPath(path);
+    };
+
+    const handleZoomComplete = () => {
+      setIsAnimating(false);
+    };
+
+    // Create highlight layer for the focused directory
+    const highlightLayers: HighlightLayer[] = zoomToPath
+      ? [
+          {
+            id: 'zoom-focus',
+            name: 'Zoom Focus',
+            enabled: true,
+            color: '#10b981',
+            priority: 1,
+            items: [{ path: zoomToPath, type: 'directory' }],
+          },
+        ]
+      : [];
+
+    return (
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <ArchitectureMapHighlightLayers
+          cityData={cityData}
+          fullSize={true}
+          enableZoom={false} // User interactions disabled
+          allowZoomToPath={true} // But programmatic zoom works (this is the default)
+          zoomToPath={zoomToPath}
+          onZoomComplete={handleZoomComplete}
+          zoomAnimationSpeed={0.1}
+          highlightLayers={highlightLayers}
+        />
+        {/* Navigation Controls */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 20,
+            left: 20,
+            zIndex: 100,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            padding: '16px',
+            borderRadius: '8px',
+            maxWidth: '220px',
+          }}
+        >
+          <div
+            style={{
+              color: '#10b981',
+              fontFamily: 'monospace',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              marginBottom: '4px',
+            }}
+          >
+            Programmatic Zoom Only
+          </div>
+          <div
+            style={{
+              color: '#9ca3af',
+              fontFamily: 'monospace',
+              fontSize: '10px',
+              marginBottom: '8px',
+            }}
+          >
+            enableZoom=false, allowZoomToPath=true
+            <br />
+            (Try scroll/drag - they won't work)
+          </div>
+
+          {/* Reset button */}
+          <button
+            onClick={() => handleZoomTo(null)}
+            disabled={isAnimating}
+            style={{
+              padding: '8px 12px',
+              backgroundColor: zoomToPath === null ? '#10b981' : '#374151',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: isAnimating ? 'not-allowed' : 'pointer',
+              fontFamily: 'monospace',
+              fontSize: '12px',
+              opacity: isAnimating ? 0.6 : 1,
+            }}
+          >
+            Reset View
+          </button>
+
+          {/* Directory buttons */}
+          {topLevelDirs.map(dir => (
+            <button
+              key={dir}
+              onClick={() => handleZoomTo(dir)}
+              disabled={isAnimating}
+              style={{
+                padding: '8px 12px',
+                backgroundColor: zoomToPath === dir ? '#10b981' : '#374151',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: isAnimating ? 'not-allowed' : 'pointer',
+                fontFamily: 'monospace',
+                fontSize: '12px',
+                textAlign: 'left',
+                opacity: isAnimating ? 0.6 : 1,
+              }}
+            >
+              {dir}
+            </button>
+          ))}
+        </div>
+
+        {/* Status info */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 20,
+            left: 20,
+            zIndex: 100,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            padding: '12px',
+            borderRadius: '8px',
+            color: 'white',
+            fontFamily: 'monospace',
+            fontSize: '11px',
+          }}
+        >
+          <div>Zoomed to: {zoomToPath || '(root)'}</div>
+          <div style={{ color: '#9ca3af', marginTop: '4px' }}>
+            {isAnimating ? 'Animating...' : 'Use buttons to navigate'}
+          </div>
+        </div>
+      </div>
+    );
+  },
+};
+
 // Story with animated zoom to directory
 export const AnimatedZoomToDirectory: Story = {
   render: function RenderAnimatedZoom() {
