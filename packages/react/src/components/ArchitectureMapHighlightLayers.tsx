@@ -358,6 +358,10 @@ function ArchitectureMapHighlightLayersInner({
   // Track the last zoomToPath to detect changes
   const lastZoomToPathRef = useRef<string | null>(null);
 
+  // Throttle ref for hover updates (improves performance with large datasets)
+  const lastHoverUpdateRef = useRef<number>(0);
+  const HOVER_THROTTLE_MS = 16; // ~60fps max for hover updates
+
   useEffect(() => {
     // Reset user interaction state when enableZoom is disabled
     if (!enableZoom) {
@@ -1003,6 +1007,70 @@ function ArchitectureMapHighlightLayersInner({
     return layers;
   }, [stableLayers, dynamicLayers, abstractionLayer]);
 
+  // Memoize abstracted paths lookup - only recalculates when abstraction layer changes
+  const { abstractedPathsSet, abstractedPathLookup } = useMemo(() => {
+    const pathsSet = new Set<string>();
+    const abstractionLayerDef = allLayers.find(l => l.id === 'directory-abstraction');
+    if (abstractionLayerDef && abstractionLayerDef.enabled) {
+      abstractionLayerDef.items.forEach(item => {
+        if (item.type === 'directory') {
+          pathsSet.add(item.path);
+        }
+      });
+    }
+    return {
+      abstractedPathsSet: pathsSet,
+      abstractedPathLookup: new PathHierarchyLookup(pathsSet),
+    };
+  }, [allLayers]);
+
+  // Memoize visible districts - only recalculates when data or abstraction changes, NOT on hover
+  const visibleDistrictsMemo = useMemo(() => {
+    if (!filteredCityData) return [];
+
+    let districts =
+      abstractedPathLookup.size > 0
+        ? filteredCityData.districts.filter(district => {
+            // Check for root abstraction first
+            if (abstractedPathLookup.has('')) {
+              return !district.path || district.path === '';
+            }
+            if (!district.path) return true;
+            if (abstractedPathLookup.has(district.path)) return true;
+            return !abstractedPathLookup.isChildOfAbstracted(district.path);
+          })
+        : filteredCityData.districts;
+
+    // If root is abstracted and there's no root district, create one for the cover
+    if (abstractedPathsSet.has('')) {
+      const hasRootDistrict = districts.some(d => !d.path || d.path === '');
+      if (!hasRootDistrict) {
+        districts = [
+          {
+            path: '',
+            worldBounds: filteredCityData.bounds,
+            fileCount: filteredCityData.buildings.length,
+            type: 'directory' as const,
+          },
+          ...districts,
+        ];
+      }
+    }
+
+    return districts;
+  }, [filteredCityData, abstractedPathLookup, abstractedPathsSet]);
+
+  // Memoize visible buildings - only recalculates when data or abstraction changes, NOT on hover
+  const visibleBuildingsMemo = useMemo(() => {
+    if (!filteredCityData) return [];
+
+    return abstractedPathLookup.size > 0
+      ? filteredCityData.buildings.filter(building => {
+          return !abstractedPathLookup.isPathAbstracted(building.path);
+        })
+      : filteredCityData.buildings;
+  }, [filteredCityData, abstractedPathLookup]);
+
   // Update hit test cache when geometry or abstraction changes
   // Note: We don't depend on zoomState here because:
   // 1. The spatial grid only depends on buildings/districts and abstraction
@@ -1106,63 +1174,11 @@ function ArchitectureMapHighlightLayersInner({
         zoomState.offsetY,
     });
 
-    // Get abstracted paths for filtering child districts
-    const abstractedPathsForDistricts = new Set<string>();
-    const abstractionLayerForDistricts = allLayers.find(l => l.id === 'directory-abstraction');
-    if (abstractionLayerForDistricts && abstractionLayerForDistricts.enabled) {
-      abstractionLayerForDistricts.items.forEach(item => {
-        if (item.type === 'directory') {
-          abstractedPathsForDistricts.add(item.path);
-        }
-      });
-    }
-
-    // Create PathHierarchyLookup for O(depth) containment checks
-    const pathLookup = new PathHierarchyLookup(abstractedPathsForDistricts);
-
-    // Keep abstracted districts (for covers) but filter out their children
-    let visibleDistricts =
-      pathLookup.size > 0
-        ? filteredCityData.districts.filter(district => {
-            // Check for root abstraction first
-            if (pathLookup.has('')) {
-              // If root is abstracted, only show root district
-              return !district.path || district.path === '';
-            }
-
-            if (!district.path) return true; // Keep root
-
-            // Keep the abstracted district itself (we need it for the cover)
-            if (pathLookup.has(district.path)) {
-              return true;
-            }
-
-            // Filter out children of abstracted directories using O(depth) lookup
-            return !pathLookup.isChildOfAbstracted(district.path);
-          })
-        : filteredCityData.districts;
-
-    // If root is abstracted and there's no root district, create one for the cover
-    if (abstractedPathsForDistricts.has('')) {
-      const hasRootDistrict = visibleDistricts.some(d => !d.path || d.path === '');
-
-      if (!hasRootDistrict) {
-        visibleDistricts = [
-          {
-            path: '',
-            worldBounds: filteredCityData.bounds,
-            fileCount: filteredCityData.buildings.length, // Total file count
-            type: 'directory',
-          },
-          ...visibleDistricts,
-        ];
-      }
-    }
-
+    // Use memoized visible districts and buildings (pre-filtered, doesn't recalculate on hover)
     // Draw districts with layer support
     drawLayeredDistricts(
       ctx,
-      visibleDistricts,
+      visibleDistrictsMemo,
       worldToCanvas,
       scale * zoomState.scale,
       allLayers,
@@ -1170,25 +1186,15 @@ function ArchitectureMapHighlightLayersInner({
       fullSize,
       resolvedDefaultDirectoryColor,
       filteredCityData.metadata.layoutConfig,
-      abstractedPathsForDistricts, // Pass abstracted paths to skip labels
+      abstractedPathsSet, // Pass abstracted paths to skip labels
       showDirectoryLabels,
       districtBorderRadius,
     );
 
-    // Filter out buildings that are in abstracted directories
-    // Reuse the pathLookup created earlier for O(depth) containment checks
-    const visibleBuildings =
-      pathLookup.size > 0
-        ? filteredCityData.buildings.filter(building => {
-            // Use PathHierarchyLookup for efficient O(depth) check
-            return !pathLookup.isPathAbstracted(building.path);
-          })
-        : filteredCityData.buildings;
-
     // Draw buildings with layer support
     drawLayeredBuildings(
       ctx,
-      visibleBuildings,
+      visibleBuildingsMemo,
       worldToCanvas,
       scale * zoomState.scale,
       allLayers,
@@ -1229,6 +1235,10 @@ function ArchitectureMapHighlightLayersInner({
     resolvedDefaultBuildingColor,
     districtBorderRadius,
     showFileTypeIcons,
+    // Memoized values for performance (don't recalculate on hover)
+    visibleDistrictsMemo,
+    visibleBuildingsMemo,
+    abstractedPathsSet,
   ]);
 
   // Optimized hit testing
@@ -1405,6 +1415,13 @@ function ArchitectureMapHighlightLayersInner({
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       if (!canvasRef.current || !containerRef.current || !filteredCityData || zoomState.isDragging)
         return;
+
+      // Throttle hover updates to improve performance with large datasets
+      const now = performance.now();
+      if (now - lastHoverUpdateRef.current < HOVER_THROTTLE_MS) {
+        return;
+      }
+      lastHoverUpdateRef.current = now;
 
       // Get the container rect for mouse position
       const containerRect = containerRef.current.getBoundingClientRect();
