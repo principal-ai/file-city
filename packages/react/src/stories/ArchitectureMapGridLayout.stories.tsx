@@ -1,3 +1,4 @@
+import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import {
   CodeCityBuilderWithGrid,
@@ -24,7 +25,7 @@ interface CodebaseView {
   name: string;
   description: string;
   overviewPath: string;
-  cells: {
+  referenceGroups: {
     [key: string]: {
       files: string[];
       coordinates: [number, number];
@@ -144,7 +145,7 @@ export const DefaultsTest: Story = {
       name: 'Test Default UI Settings',
       description: 'Tests default UI metadata settings when none are provided',
       overviewPath: 'README.md',
-      cells: {
+      referenceGroups: {
         Source: {
           files: ['src', 'lib'],
           coordinates: [0, 0],
@@ -181,7 +182,7 @@ export const TwoByTwoGrid: Story = {
       name: 'Two by Two Grid Layout',
       description: 'A 2x2 grid layout organizing code into four quadrants',
       overviewPath: 'README.md',
-      cells: {
+      referenceGroups: {
         Source: {
           files: ['src', 'lib'],
           coordinates: [0, 0],
@@ -227,7 +228,7 @@ export const ThreeByThreeGrid: Story = {
       name: 'Three by Three Grid Layout',
       description: 'A 3x3 grid layout for more granular organization',
       overviewPath: 'README.md',
-      cells: {
+      referenceGroups: {
         Source: {
           files: ['src'],
           coordinates: [0, 0],
@@ -281,7 +282,7 @@ export const SparseGrid: Story = {
       name: 'Sparse Grid Layout',
       description: 'A grid with intentional gaps for visual organization',
       overviewPath: 'README.md',
-      cells: {
+      referenceGroups: {
         Source: {
           files: ['src', 'lib'],
           coordinates: [0, 0],
@@ -315,7 +316,7 @@ export const GridWithHighlights: Story = {
       name: 'Grid with Highlights',
       description: 'Grid layout with custom highlight layers',
       overviewPath: 'README.md',
-      cells: {
+      referenceGroups: {
         Source: {
           files: ['src', 'lib'],
           coordinates: [0, 0],
@@ -371,7 +372,7 @@ export const LargeGrid: Story = {
       name: 'Large 5x5 Grid',
       description: 'A large grid for complex projects',
       overviewPath: 'README.md',
-      cells: {
+      referenceGroups: {
         'Core Source': { files: ['src/core'], coordinates: [0, 0] },
         Components: { files: ['src/components'], coordinates: [1, 0] },
         Utils: { files: ['src/utils'], coordinates: [2, 0] },

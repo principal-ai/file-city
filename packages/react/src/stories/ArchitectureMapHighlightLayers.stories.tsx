@@ -1,5 +1,5 @@
+import React, { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
-import { useState } from 'react';
 
 import { ArchitectureMapHighlightLayers } from '../components/ArchitectureMapHighlightLayers';
 import { HighlightLayer } from '../render/client/drawLayeredBuildings';
@@ -308,5 +308,198 @@ export const WithBorderRadius: Story = {
     districtBorderRadius: 8,
     fullSize: true,
     enableZoom: true,
+  },
+};
+
+// Story with animated zoom to directory
+export const AnimatedZoomToDirectory: Story = {
+  render: function RenderAnimatedZoom() {
+    const [zoomToPath, setZoomToPath] = useState<string | null>(null);
+    const [isAnimating, setIsAnimating] = useState(false);
+    const cityData = createSampleCityData();
+
+    // Get unique top-level directories for navigation buttons
+    const topLevelDirs = Array.from(
+      new Set(
+        cityData.districts
+          .map(d => d.path.split('/')[0])
+          .filter(Boolean),
+      ),
+    ).sort();
+
+    const handleZoomTo = (path: string | null) => {
+      setIsAnimating(true);
+      setZoomToPath(path);
+    };
+
+    const handleZoomComplete = () => {
+      setIsAnimating(false);
+    };
+
+    // Create highlight layer for the focused directory
+    const highlightLayers: HighlightLayer[] = zoomToPath
+      ? [
+          {
+            id: 'zoom-focus',
+            name: 'Zoom Focus',
+            enabled: true,
+            color: '#3b82f6',
+            priority: 1,
+            items: [{ path: zoomToPath, type: 'directory' }],
+          },
+        ]
+      : [];
+
+    return (
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <ArchitectureMapHighlightLayers
+          cityData={cityData}
+          fullSize={true}
+          enableZoom={true}
+          zoomToPath={zoomToPath}
+          onZoomComplete={handleZoomComplete}
+          zoomAnimationSpeed={0.1}
+          highlightLayers={highlightLayers}
+          onFileClick={(path, type) => {
+            if (type === 'directory') {
+              handleZoomTo(path);
+            }
+          }}
+        />
+        {/* Navigation Controls */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 20,
+            left: 20,
+            zIndex: 100,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            padding: '16px',
+            borderRadius: '8px',
+            maxWidth: '200px',
+          }}
+        >
+          <div
+            style={{
+              color: 'white',
+              fontFamily: 'monospace',
+              fontSize: '12px',
+              marginBottom: '8px',
+            }}
+          >
+            {isAnimating ? '🎬 Animating...' : '📍 Click to zoom'}
+          </div>
+
+          {/* Reset button */}
+          <button
+            onClick={() => handleZoomTo(null)}
+            disabled={isAnimating}
+            style={{
+              padding: '8px 12px',
+              backgroundColor: zoomToPath === null ? '#3b82f6' : '#374151',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: isAnimating ? 'not-allowed' : 'pointer',
+              fontFamily: 'monospace',
+              fontSize: '12px',
+              opacity: isAnimating ? 0.6 : 1,
+            }}
+          >
+            🏠 Reset View
+          </button>
+
+          {/* Directory buttons */}
+          {topLevelDirs.map(dir => (
+            <button
+              key={dir}
+              onClick={() => handleZoomTo(dir)}
+              disabled={isAnimating}
+              style={{
+                padding: '8px 12px',
+                backgroundColor: zoomToPath === dir ? '#3b82f6' : '#374151',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: isAnimating ? 'not-allowed' : 'pointer',
+                fontFamily: 'monospace',
+                fontSize: '12px',
+                textAlign: 'left',
+                opacity: isAnimating ? 0.6 : 1,
+              }}
+            >
+              📁 {dir}
+            </button>
+          ))}
+
+          {/* Some nested directories */}
+          <div
+            style={{
+              borderTop: '1px solid #4b5563',
+              paddingTop: '8px',
+              marginTop: '4px',
+            }}
+          >
+            <div
+              style={{
+                color: '#9ca3af',
+                fontFamily: 'monospace',
+                fontSize: '10px',
+                marginBottom: '4px',
+              }}
+            >
+              Nested:
+            </div>
+            {['src/components', 'src/utils', 'tests/unit'].map(dir => (
+              <button
+                key={dir}
+                onClick={() => handleZoomTo(dir)}
+                disabled={isAnimating}
+                style={{
+                  padding: '6px 10px',
+                  backgroundColor: zoomToPath === dir ? '#3b82f6' : '#1f2937',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: isAnimating ? 'not-allowed' : 'pointer',
+                  fontFamily: 'monospace',
+                  fontSize: '11px',
+                  textAlign: 'left',
+                  marginBottom: '4px',
+                  width: '100%',
+                  opacity: isAnimating ? 0.6 : 1,
+                }}
+              >
+                📂 {dir}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Current zoom info */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 20,
+            left: 20,
+            zIndex: 100,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            padding: '12px',
+            borderRadius: '8px',
+            color: 'white',
+            fontFamily: 'monospace',
+            fontSize: '11px',
+          }}
+        >
+          <div>Current: {zoomToPath || '(root)'}</div>
+          <div style={{ color: '#9ca3af', marginTop: '4px' }}>
+            💡 Click directories in the map or use buttons above
+          </div>
+        </div>
+      </div>
+    );
   },
 };

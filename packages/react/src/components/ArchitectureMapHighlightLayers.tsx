@@ -46,6 +46,11 @@ export interface ArchitectureMapHighlightLayersProps {
   onFileClick?: (path: string, type: 'file' | 'directory') => void;
   enableZoom?: boolean;
 
+  // Animated zoom to directory
+  zoomToPath?: string | null; // When set, animates zoom to frame this directory/file
+  onZoomComplete?: () => void; // Called when zoom animation completes
+  zoomAnimationSpeed?: number; // Animation easing factor (0-1), default 0.12
+
   // Display options
   fullSize?: boolean;
   showGrid?: boolean;
@@ -213,6 +218,9 @@ function ArchitectureMapHighlightLayersInner({
   onDirectorySelect,
   onFileClick,
   enableZoom = false,
+  zoomToPath = null,
+  onZoomComplete,
+  zoomAnimationSpeed = 0.12,
   fullSize = false,
   showGrid = false,
   showFileNames = false,
@@ -257,6 +265,16 @@ function ArchitectureMapHighlightLayersInner({
     hasMouseMoved: false,
   });
 
+  // Target zoom state for animated transitions
+  const [targetZoom, setTargetZoom] = useState<{
+    scale: number;
+    offsetX: number;
+    offsetY: number;
+  } | null>(null);
+
+  // Track the last zoomToPath to detect changes
+  const lastZoomToPathRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!enableZoom) {
       setZoomState(prev => ({
@@ -267,8 +285,52 @@ function ArchitectureMapHighlightLayersInner({
         isDragging: false,
         hasMouseMoved: false,
       }));
+      setTargetZoom(null);
     }
   }, [enableZoom]);
+
+  // Animation loop for smooth zoom transitions
+  useEffect(() => {
+    if (!targetZoom) return;
+
+    const animate = () => {
+      setZoomState(prev => {
+        const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+        const easing = zoomAnimationSpeed;
+
+        const newScale = lerp(prev.scale, targetZoom.scale, easing);
+        const newOffsetX = lerp(prev.offsetX, targetZoom.offsetX, easing);
+        const newOffsetY = lerp(prev.offsetY, targetZoom.offsetY, easing);
+
+        // Check if close enough to target (within 0.1% for scale, 0.5px for offset)
+        const scaleDone = Math.abs(newScale - targetZoom.scale) < 0.001;
+        const offsetXDone = Math.abs(newOffsetX - targetZoom.offsetX) < 0.5;
+        const offsetYDone = Math.abs(newOffsetY - targetZoom.offsetY) < 0.5;
+
+        if (scaleDone && offsetXDone && offsetYDone) {
+          // Animation complete - set exact target values
+          setTargetZoom(null);
+          onZoomComplete?.();
+          return {
+            ...prev,
+            scale: targetZoom.scale,
+            offsetX: targetZoom.offsetX,
+            offsetY: targetZoom.offsetY,
+          };
+        }
+
+        return {
+          ...prev,
+          scale: newScale,
+          offsetX: newOffsetX,
+          offsetY: newOffsetY,
+        };
+      });
+    };
+
+    const frameId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frameId);
+  }, [targetZoom, zoomState, zoomAnimationSpeed, onZoomComplete]);
 
   const [hitTestCache, setHitTestCache] = useState<HitTestCache | null>(null);
 
@@ -328,6 +390,120 @@ function ArchitectureMapHighlightLayersInner({
     }
     return filteredCityData;
   }, [subdirectoryMode?.enabled, subdirectoryMode?.autoCenter, cityData, filteredCityData]);
+
+  // Handle zoomToPath changes - calculate target zoom to frame the specified path
+  useEffect(() => {
+    // Skip if zoom is not enabled or path hasn't changed
+    if (!enableZoom || zoomToPath === lastZoomToPathRef.current) {
+      return;
+    }
+
+    lastZoomToPathRef.current = zoomToPath;
+
+    // If zoomToPath is null, reset to default view
+    if (zoomToPath === null) {
+      setTargetZoom({
+        scale: 1,
+        offsetX: 0,
+        offsetY: 0,
+      });
+      return;
+    }
+
+    // Need city data and canvas ref to calculate zoom
+    if (!filteredCityData || !canvasRef.current) {
+      return;
+    }
+
+    // Get actual display size - the canvas is resized to match this during render
+    // so canvas coordinates = display coordinates
+    const displayWidth = canvasRef.current.clientWidth || canvasSize.width;
+    const displayHeight = canvasRef.current.clientHeight || canvasSize.height;
+
+    if (!displayWidth || !displayHeight) {
+      return;
+    }
+
+    // Find the target - first check districts, then buildings
+    const normalizedPath = zoomToPath.replace(/^\/+|\/+$/g, '');
+    const targetDistrict = filteredCityData.districts.find(
+      d => d.path === normalizedPath || d.path === zoomToPath,
+    );
+    const targetBuilding = filteredCityData.buildings.find(
+      b => b.path === normalizedPath || b.path === zoomToPath,
+    );
+
+    if (!targetDistrict && !targetBuilding) {
+      return;
+    }
+
+    // Get the bounds to zoom to
+    let targetBounds: { minX: number; maxX: number; minZ: number; maxZ: number };
+
+    if (targetDistrict) {
+      targetBounds = targetDistrict.worldBounds;
+    } else if (targetBuilding) {
+      // Create bounds around the building with some padding
+      const [width, , depth] = targetBuilding.dimensions;
+      const padding = Math.max(width, depth) * 2;
+      targetBounds = {
+        minX: targetBuilding.position.x - width / 2 - padding,
+        maxX: targetBuilding.position.x + width / 2 + padding,
+        minZ: targetBuilding.position.z - depth / 2 - padding,
+        maxZ: targetBuilding.position.z + depth / 2 + padding,
+      };
+    } else {
+      return;
+    }
+
+    // Use the same coordinate system as rendering
+    const coordinateData = canvasSizingData || filteredCityData;
+    const { scale: baseScale, offsetX: baseOffsetX, offsetZ: baseOffsetZ } = calculateScaleAndOffset(
+      coordinateData,
+      displayWidth,
+      displayHeight,
+      displayOptions.padding,
+    );
+
+    // Calculate target center in world coordinates
+    const targetCenterX = (targetBounds.minX + targetBounds.maxX) / 2;
+    const targetCenterZ = (targetBounds.minZ + targetBounds.maxZ) / 2;
+
+    // Calculate target size in screen coordinates (at base zoom)
+    const targetScreenWidth = (targetBounds.maxX - targetBounds.minX) * baseScale;
+    const targetScreenHeight = (targetBounds.maxZ - targetBounds.minZ) * baseScale;
+
+    // Calculate zoom scale to fit target with padding (80% of display)
+    const paddingFactor = 0.8;
+    const scaleToFitWidth = (displayWidth * paddingFactor) / targetScreenWidth;
+    const scaleToFitHeight = (displayHeight * paddingFactor) / targetScreenHeight;
+    const newZoomScale = Math.min(scaleToFitWidth, scaleToFitHeight, 5); // Cap at 5x
+
+    // Calculate the base screen position of target center (before zoom transform)
+    // This matches the worldToCanvas formula: ((x - bounds.minX) * scale + offsetX)
+    const baseScreenX = (targetCenterX - coordinateData.bounds.minX) * baseScale + baseOffsetX;
+    const baseScreenY = (targetCenterZ - coordinateData.bounds.minZ) * baseScale + baseOffsetZ;
+
+    // Calculate offset to center the target
+    // Full formula: screenPos = baseScreenPos * zoomScale + zoomOffset
+    // To center: displayCenter = baseScreen * zoomScale + zoomOffset
+    // Therefore: zoomOffset = displayCenter - baseScreen * zoomScale
+    const newOffsetX = displayWidth / 2 - baseScreenX * newZoomScale;
+    const newOffsetY = displayHeight / 2 - baseScreenY * newZoomScale;
+
+    setTargetZoom({
+      scale: newZoomScale,
+      offsetX: newOffsetX,
+      offsetY: newOffsetY,
+    });
+  }, [
+    zoomToPath,
+    enableZoom,
+    filteredCityData,
+    canvasSizingData,
+    canvasSize,
+    displayOptions.padding,
+  ]);
 
   // Build hit test cache with spatial indexing
   const buildHitTestCache = useCallback(
