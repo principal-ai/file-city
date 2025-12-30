@@ -9,6 +9,7 @@ export {
   type LayerRenderStrategy,
   type LayerItem,
   type HighlightLayer,
+  LayerIndex,
 } from './render/client/drawLayeredBuildings';
 
 // React-specific types

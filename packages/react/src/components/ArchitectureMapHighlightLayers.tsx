@@ -12,6 +12,7 @@ import {
   drawGrid,
   HighlightLayer,
   LayerItem,
+  LayerIndex,
 } from '../render/client/drawLayeredBuildings';
 import {
   CityData,
@@ -1007,6 +1008,9 @@ function ArchitectureMapHighlightLayersInner({
     return layers;
   }, [stableLayers, dynamicLayers, abstractionLayer]);
 
+  // Memoize layer index for O(1) path lookups - only rebuilds when layers change
+  const layerIndex = useMemo(() => new LayerIndex(allLayers), [allLayers]);
+
   // Memoize abstracted paths lookup - only recalculates when abstraction layer changes
   const { abstractedPathsSet, abstractedPathLookup } = useMemo(() => {
     const pathsSet = new Set<string>();
@@ -1189,6 +1193,7 @@ function ArchitectureMapHighlightLayersInner({
       abstractedPathsSet, // Pass abstracted paths to skip labels
       showDirectoryLabels,
       districtBorderRadius,
+      layerIndex, // Pre-built index for O(1) lookups
     );
 
     // Draw buildings with layer support
@@ -1205,6 +1210,7 @@ function ArchitectureMapHighlightLayersInner({
       disableOpacityDimming,
       showFileTypeIcons,
       buildingBorderRadius,
+      layerIndex, // Pre-built index for O(1) lookups
     );
 
     // Performance monitoring end available for debugging
@@ -1239,6 +1245,7 @@ function ArchitectureMapHighlightLayersInner({
     visibleDistrictsMemo,
     visibleBuildingsMemo,
     abstractedPathsSet,
+    layerIndex,
   ]);
 
   // Optimized hit testing

@@ -66,6 +66,97 @@ function pathMatchesItem(
   }
 }
 
+/**
+ * LayerIndex provides O(1) path lookups instead of O(n) iteration.
+ * This dramatically improves performance with large numbers of layer items.
+ */
+export class LayerIndex {
+  // Map from exact path to layer items (for file items)
+  private exactIndex: Map<string, Array<{ layer: HighlightLayer; item: LayerItem }>> = new Map();
+  // Sorted list of directory paths for prefix matching
+  private directoryPaths: Array<{ path: string; layer: HighlightLayer; item: LayerItem }> = [];
+  // Cache for sorted results by priority
+  private sortedCache: Map<string, Array<{ layer: HighlightLayer; item: LayerItem }>> = new Map();
+
+  constructor(layers: HighlightLayer[]) {
+    this.buildIndex(layers);
+  }
+
+  private buildIndex(layers: HighlightLayer[]) {
+    for (const layer of layers) {
+      if (!layer.enabled) continue;
+
+      for (const item of layer.items) {
+        const entry = { layer, item };
+
+        if (item.type === 'file') {
+          // File items: exact match only
+          const existing = this.exactIndex.get(item.path);
+          if (existing) {
+            existing.push(entry);
+          } else {
+            this.exactIndex.set(item.path, [entry]);
+          }
+        } else {
+          // Directory items: need prefix matching
+          this.directoryPaths.push({ path: item.path, layer, item });
+        }
+      }
+    }
+
+    // Sort directory paths by length (longest first) for correct matching
+    this.directoryPaths.sort((a, b) => b.path.length - a.path.length);
+  }
+
+  /**
+   * Get all layer items that apply to a given path.
+   * For 'exact' mode: only matches the exact path.
+   * For 'children' mode: matches exact path OR parent directories that contain this path.
+   */
+  getItemsForPath(
+    path: string,
+    checkType: 'exact' | 'children' = 'children',
+  ): Array<{ layer: HighlightLayer; item: LayerItem }> {
+    // Check cache first
+    const cacheKey = `${path}:${checkType}`;
+    const cached = this.sortedCache.get(cacheKey);
+    if (cached) return cached;
+
+    const matches: Array<{ layer: HighlightLayer; item: LayerItem }> = [];
+
+    // Check exact matches (file items)
+    const exactMatches = this.exactIndex.get(path);
+    if (exactMatches) {
+      matches.push(...exactMatches);
+    }
+
+    // Check directory matches
+    if (checkType === 'exact') {
+      // For exact mode, only match directories with exact path
+      for (const dir of this.directoryPaths) {
+        if (dir.path === path) {
+          matches.push({ layer: dir.layer, item: dir.item });
+        }
+      }
+    } else {
+      // For children mode, check if path is inside any directory
+      for (const dir of this.directoryPaths) {
+        if (path === dir.path || path.startsWith(dir.path + '/')) {
+          matches.push({ layer: dir.layer, item: dir.item });
+        }
+      }
+    }
+
+    // Sort by priority (highest first)
+    const sorted = matches.sort((a, b) => b.layer.priority - a.layer.priority);
+
+    // Cache the result
+    this.sortedCache.set(cacheKey, sorted);
+
+    return sorted;
+  }
+}
+
 // Helper function to draw rounded rectangles
 function drawRoundedRect(
   ctx: CanvasRenderingContext2D,
@@ -496,13 +587,17 @@ export function drawLayeredDistricts(
   abstractedPaths?: Set<string>, // Paths of directories that are abstracted (have covers)
   showDirectoryLabels: boolean = true,
   borderRadius: number = 0, // Border radius for districts (default: sharp corners)
+  layerIndex?: LayerIndex, // Optional pre-built index for performance
 ) {
+  // Build index once for all districts (O(n) instead of O(n²))
+  const index = layerIndex || new LayerIndex(layers);
+
   districts.forEach(district => {
     const districtPath = district.path || '';
     const isRoot = !districtPath || districtPath === '';
 
     // Check if this root district has layer matches (like covers) - if so, render it
-    const rootLayerMatches = getLayerItemsForPath(districtPath, layers, 'exact');
+    const rootLayerMatches = index.getItemsForPath(districtPath, 'exact');
     const hasLayerRendering = rootLayerMatches.length > 0;
 
     // Skip root districts unless they have layer rendering (covers, highlights, etc.)
@@ -536,7 +631,7 @@ export function drawLayeredDistricts(
     let borderOpacity = 0.6;
 
     // Check if district has layer highlighting - use exact matching for districts
-    const layerMatches = getLayerItemsForPath(districtPath, layers, 'exact');
+    const layerMatches = index.getItemsForPath(districtPath, 'exact');
     const hasLayerHighlight = layerMatches.length > 0;
 
     if (hasLayerHighlight) {
@@ -805,7 +900,11 @@ export function drawLayeredBuildings(
   disableOpacityDimming?: boolean,
   showFileTypeIcons?: boolean,
   borderRadius: number = 0, // Border radius for buildings (default: 0 - sharp corners)
+  layerIndex?: LayerIndex, // Optional pre-built index for performance
 ) {
+  // Build index once for all buildings (O(n) instead of O(n²))
+  const index = layerIndex || new LayerIndex(layers);
+
   buildings.forEach(building => {
     const pos = worldToCanvas(building.position.x, building.position.z);
 
@@ -832,7 +931,7 @@ export function drawLayeredBuildings(
     };
 
     // Get layer matches for this building - only check file items, not parent directories
-    const layerMatches = getLayerItemsForPath(building.path, layers).filter(
+    const layerMatches = index.getItemsForPath(building.path).filter(
       match => match.item.type === 'file',
     ); // Only apply file-specific highlights to buildings
     const hasLayerHighlight = layerMatches.length > 0;
