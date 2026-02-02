@@ -1,4 +1,4 @@
-import defaultConfig from '../config/files.json';
+import { defaultFileColorConfig } from '@principal-ai/file-city-builder';
 import {
   HighlightLayer,
   LayerItem,
@@ -21,6 +21,7 @@ export interface ColorLayerConfig {
     borderRadius?: number;
     icon?: string;
     iconSize?: number;
+    lucideIcon?: string;
   };
   customRender?: (
     ctx: CanvasRenderingContext2D,
@@ -85,7 +86,7 @@ export function createFileColorHighlightLayers(
   }
 
   // Use provided config or fall back to default from files.json
-  const colorConfig = config || (defaultConfig as FileSuffixColorConfig);
+  const colorConfig = config || (defaultFileColorConfig as FileSuffixColorConfig);
 
   const { suffixConfigs, defaultConfig: defaultFileConfig, includeUnmatched = true } = colorConfig;
 
@@ -104,7 +105,6 @@ export function createFileColorHighlightLayers(
     const filePath = file.path;
     const lastSlash = filePath.lastIndexOf('/');
     const fileName = lastSlash === -1 ? filePath : filePath.substring(lastSlash + 1);
-    const lastDot = fileName.lastIndexOf('.');
 
     // Check for exact filename match first (e.g., LICENSE, Makefile)
     if (suffixConfigs[fileName]) {
@@ -118,6 +118,7 @@ export function createFileColorHighlightLayers(
       return;
     }
 
+    const lastDot = fileName.lastIndexOf('.');
     if (lastDot === -1 || lastDot === fileName.length - 1) {
       // No extension or ends with dot
       if (includeUnmatched) {
@@ -126,7 +127,27 @@ export function createFileColorHighlightLayers(
       return;
     }
 
-    const extension = fileName.substring(lastDot).toLowerCase();
+    // Check for compound extensions first (e.g., .test.ts, .spec.tsx, .d.ts)
+    // Look for patterns like .test.ts, .spec.js, etc.
+    let extension: string | null = null;
+    const lowerFileName = fileName.toLowerCase();
+
+    // Sort suffixes by length (longest first) to match compound extensions before simple ones
+    // e.g., .test.ts should be checked before .ts
+    const sortedSuffixes = Object.keys(suffixConfigs).sort((a, b) => b.length - a.length);
+
+    // Check if any suffix config matches as a suffix of the filename
+    for (const suffix of sortedSuffixes) {
+      if (lowerFileName.endsWith(suffix)) {
+        extension = suffix;
+        break;
+      }
+    }
+
+    // Fallback to simple extension if no compound match found
+    if (!extension) {
+      extension = fileName.substring(lastDot).toLowerCase();
+    }
 
     if (suffixConfigs[extension]) {
       if (!filesBySuffix.has(extension)) {
@@ -359,7 +380,7 @@ export function createFileColorHighlightLayers(
  * This returns the configuration loaded from files.json.
  */
 export function getDefaultFileColorConfig(): FileSuffixColorConfig {
-  return defaultConfig as FileSuffixColorConfig;
+  return defaultFileColorConfig as FileSuffixColorConfig;
 }
 
 /**
@@ -370,7 +391,7 @@ export function getDefaultFileColorConfig(): FileSuffixColorConfig {
  * @returns Record mapping file extensions to hex color strings
  */
 export function getFileColorMapping(config?: FileSuffixColorConfig): Record<string, string> {
-  const colorConfig = config || (defaultConfig as FileSuffixColorConfig);
+  const colorConfig = config || (defaultFileColorConfig as FileSuffixColorConfig);
   return Object.entries(colorConfig.suffixConfigs).reduce((acc, [extension, suffixConfig]) => {
     acc[extension] = suffixConfig.primary.color;
     return acc;

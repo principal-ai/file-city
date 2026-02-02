@@ -35,3 +35,6 @@ export type { FileTree } from '@principal-ai/repository-abstraction';
 export type { DirectorySortFunction, FileSortFunction } from './types/sorts';
 
 export { CommonSorts } from './types/sorts';
+
+// File color configuration
+export { default as defaultFileColorConfig } from './config/files.json';

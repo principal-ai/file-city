@@ -3,17 +3,7 @@ import {
   CodeCityBuilderWithGrid,
   buildFileSystemTreeFromFileInfoList,
 } from '@principal-ai/file-city-builder';
-
-// File info structure for building file trees
-interface FileInfo {
-  name: string;
-  path: string;
-  relativePath: string;
-  size: number;
-  extension: string;
-  lastModified: Date;
-  isDirectory: boolean;
-}
+import { FileInfo } from '@principal-ai/repository-abstraction';
 
 // Sample file structure representing a typical project
 const sampleFileStructure: Array<{ path: string; size: number }> = [
@@ -93,7 +83,7 @@ export function createSampleCityData(): CityData {
   }
 
   const fileInfos = createFileInfoList(sampleFileStructure);
-  const fileTree = buildFileSystemTreeFromFileInfoList(fileInfos as any, 'sample-project');
+  const fileTree = buildFileSystemTreeFromFileInfoList(fileInfos, 'sample-project');
   const builder = new CodeCityBuilderWithGrid();
 
   cachedCityData = builder.buildCityFromFileSystem(fileTree, '', {
@@ -125,7 +115,7 @@ export function createSmallSampleCityData(): CityData {
   }
 
   const fileInfos = createFileInfoList(smallFileStructure);
-  const fileTree = buildFileSystemTreeFromFileInfoList(fileInfos as any, 'small-sample');
+  const fileTree = buildFileSystemTreeFromFileInfoList(fileInfos, 'small-sample');
   const builder = new CodeCityBuilderWithGrid();
 
   cachedSmallCityData = builder.buildCityFromFileSystem(fileTree, '', {

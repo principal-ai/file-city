@@ -400,7 +400,7 @@ export const ProgrammaticZoomOnly: Story = {
           >
             enableZoom=false, allowZoomToPath=true
             <br />
-            (Try scroll/drag - they won't work)
+            (Try scroll/drag - they won&apos;t work)
           </div>
 
           {/* Reset button */}

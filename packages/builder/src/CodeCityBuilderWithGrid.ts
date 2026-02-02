@@ -533,8 +533,14 @@ export class CodeCityBuilderWithGrid {
         gridLayout: undefined, // Prevent recursion
       };
 
-      // Build the city for this cell using treemap layout
-      const cellCity = this.buildSingleCellCity(cellTree, rootPath, cellOptions);
+      // Build the city for this cell using treemap layout with explicit cell dimensions
+      const cellCity = this.buildSingleCellCity(
+        cellTree,
+        rootPath,
+        cellOptions,
+        cellBounds.width,
+        cellBounds.height,
+      );
 
       // Translate all positions to the grid cell location
       cellCity.buildings.forEach(building => {
@@ -628,11 +634,16 @@ export class CodeCityBuilderWithGrid {
    *
    * Results are cached based on file tree identity and layout options.
    * Cache hits skip the expensive D3 treemap computation entirely.
+   *
+   * @param explicitWidth - Optional explicit width to use instead of calculating
+   * @param explicitHeight - Optional explicit height to use instead of calculating
    */
   private buildSingleCellCity(
     fileSystemTree: FileSystemTree,
     rootPath: string = '',
     options: TreemapOptions = {},
+    explicitWidth?: number,
+    explicitHeight?: number,
   ): CityData {
     // Check cache first
     const cacheKey = this.generateCacheKey(fileSystemTree, rootPath, options);
@@ -653,14 +664,22 @@ export class CodeCityBuilderWithGrid {
       tile = treemapSquarify,
     } = options;
 
-    // Always calculate adaptive dimensions
-    const totalFiles = fileSystemTree.stats.totalFiles;
-    const totalDirectories = fileSystemTree.stats.totalDirectories;
+    // Use explicit dimensions if provided (for grid cells), otherwise calculate adaptive dimensions
+    let width: number;
+    let height: number;
 
-    const sizeResult = this.calculateOptimalSize(totalFiles, totalDirectories, options);
+    if (explicitWidth !== undefined && explicitHeight !== undefined) {
+      width = explicitWidth;
+      height = explicitHeight;
+    } else {
+      const totalFiles = fileSystemTree.stats.totalFiles;
+      const totalDirectories = fileSystemTree.stats.totalDirectories;
 
-    const width = sizeResult.width;
-    const height = sizeResult.height;
+      const sizeResult = this.calculateOptimalSize(totalFiles, totalDirectories, options);
+
+      width = sizeResult.width;
+      height = sizeResult.height;
+    }
 
     const buildings: CityBuilding[] = [];
     const districts: CityDistrict[] = [];

@@ -358,7 +358,8 @@ describe('MultiVersionCityBuilder', () => {
       expect(versionView.metadata.totalFiles).toBe(1);
       expect(versionView.metadata.totalDirectories).toBe(1);
       expect(versionView.metadata.rootPath).toBe(unionCity.metadata.rootPath);
-      expect(versionView.metadata.layoutConfig).toEqual(unionCity.metadata.layoutConfig!);
+      expect(unionCity.metadata.layoutConfig).toBeDefined();
+      expect(versionView.metadata.layoutConfig).toEqual(unionCity.metadata.layoutConfig);
     });
   });
 });

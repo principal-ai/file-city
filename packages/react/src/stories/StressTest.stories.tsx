@@ -17,11 +17,7 @@ function StressTestWrapper({
   const [isAnimating, setIsAnimating] = useState(false);
 
   const cityData = useMemo(() => {
-    console.log(`Generating city data for ${fileCount} files...`);
-    const start = performance.now();
     const data = createStressTestCityData(fileCount, true);
-    const elapsed = performance.now() - start;
-    console.log(`Generated in ${elapsed.toFixed(2)}ms`);
     return data;
   }, [fileCount]);
 

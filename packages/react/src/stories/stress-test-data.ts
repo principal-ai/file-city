@@ -3,22 +3,10 @@ import {
   CodeCityBuilderWithGrid,
   buildFileSystemTreeFromFileInfoList,
 } from '@principal-ai/file-city-builder';
-
-interface FileInfo {
-  name: string;
-  path: string;
-  relativePath: string;
-  size: number;
-  extension: string;
-  lastModified: Date;
-  isDirectory: boolean;
-}
+import { FileInfo } from '@principal-ai/repository-abstraction';
 
 // Common file extensions for realistic distribution
 const FILE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.css', '.json', '.md', '.test.ts', '.spec.tsx'];
-
-// Top-level source directories
-const TOP_LEVEL_DIRS = ['src', 'lib', 'packages', 'modules'];
 
 // Second-level directories (domain areas)
 const DOMAIN_DIRS = ['components', 'utils', 'services', 'hooks', 'types', 'helpers', 'core', 'api', 'features', 'pages'];
@@ -144,12 +132,15 @@ const stressTestCache = new Map<number, CityData>();
  */
 export function createStressTestCityData(fileCount: number = 8000, useCache: boolean = true): CityData {
   if (useCache && stressTestCache.has(fileCount)) {
-    return stressTestCache.get(fileCount)!;
+    const cached = stressTestCache.get(fileCount);
+    if (cached) {
+      return cached;
+    }
   }
 
   const filePaths = generateLargeFilePaths(fileCount);
   const fileInfos = createFileInfoList(filePaths);
-  const fileTree = buildFileSystemTreeFromFileInfoList(fileInfos as any, `stress-test-${fileCount}`);
+  const fileTree = buildFileSystemTreeFromFileInfoList(fileInfos, `stress-test-${fileCount}`);
 
   const builder = new CodeCityBuilderWithGrid();
   const cityData = builder.buildCityFromFileSystem(fileTree, '', {

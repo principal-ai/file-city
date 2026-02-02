@@ -1,4 +1,5 @@
 import { CityBuilding, CityDistrict } from '@principal-ai/file-city-builder';
+import { getLucideIconImage } from '../../utils/lucideIconConverter';
 
 // Layer types and interfaces
 export type LayerRenderStrategy =
@@ -24,6 +25,7 @@ export interface LayerItem {
     borderRadius?: number;
     icon?: string;
     iconSize?: number;
+    lucideIcon?: string;
   };
   // Custom render function
   customRender?: (
@@ -44,26 +46,6 @@ export interface HighlightLayer {
   items: LayerItem[];
   // Performance optimization - mark frequently changing layers as dynamic
   dynamic?: boolean; // If true, this layer changes frequently (e.g., hover effects)
-}
-
-// Helper to check if a path matches a layer item
-function pathMatchesItem(
-  path: string,
-  item: LayerItem,
-  checkType: 'exact' | 'children' = 'children',
-): boolean {
-  if (item.type === 'file') {
-    return path === item.path;
-  } else {
-    // Directory match
-    if (checkType === 'exact') {
-      // Only match the directory itself, not its children
-      return path === item.path;
-    } else {
-      // Match directory and all its children (original behavior)
-      return path === item.path || path.startsWith(item.path + '/');
-    }
-  }
 }
 
 /**
@@ -182,28 +164,6 @@ function drawRoundedRect(
 
   if (fill) ctx.fill();
   if (stroke) ctx.stroke();
-}
-
-// Get all layer items that apply to a given path
-function getLayerItemsForPath(
-  path: string,
-  layers: HighlightLayer[],
-  checkType: 'exact' | 'children' = 'children',
-): Array<{ layer: HighlightLayer; item: LayerItem }> {
-  const matches: Array<{ layer: HighlightLayer; item: LayerItem }> = [];
-
-  for (const layer of layers) {
-    if (!layer.enabled) continue;
-
-    for (const item of layer.items) {
-      if (pathMatchesItem(path, item, checkType)) {
-        matches.push({ layer, item });
-      }
-    }
-  }
-
-  // Sort by priority (highest first)
-  return matches.sort((a, b) => b.layer.priority - a.layer.priority);
 }
 
 // Draw grid helper (copied from original)
@@ -439,21 +399,30 @@ function renderCoverStrategy(
   // Reset alpha for text/icon
   ctx.globalAlpha = 1;
 
-  // Image/SVG (takes precedence over text icon)
-  if (coverOptions.image) {
-    const img = new Image();
-    img.onload = () => {
-      const imageSize = coverOptions.iconSize || Math.min(bounds.width, bounds.height) * 0.4;
-      const imageX = bounds.x + bounds.width / 2 - imageSize / 2;
-      const imageY = coverOptions.text
-        ? bounds.y + bounds.height * 0.25
-        : bounds.y + bounds.height / 2 - imageSize / 2;
+  // Get image for rendering
+  let img: HTMLImageElement | null = null;
 
-      ctx.drawImage(img, imageX, imageY, imageSize, imageSize);
-    };
+  // Check for lucideIcon first (new way)
+  if (coverOptions.lucideIcon) {
+    img = getLucideIconImage(coverOptions.lucideIcon, '#ffffff', coverOptions.iconSize || 24);
+  }
+  // Fallback to direct image URL (old way)
+  else if (coverOptions.image) {
+    img = new Image();
     img.src = coverOptions.image;
   }
-  // Text Icon (fallback if no image)
+
+  // Draw the image if we have one
+  if (img) {
+    const imageSize = coverOptions.iconSize || Math.min(bounds.width, bounds.height) * 0.4;
+    const imageX = bounds.x + bounds.width / 2 - imageSize / 2;
+    const imageY = coverOptions.text
+      ? bounds.y + bounds.height * 0.25
+      : bounds.y + bounds.height / 2 - imageSize / 2;
+
+    ctx.drawImage(img, imageX, imageY, imageSize, imageSize);
+  }
+  // Text Icon (fallback if no image or lucideIcon)
   else if (coverOptions.icon) {
     const iconSize = coverOptions.iconSize || Math.min(bounds.width, bounds.height) * 0.3;
     ctx.font = `${iconSize}px Arial`;
@@ -998,8 +967,10 @@ export function drawLayeredBuildings(
       }
     }
 
-    // Draw React symbol for JSX/TSX files (only if enabled)
-    if (showFileTypeIcons && isReactFile(building.fileExtension)) {
+    // Draw React symbol for JSX/TSX files (only if enabled and not a test file)
+    // Test files have their own Lucide icons, so skip React symbol for them
+    const isTestFile = building.path.includes('.test.') || building.path.includes('.spec.');
+    if (showFileTypeIcons && isReactFile(building.fileExtension) && !isTestFile) {
       // Position React symbol centered in the building
       // Size is 75% of the smaller dimension
       const reactSize = Math.min(width, height) * 0.75;

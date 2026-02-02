@@ -61,6 +61,7 @@ const CellNode: React.FC<NodeProps<CellNodeData>> = ({ data, selected }) => {
     <div
       className="cell-node"
       style={{
+        boxSizing: 'border-box',
         background: selected
           ? `linear-gradient(135deg, ${theme.colors.primary} 0%, ${theme.colors.accent} 100%)`
           : `linear-gradient(135deg, ${theme.colors.backgroundSecondary} 0%, ${theme.colors.background} 100%)`,
@@ -147,7 +148,8 @@ const CellNode: React.FC<NodeProps<CellNodeData>> = ({ data, selected }) => {
                 },
               ]}
               showGrid={false}
-              showDirectoryLabels={false}
+              showDirectoryLabels={true}
+              showFileNames={true}
               canvasBackgroundColor={theme.colors.background}
               defaultBuildingColor={theme.colors.muted}
               defaultDirectoryColor={theme.colors.backgroundSecondary}

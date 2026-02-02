@@ -996,6 +996,146 @@
       "displayName": "Snapshot",
       "description": "Jest snapshot files",
       "category": "Testing"
+    },
+    ".test.ts": {
+      "primary": {
+        "color": "#10b981",
+        "renderStrategy": "cover",
+        "opacity": 0.8,
+        "coverOptions": {
+          "lucideIcon": "TestTube",
+          "iconSize": 24,
+          "backgroundColor": "#10b981"
+        }
+      },
+      "displayName": "Test (TS)",
+      "description": "TypeScript test files",
+      "category": "Testing"
+    },
+    ".test.tsx": {
+      "primary": {
+        "color": "#10b981",
+        "renderStrategy": "cover",
+        "opacity": 0.8,
+        "coverOptions": {
+          "lucideIcon": "TestTube",
+          "iconSize": 24,
+          "backgroundColor": "#10b981"
+        }
+      },
+      "secondary": {
+        "color": "#61DBFB",
+        "renderStrategy": "border",
+        "opacity": 0.6
+      },
+      "displayName": "Test (TSX)",
+      "description": "TypeScript React test files",
+      "category": "Testing"
+    },
+    ".spec.ts": {
+      "primary": {
+        "color": "#059669",
+        "renderStrategy": "cover",
+        "opacity": 0.8,
+        "coverOptions": {
+          "lucideIcon": "FlaskConical",
+          "iconSize": 24,
+          "backgroundColor": "#059669"
+        }
+      },
+      "displayName": "Spec (TS)",
+      "description": "TypeScript spec files",
+      "category": "Testing"
+    },
+    ".spec.tsx": {
+      "primary": {
+        "color": "#059669",
+        "renderStrategy": "cover",
+        "opacity": 0.8,
+        "coverOptions": {
+          "lucideIcon": "FlaskConical",
+          "iconSize": 24,
+          "backgroundColor": "#059669"
+        }
+      },
+      "secondary": {
+        "color": "#61DBFB",
+        "renderStrategy": "border",
+        "opacity": 0.6
+      },
+      "displayName": "Spec (TSX)",
+      "description": "TypeScript React spec files",
+      "category": "Testing"
+    },
+    ".test.js": {
+      "primary": {
+        "color": "#10b981",
+        "renderStrategy": "cover",
+        "opacity": 0.8,
+        "coverOptions": {
+          "lucideIcon": "TestTube",
+          "iconSize": 24,
+          "backgroundColor": "#10b981"
+        }
+      },
+      "displayName": "Test (JS)",
+      "description": "JavaScript test files",
+      "category": "Testing"
+    },
+    ".test.jsx": {
+      "primary": {
+        "color": "#10b981",
+        "renderStrategy": "cover",
+        "opacity": 0.8,
+        "coverOptions": {
+          "lucideIcon": "TestTube",
+          "iconSize": 24,
+          "backgroundColor": "#10b981"
+        }
+      },
+      "secondary": {
+        "color": "#61DBFB",
+        "renderStrategy": "border",
+        "opacity": 0.6
+      },
+      "displayName": "Test (JSX)",
+      "description": "JavaScript React test files",
+      "category": "Testing"
+    },
+    ".spec.js": {
+      "primary": {
+        "color": "#059669",
+        "renderStrategy": "cover",
+        "opacity": 0.8,
+        "coverOptions": {
+          "lucideIcon": "FlaskConical",
+          "iconSize": 24,
+          "backgroundColor": "#059669"
+        }
+      },
+      "displayName": "Spec (JS)",
+      "description": "JavaScript spec files",
+      "category": "Testing"
+    },
+    ".spec.jsx": {
+      "primary": {
+        "color": "#059669",
+        "renderStrategy": "cover",
+        "opacity": 0.8,
+        "coverOptions": {
+          "lucideIcon": "FlaskConical",
+          "iconSize": 24,
+          "backgroundColor": "#059669"
+        }
+      },
+      "secondary": {
+        "color": "#61DBFB",
+        "renderStrategy": "border",
+        "opacity": 0.6
+      },
+      "displayName": "Spec (JSX)",
+      "description": "JavaScript React spec files",
+      "category": "Testing"
     }
   },
   "defaultConfig": {

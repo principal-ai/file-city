@@ -1,6 +1,6 @@
 {
   "name": "@principal-ai/file-city-builder",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "description": "Core algorithms and data structures for file city visualization",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

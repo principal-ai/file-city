@@ -9,6 +9,7 @@
  */
 
 import { ColorTheme, ColorFunction } from './themes';
+import { defaultFileColorConfig } from '@principal-ai/file-city-builder';
 
 export interface BuildingTypeInfo {
   /** The identifier for this building type (e.g., '.ts', 'package.json') */
@@ -518,8 +519,8 @@ export class BuildingTypeResolver {
    * Determine the color for a building using the priority system:
    * 1. Custom color function
    * 2. Theme colors
-   * 3. Special file default colors
-   * 4. Extension default colors (legacy)
+   * 3. Files.json configuration (from builder package)
+   * 4. Special file default colors (fallback)
    * 5. Default gray
    */
   private determineColor(
@@ -558,18 +559,29 @@ export class BuildingTypeResolver {
       return this.theme.default;
     }
 
-    // 3. Special file default colors
+    // 3. Files.json configuration (shared with React package)
+    const fileColorConfig = defaultFileColorConfig as {
+      suffixConfigs?: Record<string, { primary?: { color?: string } }>;
+    };
+    if (fileColorConfig?.suffixConfigs) {
+      // Check for special file or extension in files.json
+      const config = fileColorConfig.suffixConfigs[pattern];
+      if (config?.primary?.color) {
+        return config.primary.color;
+      }
+    }
+
+    // 4. Special file default colors (fallback for files not in files.json)
     if (isSpecialFile && SPECIAL_FILE_COLORS[pattern]) {
       return SPECIAL_FILE_COLORS[pattern];
     }
 
-    // 4. Legacy extension colors (for backward compatibility)
-    if (!isSpecialFile) {
-      const legacyColor = this.getLegacyExtensionColor(pattern);
-      if (legacyColor) return legacyColor;
+    // 5. Use default config from files.json if available
+    if (fileColorConfig?.defaultConfig?.primary?.color) {
+      return fileColorConfig.defaultConfig.primary.color;
     }
 
-    // 5. Default gray
+    // 6. Final fallback - gray
     return '#666666';
   }
 
@@ -601,54 +613,6 @@ export class BuildingTypeResolver {
     return this.defaultDirectoryColor;
   }
 
-  /**
-   * Get legacy extension colors for backward compatibility
-   */
-  private getLegacyExtensionColor(extension: string): string | null {
-    const colorMap: Record<string, string> = {
-      '.js': '#f7df1e', // JavaScript - https://github.com/colorjs/javascript-yellow
-      '.ts': '#3178c6', // TypeScript - https://www.typescriptlang.org/branding/
-      '.jsx': '#00D8FF', // React - https://pickcoloronline.com/brands/react/
-      '.html': '#e44d26', // HTML - https://upload.wikimedia.org/wikipedia/commons/6/61/HTML5_logo_and_wordmark.svg
-      '.scss': '#c69', // SCSS - https://sass-lang.com/styleguide/brand/
-      '.md': '#03a7dd', // Markdown - https://www.markdownguide.org/
-      '.py': '#ffde57', // Python - https://www.brandcolorcode.com/python
-      '.tsx': '#007acc',
-      '.css': '#663399',
-      '.json': '#ffca28',
-      '.java': '#007396',
-      '.svelte': '#ff3e00',
-      '.cpp': '#00599c',
-      '.c': '#a8b9cc',
-      '.go': '#00add8',
-      '.rs': '#dea584',
-      '.php': '#777bb4',
-      '.rb': '#cc342d',
-      '.swift': '#fa7343',
-      '.kt': '#7f52ff',
-      '.dart': '#0175c2',
-      '.vue': '#4fc08d',
-      '.yml': '#cb171e',
-      '.yaml': '#cb171e',
-      '.xml': '#0060ac',
-      '.sql': '#336791',
-      '.sh': '#89e051',
-      '.dockerfile': '#384d54',
-      '.env': '#ecd53f',
-      '.lock': '#8b4513',
-      '.log': '#708090',
-      '.txt': '#000000',
-      '.pdf': '#ff0000',
-      '.png': '#000000',
-      '.jpg': '#000000',
-      '.jpeg': '#000000',
-      '.gif': '#000000',
-      '.svg': '#000000',
-      '.ico': '#000000',
-    };
-
-    return colorMap[extension.toLowerCase()] || null;
-  }
 
   /**
    * Get all possible building types for legend generation
