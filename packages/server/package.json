@@ -1,6 +1,6 @@
 {
   "name": "@principal-ai/file-city-server",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Server-side rendering utilities for File City visualization",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -10,7 +10,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@principal-ai/file-city-builder": "^0.3.0",
+    "@principal-ai/file-city-builder": "^0.3.3",
     "canvas": "^2.11.2"
   },
   "devDependencies": {
