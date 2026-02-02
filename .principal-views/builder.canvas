@@ -1,393 +1,91 @@
 {
-  "pv": {
+  "metadata": {
     "name": "Code City Builder Architecture",
     "version": "1.0.0"
   },
-  "nodes": [
-    {
-      "id": "class-city-builder-grid",
-      "type": "text",
-      "x": 864,
-      "y": 435,
-      "width": 240,
-      "height": 80,
-      "pv": {
-        "nodeType": "core-module",
-        "shape": "rectangle",
-        "description": "CodeCityBuilderWithGrid - Core treemap builder using D3. Converts FileSystemTree to CityData with optional grid layout (packages/builder/src/CodeCityBuilderWithGrid.ts)"
-      }
+  "nodeTypes": {
+    "core-module": {
+      "description": "Core functionality module",
+      "shape": "rectangle",
+      "color": "#8b5cf6",
+      "sources": ["packages/builder/src/*.ts"]
     },
-    {
-      "id": "class-multi-version-builder",
-      "type": "text",
-      "x": 580,
-      "y": 260,
-      "width": 240,
-      "height": 80,
-      "pv": {
-        "nodeType": "core-module",
-        "shape": "rectangle",
-        "description": "MultiVersionCityBuilder - Builds unified city from multiple file tree versions with presence tracking (packages/builder/src/MultiVersionCityBuilder.ts)"
-      }
+    "utility": {
+      "description": "Utility module or function",
+      "shape": "rectangle",
+      "color": "#6366f1",
+      "sources": ["packages/builder/src/**/*.ts"]
     },
-    {
-      "id": "class-grid-layout-manager",
-      "type": "text",
-      "x": 629,
-      "y": 651,
-      "width": 220,
-      "height": 70,
-      "pv": {
-        "nodeType": "core-module",
-        "shape": "rectangle",
-        "description": "GridLayoutManager - Manages grid-based spatial organization, splits trees into cells, calculates bounds (packages/builder/src/GridLayoutManager.ts)"
-      }
+    "type-def": {
+      "description": "TypeScript type definitions",
+      "shape": "rectangle",
+      "color": "#ec4899",
+      "sources": ["packages/builder/src/types/*.ts"]
     },
-    {
-      "id": "class-config-validator",
-      "type": "text",
-      "x": 185,
-      "y": 441,
-      "width": 220,
-      "height": 70,
-      "pv": {
-        "nodeType": "core-module",
-        "shape": "rectangle",
-        "description": "GridLayoutConfigValidator - Validates CodebaseView configs with detailed reporting and auto-fix (packages/builder/src/GridLayoutConfigValidator.ts)"
-      }
-    },
-    {
-      "id": "util-file-tree-builder",
-      "type": "text",
-      "x": 349,
-      "y": 653,
-      "width": 200,
-      "height": 60,
-      "pv": {
-        "nodeType": "utility",
-        "shape": "rectangle",
-        "description": "FileTreeBuilder - Converts various formats (file lists, GitHub trees) into FileSystemTree (packages/builder/src/FileTreeBuilder.ts)"
-      }
-    },
-    {
-      "id": "util-ui-metadata",
-      "type": "text",
-      "x": 205,
-      "y": 865,
-      "width": 160,
-      "height": 50,
-      "pv": {
-        "nodeType": "utility",
-        "shape": "rectangle",
-        "description": "ui-metadata - Get/set UI configuration metadata on directories (packages/builder/src/ui-metadata.ts)"
-      }
-    },
-    {
-      "id": "util-common-sorts",
-      "type": "text",
-      "x": 1444,
-      "y": 649,
-      "width": 160,
-      "height": 50,
-      "pv": {
-        "nodeType": "utility",
-        "shape": "rectangle",
-        "description": "CommonSorts - Predefined sort functions for file ordering (packages/builder/src/CommonSorts.ts)"
-      }
-    },
-    {
-      "id": "func-build-multi-version",
-      "type": "text",
-      "x": 591,
-      "y": 69,
-      "width": 200,
-      "height": 50,
-      "pv": {
-        "nodeType": "utility",
-        "shape": "rectangle",
-        "description": "buildMultiVersionCity - Entry point function that delegates to MultiVersionCityBuilder (packages/builder/src/buildMultiVersionCity.ts)"
-      }
-    },
-    {
-      "id": "types-city-data",
-      "type": "text",
-      "x": 1089,
-      "y": 647,
-      "width": 180,
-      "height": 70,
-      "pv": {
-        "nodeType": "type-def",
-        "shape": "rectangle",
-        "description": "CityData Types - CityBuilding, CityDistrict, Bounds2D, Bounds3D, Position3D, CityData (packages/builder/src/types/cityData.ts)"
-      }
-    },
-    {
-      "id": "types-treemap-options",
-      "type": "text",
-      "x": 870,
-      "y": 650,
-      "width": 180,
-      "height": 70,
-      "pv": {
-        "nodeType": "type-def",
-        "shape": "rectangle",
-        "description": "TreemapOptions - Configuration for treemap layout including padding, tile algorithm, grid layout (packages/builder/src/types/treemapOptions.ts)"
-      }
-    },
-    {
-      "id": "types-ui-metadata",
-      "type": "text",
-      "x": 200,
-      "y": 1030,
-      "width": 180,
-      "height": 60,
-      "pv": {
-        "nodeType": "type-def",
-        "shape": "rectangle",
-        "description": "UIMetadata - Grid configuration types: rows, cols, cellPadding, labelPosition (packages/builder/src/types/uiMetadata.ts)"
-      }
-    },
-    {
-      "id": "types-validation",
-      "type": "text",
-      "x": 76,
-      "y": 657,
-      "width": 180,
-      "height": 60,
-      "pv": {
-        "nodeType": "type-def",
-        "shape": "rectangle",
-        "description": "Validation Types - GridConfigValidationIssue, ValidationReport with severity levels (packages/builder/src/types/)"
-      }
-    },
-    {
-      "id": "ext-d3-hierarchy",
-      "type": "text",
-      "x": 1268,
-      "y": 648,
-      "width": 140,
-      "height": 50,
-      "pv": {
-        "nodeType": "external-dep",
-        "shape": "rectangle",
-        "description": "d3-hierarchy - Provides hierarchy(), treemap(), treemapSquarify algorithms"
-      }
-    },
-    {
-      "id": "ext-alexandria",
-      "type": "text",
-      "x": 841,
-      "y": 865,
-      "width": 240,
-      "height": 50,
-      "pv": {
-        "nodeType": "external-dep",
-        "shape": "rectangle",
-        "description": "@principal-ai/alexandria-core-library - CodebaseView interface for grid configuration"
-      }
-    },
-    {
-      "id": "ext-repo-abstraction",
-      "type": "text",
-      "x": 461,
-      "y": 865,
-      "width": 240,
-      "height": 50,
-      "pv": {
-        "nodeType": "external-dep",
-        "shape": "rectangle",
-        "description": "@principal-ai/repository-abstraction - FileTree, DirectoryInfo, FileInfo types"
-      }
-    },
-    {
-      "id": "ext-minimatch",
-      "type": "text",
-      "x": 672,
-      "y": 866,
-      "width": 120,
-      "height": 50,
-      "pv": {
-        "nodeType": "external-dep",
-        "shape": "rectangle",
-        "description": "minimatch - Path pattern matching for grid cell assignments"
-      }
-    },
-    {
-      "id": "ext-picomatch",
-      "type": "text",
-      "x": 1007,
-      "y": 866,
-      "width": 120,
-      "height": 50,
-      "pv": {
-        "nodeType": "external-dep",
-        "shape": "rectangle",
-        "description": "picomatch - Fast glob pattern matching library"
-      }
+    "external-dep": {
+      "description": "External library or package",
+      "shape": "rectangle",
+      "color": "#64748b",
+      "sources": ["node_modules/*"]
     }
-  ],
-  "edges": [
+  },
+  "edgeTypes": {
+    "uses": {
+      "style": "solid",
+      "color": "#6366f1",
+      "directed": true
+    },
+    "exports": {
+      "style": "dashed",
+      "color": "#10b981",
+      "directed": true
+    }
+  },
+  "allowedConnections": [
     {
-      "id": "e-multi-uses-builder",
-      "fromNode": "class-multi-version-builder",
-      "toNode": "class-city-builder-grid",
-      "label": "uses",
-      "pv": {
-        "edgeType": "uses"
-      }
+      "from": "core-module",
+      "to": "core-module",
+      "via": "uses"
     },
     {
-      "id": "e-func-uses-multi",
-      "fromNode": "func-build-multi-version",
-      "toNode": "class-multi-version-builder",
-      "label": "delegates to",
-      "pv": {
-        "edgeType": "uses"
-      }
+      "from": "core-module",
+      "to": "utility",
+      "via": "uses"
     },
     {
-      "id": "e-builder-uses-grid",
-      "fromNode": "class-city-builder-grid",
-      "toNode": "class-grid-layout-manager",
-      "label": "uses",
-      "pv": {
-        "edgeType": "uses"
-      }
+      "from": "core-module",
+      "to": "type-def",
+      "via": "uses"
     },
     {
-      "id": "e-builder-uses-d3",
-      "fromNode": "class-city-builder-grid",
-      "toNode": "ext-d3-hierarchy",
-      "label": "uses",
-      "pv": {
-        "edgeType": "uses"
-      }
+      "from": "core-module",
+      "to": "type-def",
+      "via": "exports"
     },
     {
-      "id": "e-builder-uses-types",
-      "fromNode": "class-city-builder-grid",
-      "toNode": "types-city-data",
-      "label": "produces",
-      "pv": {
-        "edgeType": "exports"
-      }
+      "from": "core-module",
+      "to": "external-dep",
+      "via": "uses"
     },
     {
-      "id": "e-builder-uses-options",
-      "fromNode": "class-city-builder-grid",
-      "toNode": "types-treemap-options",
-      "label": "uses",
-      "pv": {
-        "edgeType": "uses"
-      }
+      "from": "utility",
+      "to": "core-module",
+      "via": "uses"
     },
     {
-      "id": "e-grid-uses-metadata",
-      "fromNode": "class-grid-layout-manager",
-      "toNode": "util-ui-metadata",
-      "label": "uses",
-      "pv": {
-        "edgeType": "uses"
-      }
+      "from": "utility",
+      "to": "utility",
+      "via": "uses"
     },
     {
-      "id": "e-grid-uses-alexandria",
-      "fromNode": "class-grid-layout-manager",
-      "toNode": "ext-alexandria",
-      "label": "uses",
-      "pv": {
-        "edgeType": "uses"
-      }
+      "from": "utility",
+      "to": "type-def",
+      "via": "uses"
     },
     {
-      "id": "e-grid-uses-repo",
-      "fromNode": "class-grid-layout-manager",
-      "toNode": "ext-repo-abstraction",
-      "label": "uses",
-      "pv": {
-        "edgeType": "uses"
-      }
-    },
-    {
-      "id": "e-grid-uses-minimatch",
-      "fromNode": "class-grid-layout-manager",
-      "toNode": "ext-minimatch",
-      "label": "uses",
-      "pv": {
-        "edgeType": "uses"
-      }
-    },
-    {
-      "id": "e-validator-uses-grid",
-      "fromNode": "class-config-validator",
-      "toNode": "class-grid-layout-manager",
-      "label": "uses",
-      "pv": {
-        "edgeType": "uses"
-      }
-    },
-    {
-      "id": "e-validator-uses-metadata",
-      "fromNode": "class-config-validator",
-      "toNode": "util-ui-metadata",
-      "label": "uses",
-      "pv": {
-        "edgeType": "uses"
-      }
-    },
-    {
-      "id": "e-validator-uses-validation-types",
-      "fromNode": "class-config-validator",
-      "toNode": "types-validation",
-      "label": "produces",
-      "pv": {
-        "edgeType": "exports"
-      }
-    },
-    {
-      "id": "e-filetree-uses-repo",
-      "fromNode": "util-file-tree-builder",
-      "toNode": "ext-repo-abstraction",
-      "label": "uses",
-      "pv": {
-        "edgeType": "uses"
-      }
-    },
-    {
-      "id": "e-metadata-uses-types",
-      "fromNode": "util-ui-metadata",
-      "toNode": "types-ui-metadata",
-      "label": "uses",
-      "pv": {
-        "edgeType": "uses"
-      }
-    },
-    {
-      "id": "e-multi-uses-repo",
-      "fromNode": "class-multi-version-builder",
-      "toNode": "ext-repo-abstraction",
-      "label": "uses",
-      "pv": {
-        "edgeType": "uses"
-      }
-    },
-    {
-      "id": "e-grid-uses-picomatch",
-      "fromNode": "class-grid-layout-manager",
-      "toNode": "ext-picomatch",
-      "label": "uses",
-      "pv": {
-        "edgeType": "uses"
-      }
-    },
-    {
-      "id": "e-builder-uses-sorts",
-      "fromNode": "class-city-builder-grid",
-      "toNode": "util-common-sorts",
-      "label": "uses",
-      "pv": {
-        "edgeType": "uses"
-      }
+      "from": "utility",
+      "to": "external-dep",
+      "via": "uses"
     }
   ]
 }
