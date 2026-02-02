@@ -1,5 +1,7 @@
 import { CityBuilding, CityDistrict } from '@principal-ai/file-city-builder';
 import { getLucideIconImage } from '../../utils/lucideIconConverter';
+import { FileTypeIconConfig } from '../../utils/fileColorHighlightLayers';
+import { getFileTypeIcon, drawFileTypeIcon } from '../../utils/fileTypeIcons';
 
 // Layer types and interfaces
 export type LayerRenderStrategy =
@@ -814,47 +816,6 @@ export function drawLayeredDistricts(
   });
 }
 
-/**
- * Draw a React symbol (⚛) at the given position
- */
-function drawReactSymbol(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  size: number,
-  color: string = '#00D8FF',
-  glow: boolean = true,
-) {
-  ctx.save();
-
-  // Position and setup
-  ctx.translate(x, y);
-
-  // Glow effect for React symbol
-  if (glow) {
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 8;
-  }
-
-  // Draw the React symbol (⚛)
-  ctx.fillStyle = color;
-  ctx.font = `${size}px Arial`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('⚛', 0, 0);
-
-  ctx.restore();
-}
-
-/**
- * Check if a file is a React file (JSX/TSX)
- */
-function isReactFile(fileExtension?: string): boolean {
-  if (!fileExtension) return false;
-  const ext = fileExtension.toLowerCase();
-  return ext === '.jsx' || ext === '.tsx';
-}
-
 // Draw buildings with layer support
 export function drawLayeredBuildings(
   ctx: CanvasRenderingContext2D,
@@ -870,6 +831,7 @@ export function drawLayeredBuildings(
   showFileTypeIcons?: boolean,
   borderRadius: number = 0, // Border radius for buildings (default: 0 - sharp corners)
   layerIndex?: LayerIndex, // Optional pre-built index for performance
+  iconMap?: Map<string, FileTypeIconConfig>, // Optional icon configuration map
 ) {
   // Build index once for all buildings (O(n) instead of O(n²))
   const index = layerIndex || new LayerIndex(layers);
@@ -967,16 +929,12 @@ export function drawLayeredBuildings(
       }
     }
 
-    // Draw React symbol for JSX/TSX files (only if enabled and not a test file)
-    // Test files have their own Lucide icons, so skip React symbol for them
-    const isTestFile = building.path.includes('.test.') || building.path.includes('.spec.');
-    if (showFileTypeIcons && isReactFile(building.fileExtension) && !isTestFile) {
-      // Position React symbol centered in the building
-      // Size is 75% of the smaller dimension
-      const reactSize = Math.min(width, height) * 0.75;
-      const reactX = pos.x;
-      const reactY = pos.y;
-      drawReactSymbol(ctx, reactX, reactY, reactSize);
+    // Draw file type icon if enabled and icon map is provided
+    if (showFileTypeIcons && iconMap) {
+      const iconConfig = getFileTypeIcon(building.path, iconMap);
+      if (iconConfig) {
+        drawFileTypeIcon(ctx, iconConfig, pos.x, pos.y, width, height);
+      }
     }
 
     // Draw filename if enabled

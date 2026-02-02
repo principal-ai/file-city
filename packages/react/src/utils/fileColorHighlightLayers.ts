@@ -4,6 +4,7 @@ import {
   LayerItem,
   LayerRenderStrategy,
 } from '../render/client/drawLayeredBuildings';
+import { devFileColorOverrides, mergeFileColorConfig } from './fileColorOverrides';
 
 // Type definitions for the color configuration
 export interface ColorLayerConfig {
@@ -30,9 +31,19 @@ export interface ColorLayerConfig {
   ) => void;
 }
 
+export interface FileTypeIconConfig {
+  type: 'emoji' | 'lucide';
+  name: string; // emoji character or Lucide icon name
+  color?: string;
+  backgroundColor?: string;
+  glow?: boolean;
+  size?: number; // Scale factor (0-1) relative to building size - default: 0.75 for emoji, 0.5 for lucide
+}
+
 export interface FileSuffixConfig {
   primary: ColorLayerConfig;
   secondary?: ColorLayerConfig;
+  icon?: FileTypeIconConfig; // Optional icon configuration independent of render strategy
   displayName?: string;
   description?: string;
   category?: string;
@@ -85,8 +96,10 @@ export function createFileColorHighlightLayers(
     return [];
   }
 
-  // Use provided config or fall back to default from files.json
-  const colorConfig = config || (defaultFileColorConfig as FileSuffixColorConfig);
+  // Use provided config or fall back to default merged with dev overrides
+  const colorConfig =
+    config ||
+    mergeFileColorConfig(defaultFileColorConfig as FileSuffixColorConfig, devFileColorOverrides);
 
   const { suffixConfigs, defaultConfig: defaultFileConfig, includeUnmatched = true } = colorConfig;
 
@@ -377,10 +390,10 @@ export function createFileColorHighlightLayers(
 
 /**
  * Get the default file color configuration.
- * This returns the configuration loaded from files.json.
+ * This returns the configuration loaded from files.json merged with local dev overrides.
  */
 export function getDefaultFileColorConfig(): FileSuffixColorConfig {
-  return defaultFileColorConfig as FileSuffixColorConfig;
+  return mergeFileColorConfig(defaultFileColorConfig as FileSuffixColorConfig, devFileColorOverrides);
 }
 
 /**
@@ -391,7 +404,9 @@ export function getDefaultFileColorConfig(): FileSuffixColorConfig {
  * @returns Record mapping file extensions to hex color strings
  */
 export function getFileColorMapping(config?: FileSuffixColorConfig): Record<string, string> {
-  const colorConfig = config || (defaultFileColorConfig as FileSuffixColorConfig);
+  const colorConfig =
+    config ||
+    mergeFileColorConfig(defaultFileColorConfig as FileSuffixColorConfig, devFileColorOverrides);
   return Object.entries(colorConfig.suffixConfigs).reduce((acc, [extension, suffixConfig]) => {
     acc[extension] = suffixConfig.primary.color;
     return acc;

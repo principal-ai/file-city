@@ -21,6 +21,8 @@ import {
   SelectiveRenderOptions,
 } from '@principal-ai/file-city-builder';
 import { MapInteractionState, MapDisplayOptions } from '../types/react-types';
+import { getDefaultFileColorConfig } from '../utils/fileColorHighlightLayers';
+import { extractIconConfig } from '../utils/fileTypeIcons';
 
 const DEFAULT_DISPLAY_OPTIONS: MapDisplayOptions = {
   showGrid: false,
@@ -325,6 +327,12 @@ function ArchitectureMapHighlightLayersInner({
   const resolvedDefaultBuildingColor = defaultBuildingColor ?? theme.colors.muted;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Extract icon configuration from file color config
+  const iconMap = useMemo(() => {
+    const colorConfig = getDefaultFileColorConfig();
+    return extractIconConfig(colorConfig);
+  }, []);
 
   const [interactionState, setInteractionState] = useState<MapInteractionState>({
     hoveredDistrict: null,
@@ -1211,6 +1219,7 @@ function ArchitectureMapHighlightLayersInner({
       showFileTypeIcons,
       buildingBorderRadius,
       layerIndex, // Pre-built index for O(1) lookups
+      iconMap, // Icon configuration map for file type icons
     );
 
     // Performance monitoring end available for debugging
@@ -1246,6 +1255,7 @@ function ArchitectureMapHighlightLayersInner({
     visibleBuildingsMemo,
     abstractedPathsSet,
     layerIndex,
+    iconMap,
   ]);
 
   // Optimized hit testing

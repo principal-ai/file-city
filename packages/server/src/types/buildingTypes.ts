@@ -562,6 +562,7 @@ export class BuildingTypeResolver {
     // 3. Files.json configuration (shared with React package)
     const fileColorConfig = defaultFileColorConfig as {
       suffixConfigs?: Record<string, { primary?: { color?: string } }>;
+      defaultConfig?: { primary?: { color?: string } };
     };
     if (fileColorConfig?.suffixConfigs) {
       // Check for special file or extension in files.json

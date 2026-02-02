@@ -26,7 +26,10 @@ type Story = StoryObj<typeof meta>;
 const allFileTypes = [
   // Frontend
   { path: 'frontend/typescript/index.ts', size: 1500 },
+  { path: 'frontend/typescript/index.tsx', size: 1700 },
   { path: 'frontend/typescript/App.tsx', size: 3200 },
+  { path: 'frontend/javascript/index.js', size: 1300 },
+  { path: 'frontend/javascript/index.jsx', size: 1500 },
   { path: 'frontend/javascript/script.js', size: 1200 },
   { path: 'frontend/javascript/Component.jsx', size: 1800 },
   { path: 'frontend/html/index.html', size: 2000 },
@@ -71,7 +74,15 @@ const allFileTypes = [
   { path: 'tests/specs/Form.spec.jsx', size: 2000 },
   { path: 'tests/snapshots/component.snap', size: 3500 },
 
+  // Storybook - Component documentation
+  { path: 'stories/Button.stories.ts', size: 2200 },
+  { path: 'stories/Card.stories.tsx', size: 2600 },
+  { path: 'stories/Input.stories.js', size: 1800 },
+  { path: 'stories/Modal.stories.jsx', size: 2400 },
+
   // Data & Config
+  { path: 'config/package.json', size: 2400 },
+  { path: 'config/tsconfig.json', size: 1800 },
   { path: 'config/data.json', size: 1200 },
   { path: 'config/settings.yaml', size: 1000 },
   { path: 'config/app.yml', size: 950 },
@@ -81,6 +92,7 @@ const allFileTypes = [
 
   // Documentation
   { path: 'docs/README.md', size: 4200 },
+  { path: 'docs/CHANGELOG.md', size: 3600 },
   { path: 'docs/API.mdx', size: 3800 },
   { path: 'docs/notes.txt', size: 600 },
 
@@ -128,11 +140,26 @@ const allFileTypes = [
 
   // Lock files
   { path: 'package-lock.json', size: 256000 },
-  { path: 'Cargo.lock', size: 45000 },
   { path: 'yarn.lock', size: 128000 },
+  { path: 'pnpm-lock.yaml', size: 180000 },
+  { path: 'bun.lockb', size: 95000 },
+  { path: 'Cargo.lock', size: 45000 },
+  { path: 'Gemfile.lock', size: 32000 },
+  { path: 'poetry.lock', size: 78000 },
+  { path: 'composer.lock', size: 156000 },
+  { path: 'go.sum', size: 28000 },
 
   // Config files (exact names)
+  { path: '.env', size: 450 },
+  { path: '.env.example', size: 380 },
+  { path: '.env.local', size: 420 },
+  { path: '.env.development', size: 400 },
+  { path: '.env.production', size: 460 },
+  { path: '.env.test', size: 340 },
   { path: '.gitignore', size: 600 },
+  { path: '.husky/pre-commit', size: 450 },
+  { path: '.husky/commit-msg', size: 380 },
+  { path: '.husky/pre-push', size: 420 },
   { path: '.dockerignore', size: 400 },
   { path: '.npmignore', size: 300 },
   { path: '.eslintignore', size: 250 },
@@ -195,7 +222,7 @@ export const AllFileTypesWithColors: Story = {
         <ArchitectureMapHighlightLayers
           cityData={cityData}
           highlightLayers={highlightLayers}
-          showLayerControls={true}
+          showLayerControls={false}
           fullSize={true}
           canvasBackgroundColor="#0a0a0a"
           defaultBuildingColor="#36454F"

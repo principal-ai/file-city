@@ -33,7 +33,14 @@ export type {
   ColorLayerConfig,
   FileSuffixConfig,
   FileSuffixColorConfig,
+  FileTypeIconConfig,
 } from './utils/fileColorHighlightLayers';
+
+// File color override utilities for development
+export { devFileColorOverrides, mergeFileColorConfig } from './utils/fileColorOverrides';
+
+// File type icon utilities
+export { extractIconConfig, getFileTypeIcon, drawFileTypeIcon } from './utils/fileTypeIcons';
 
 // Re-export commonly used types from builder
 export type {

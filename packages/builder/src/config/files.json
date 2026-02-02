@@ -25,6 +25,12 @@
         "renderStrategy": "border",
         "opacity": 0.6
       },
+      "icon": {
+        "type": "lucide",
+        "name": "Atom",
+        "color": "#00D8FF",
+        "size": 0.6
+      },
       "displayName": "TSX",
       "description": "TypeScript React components",
       "category": "Frontend"
@@ -49,6 +55,12 @@
         "color": "#f1e05a",
         "renderStrategy": "border",
         "opacity": 0.4
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Atom",
+        "color": "#00D8FF",
+        "size": 0.6
       },
       "displayName": "JSX",
       "description": "JavaScript React components",
@@ -579,8 +591,174 @@
         "borderWidth": 1,
         "opacity": 0.8
       },
+      "icon": {
+        "type": "lucide",
+        "name": "Lock",
+        "color": "#ffffff",
+        "size": 0.6
+      },
       "displayName": "Lock",
       "description": "Lock files for dependency management",
+      "category": "Config"
+    },
+    "package-lock.json": {
+      "primary": {
+        "color": "#CB3837",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Lock",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "NPM Lock",
+      "description": "NPM package lock file",
+      "category": "Config"
+    },
+    "yarn.lock": {
+      "primary": {
+        "color": "#2C8EBB",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Lock",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Yarn Lock",
+      "description": "Yarn package lock file",
+      "category": "Config"
+    },
+    "pnpm-lock.yaml": {
+      "primary": {
+        "color": "#F9AD00",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Lock",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "PNPM Lock",
+      "description": "PNPM package lock file",
+      "category": "Config"
+    },
+    "bun.lockb": {
+      "primary": {
+        "color": "#FBF0DF",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Lock",
+        "color": "#000000",
+        "size": 0.6
+      },
+      "displayName": "Bun Lock",
+      "description": "Bun package lock file",
+      "category": "Config"
+    },
+    "Cargo.lock": {
+      "primary": {
+        "color": "#dea584",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Lock",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Cargo Lock",
+      "description": "Rust Cargo lock file",
+      "category": "Config"
+    },
+    "Gemfile.lock": {
+      "primary": {
+        "color": "#701516",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Lock",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Gemfile Lock",
+      "description": "Ruby Bundler lock file",
+      "category": "Config"
+    },
+    "poetry.lock": {
+      "primary": {
+        "color": "#60A5FA",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Lock",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Poetry Lock",
+      "description": "Python Poetry lock file",
+      "category": "Config"
+    },
+    "Pipfile.lock": {
+      "primary": {
+        "color": "#3572A5",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Lock",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Pipfile Lock",
+      "description": "Python Pipenv lock file",
+      "category": "Config"
+    },
+    "composer.lock": {
+      "primary": {
+        "color": "#4F5D95",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Lock",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Composer Lock",
+      "description": "PHP Composer lock file",
+      "category": "Config"
+    },
+    "go.sum": {
+      "primary": {
+        "color": "#00ADD8",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Lock",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Go Sum",
+      "description": "Go module checksums",
       "category": "Config"
     },
     ".gitignore": {
@@ -589,8 +767,222 @@
         "renderStrategy": "fill",
         "opacity": 0.7
       },
+      "icon": {
+        "type": "lucide",
+        "name": "EyeOff",
+        "color": "#ffffff",
+        "size": 0.6
+      },
       "displayName": "Git Ignore",
       "description": "Git ignore patterns",
+      "category": "Config"
+    },
+    "pre-commit": {
+      "primary": {
+        "color": "#f05032",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "GitBranch",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Pre-commit Hook",
+      "description": "Husky pre-commit Git hook",
+      "category": "Config"
+    },
+    "commit-msg": {
+      "primary": {
+        "color": "#f05032",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "GitBranch",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Commit-msg Hook",
+      "description": "Husky commit-msg Git hook",
+      "category": "Config"
+    },
+    "pre-push": {
+      "primary": {
+        "color": "#f05032",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "GitBranch",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Pre-push Hook",
+      "description": "Husky pre-push Git hook",
+      "category": "Config"
+    },
+    "post-checkout": {
+      "primary": {
+        "color": "#f05032",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "GitBranch",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Post-checkout Hook",
+      "description": "Husky post-checkout Git hook",
+      "category": "Config"
+    },
+    "post-merge": {
+      "primary": {
+        "color": "#f05032",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "GitBranch",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Post-merge Hook",
+      "description": "Husky post-merge Git hook",
+      "category": "Config"
+    },
+    "prepare-commit-msg": {
+      "primary": {
+        "color": "#f05032",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "GitBranch",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Prepare-commit-msg Hook",
+      "description": "Husky prepare-commit-msg Git hook",
+      "category": "Config"
+    },
+    ".env": {
+      "primary": {
+        "color": "#F59E0B",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Key",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Environment Variables",
+      "description": "Environment variables file (contains secrets)",
+      "category": "Config"
+    },
+    ".env.example": {
+      "primary": {
+        "color": "#10B981",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Key",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Env Example",
+      "description": "Environment variables template (safe to commit)",
+      "category": "Config"
+    },
+    ".env.local": {
+      "primary": {
+        "color": "#F59E0B",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Key",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Env Local",
+      "description": "Local environment overrides",
+      "category": "Config"
+    },
+    ".env.development": {
+      "primary": {
+        "color": "#3B82F6",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Key",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Env Development",
+      "description": "Development environment variables",
+      "category": "Config"
+    },
+    ".env.production": {
+      "primary": {
+        "color": "#EF4444",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Key",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Env Production",
+      "description": "Production environment variables",
+      "category": "Config"
+    },
+    ".env.test": {
+      "primary": {
+        "color": "#8B5CF6",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Key",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Env Test",
+      "description": "Test environment variables",
+      "category": "Config"
+    },
+    ".env.staging": {
+      "primary": {
+        "color": "#F97316",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Key",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Env Staging",
+      "description": "Staging environment variables",
       "category": "Config"
     },
     ".dockerignore": {
@@ -598,6 +990,12 @@
         "color": "#2496ed",
         "renderStrategy": "fill",
         "opacity": 0.7
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "EyeOff",
+        "color": "#ffffff",
+        "size": 0.6
       },
       "displayName": "Docker Ignore",
       "description": "Docker ignore patterns",
@@ -609,6 +1007,12 @@
         "renderStrategy": "fill",
         "opacity": 0.7
       },
+      "icon": {
+        "type": "lucide",
+        "name": "EyeOff",
+        "color": "#ffffff",
+        "size": 0.6
+      },
       "displayName": "NPM Ignore",
       "description": "NPM ignore patterns",
       "category": "Config"
@@ -619,6 +1023,12 @@
         "renderStrategy": "fill",
         "opacity": 0.7
       },
+      "icon": {
+        "type": "lucide",
+        "name": "EyeOff",
+        "color": "#ffffff",
+        "size": 0.6
+      },
       "displayName": "ESLint Ignore",
       "description": "ESLint ignore patterns",
       "category": "Config"
@@ -628,6 +1038,12 @@
         "color": "#56b3b4",
         "renderStrategy": "fill",
         "opacity": 0.7
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "EyeOff",
+        "color": "#ffffff",
+        "size": 0.6
       },
       "displayName": "Prettier Ignore",
       "description": "Prettier ignore patterns",
@@ -1000,13 +1416,14 @@
     ".test.ts": {
       "primary": {
         "color": "#10b981",
-        "renderStrategy": "cover",
-        "opacity": 0.8,
-        "coverOptions": {
-          "lucideIcon": "TestTube",
-          "iconSize": 24,
-          "backgroundColor": "#10b981"
-        }
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "TestTube",
+        "color": "#ffffff",
+        "size": 0.6
       },
       "displayName": "Test (TS)",
       "description": "TypeScript test files",
@@ -1015,18 +1432,19 @@
     ".test.tsx": {
       "primary": {
         "color": "#10b981",
-        "renderStrategy": "cover",
-        "opacity": 0.8,
-        "coverOptions": {
-          "lucideIcon": "TestTube",
-          "iconSize": 24,
-          "backgroundColor": "#10b981"
-        }
+        "renderStrategy": "fill",
+        "opacity": 0.8
       },
       "secondary": {
         "color": "#61DBFB",
         "renderStrategy": "border",
         "opacity": 0.6
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "TestTube",
+        "color": "#ffffff",
+        "size": 0.6
       },
       "displayName": "Test (TSX)",
       "description": "TypeScript React test files",
@@ -1035,13 +1453,14 @@
     ".spec.ts": {
       "primary": {
         "color": "#059669",
-        "renderStrategy": "cover",
-        "opacity": 0.8,
-        "coverOptions": {
-          "lucideIcon": "FlaskConical",
-          "iconSize": 24,
-          "backgroundColor": "#059669"
-        }
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "FlaskConical",
+        "color": "#ffffff",
+        "size": 0.6
       },
       "displayName": "Spec (TS)",
       "description": "TypeScript spec files",
@@ -1050,18 +1469,19 @@
     ".spec.tsx": {
       "primary": {
         "color": "#059669",
-        "renderStrategy": "cover",
-        "opacity": 0.8,
-        "coverOptions": {
-          "lucideIcon": "FlaskConical",
-          "iconSize": 24,
-          "backgroundColor": "#059669"
-        }
+        "renderStrategy": "fill",
+        "opacity": 0.8
       },
       "secondary": {
         "color": "#61DBFB",
         "renderStrategy": "border",
         "opacity": 0.6
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "FlaskConical",
+        "color": "#ffffff",
+        "size": 0.6
       },
       "displayName": "Spec (TSX)",
       "description": "TypeScript React spec files",
@@ -1070,13 +1490,14 @@
     ".test.js": {
       "primary": {
         "color": "#10b981",
-        "renderStrategy": "cover",
-        "opacity": 0.8,
-        "coverOptions": {
-          "lucideIcon": "TestTube",
-          "iconSize": 24,
-          "backgroundColor": "#10b981"
-        }
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "TestTube",
+        "color": "#ffffff",
+        "size": 0.6
       },
       "displayName": "Test (JS)",
       "description": "JavaScript test files",
@@ -1085,18 +1506,19 @@
     ".test.jsx": {
       "primary": {
         "color": "#10b981",
-        "renderStrategy": "cover",
-        "opacity": 0.8,
-        "coverOptions": {
-          "lucideIcon": "TestTube",
-          "iconSize": 24,
-          "backgroundColor": "#10b981"
-        }
+        "renderStrategy": "fill",
+        "opacity": 0.8
       },
       "secondary": {
         "color": "#61DBFB",
         "renderStrategy": "border",
         "opacity": 0.6
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "TestTube",
+        "color": "#ffffff",
+        "size": 0.6
       },
       "displayName": "Test (JSX)",
       "description": "JavaScript React test files",
@@ -1105,13 +1527,14 @@
     ".spec.js": {
       "primary": {
         "color": "#059669",
-        "renderStrategy": "cover",
-        "opacity": 0.8,
-        "coverOptions": {
-          "lucideIcon": "FlaskConical",
-          "iconSize": 24,
-          "backgroundColor": "#059669"
-        }
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "FlaskConical",
+        "color": "#ffffff",
+        "size": 0.6
       },
       "displayName": "Spec (JS)",
       "description": "JavaScript spec files",
@@ -1120,22 +1543,219 @@
     ".spec.jsx": {
       "primary": {
         "color": "#059669",
-        "renderStrategy": "cover",
-        "opacity": 0.8,
-        "coverOptions": {
-          "lucideIcon": "FlaskConical",
-          "iconSize": 24,
-          "backgroundColor": "#059669"
-        }
+        "renderStrategy": "fill",
+        "opacity": 0.8
       },
       "secondary": {
         "color": "#61DBFB",
         "renderStrategy": "border",
         "opacity": 0.6
       },
+      "icon": {
+        "type": "lucide",
+        "name": "FlaskConical",
+        "color": "#ffffff",
+        "size": 0.6
+      },
       "displayName": "Spec (JSX)",
       "description": "JavaScript React spec files",
       "category": "Testing"
+    },
+    ".stories.ts": {
+      "primary": {
+        "color": "#FF4785",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "BookText",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Story (TS)",
+      "description": "Storybook story files",
+      "category": "Testing"
+    },
+    ".stories.tsx": {
+      "primary": {
+        "color": "#FF4785",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "secondary": {
+        "color": "#61DBFB",
+        "renderStrategy": "border",
+        "opacity": 0.6
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "BookText",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Story (TSX)",
+      "description": "Storybook React story files",
+      "category": "Testing"
+    },
+    ".stories.js": {
+      "primary": {
+        "color": "#FF4785",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "BookText",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Story (JS)",
+      "description": "Storybook story files",
+      "category": "Testing"
+    },
+    ".stories.jsx": {
+      "primary": {
+        "color": "#FF4785",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "secondary": {
+        "color": "#61DBFB",
+        "renderStrategy": "border",
+        "opacity": 0.6
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "BookText",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Story (JSX)",
+      "description": "Storybook React story files",
+      "category": "Testing"
+    },
+    "README.md": {
+      "primary": {
+        "color": "#083fa1",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "BookOpen",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "README",
+      "description": "Project readme documentation",
+      "category": "Documentation"
+    },
+    "CHANGELOG.md": {
+      "primary": {
+        "color": "#083fa1",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "ScrollText",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "Changelog",
+      "description": "Project changelog",
+      "category": "Documentation"
+    },
+    "tsconfig.json": {
+      "primary": {
+        "color": "#007ACC",
+        "renderStrategy": "fill",
+        "opacity": 0.8
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Settings",
+        "color": "#ffffff",
+        "size": 0.6
+      },
+      "displayName": "TS Config",
+      "description": "TypeScript configuration",
+      "category": "Configuration"
+    },
+    "index.ts": {
+      "primary": {
+        "color": "#007ACC",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Home",
+        "color": "#ffffff",
+        "size": 0.65
+      },
+      "displayName": "Index (TS)",
+      "description": "TypeScript entry point",
+      "category": "Frontend"
+    },
+    "index.tsx": {
+      "primary": {
+        "color": "#007ACC",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "secondary": {
+        "color": "#61DBFB",
+        "renderStrategy": "border",
+        "opacity": 0.6
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Home",
+        "color": "#ffffff",
+        "size": 0.65
+      },
+      "displayName": "Index (TSX)",
+      "description": "TypeScript React entry point",
+      "category": "Frontend"
+    },
+    "index.js": {
+      "primary": {
+        "color": "#f1e05a",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Home",
+        "color": "#ffffff",
+        "size": 0.65
+      },
+      "displayName": "Index (JS)",
+      "description": "JavaScript entry point",
+      "category": "Frontend"
+    },
+    "index.jsx": {
+      "primary": {
+        "color": "#61dafb",
+        "renderStrategy": "fill",
+        "opacity": 1.0
+      },
+      "secondary": {
+        "color": "#f1e05a",
+        "renderStrategy": "border",
+        "opacity": 0.4
+      },
+      "icon": {
+        "type": "lucide",
+        "name": "Home",
+        "color": "#ffffff",
+        "size": 0.65
+      },
+      "displayName": "Index (JSX)",
+      "description": "JavaScript React entry point",
+      "category": "Frontend"
     }
   },
   "defaultConfig": {
