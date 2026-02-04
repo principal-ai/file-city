@@ -594,13 +594,21 @@ export function drawBuildings(
     }
 
     // Draw React symbol for JSX/TSX files
+    // Track icon bottom position for placing filename below
+    let iconBottomY = pos.y;
     if (isReactFile(building.fileExtension)) {
       // Position React symbol centered in the building
       // Size is 75% of the smaller dimension
       const reactSize = Math.min(width, height) * 0.75;
       const reactX = pos.x;
-      const reactY = pos.y;
+
+      // For wide buildings (wider than tall), shift icon up to make room for text below
+      const isWide = width > height;
+      const iconYOffset = isWide ? -height * 0.15 : 0;
+      const reactY = pos.y + iconYOffset;
+
       drawReactSymbol(ctx, reactX, reactY, reactSize);
+      iconBottomY = reactY + reactSize / 2;
     }
 
     // Draw filename if enabled and building is large enough
@@ -660,7 +668,7 @@ export function drawBuildings(
       // Use sans-serif for better readability at small sizes
       ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+      ctx.textBaseline = 'top'; // Changed from 'middle' to 'top'
 
       // Measure text and adjust font size if needed to ensure it fits
       let textMetrics = ctx.measureText(fileName);
@@ -677,20 +685,13 @@ export function drawBuildings(
 
       // Only draw if text fits within building with padding
       if (textWidth < width - 8) {
-        // Draw background rectangle for better contrast
-        const textPadding = 2;
-        const textHeight = fontSize * 1.2;
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(
-          pos.x - textWidth / 2 - textPadding,
-          pos.y - textHeight / 2,
-          textWidth + textPadding * 2,
-          textHeight,
-        );
+        // Add spacing between icon and text
+        const spacing = 4;
+        const textY = iconBottomY + spacing;
 
         // Draw text
         ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-        ctx.fillText(fileName, pos.x, pos.y);
+        ctx.fillText(fileName, pos.x, textY);
       }
 
       ctx.restore();

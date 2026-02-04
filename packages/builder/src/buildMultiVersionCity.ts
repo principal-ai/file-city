@@ -1,8 +1,8 @@
 import { FileTree } from '@principal-ai/repository-abstraction';
 
-import { CityData } from './types/cityData';
+import { CityData } from './types/cityData.js';
 
-import { MultiVersionCityBuilder, MultiVersionOptions } from './MultiVersionCityBuilder';
+import { MultiVersionCityBuilder, MultiVersionOptions } from './MultiVersionCityBuilder.js';
 
 /**
  * Build a multi-version city using the simplified approach.

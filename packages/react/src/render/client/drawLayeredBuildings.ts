@@ -1,54 +1,16 @@
-import { CityBuilding, CityDistrict } from '@principal-ai/file-city-builder';
+import {
+  CityBuilding,
+  CityDistrict,
+  LayerItem,
+  LayerRenderStrategy,
+  HighlightLayer,
+} from '@principal-ai/file-city-builder';
 import { getLucideIconImage } from '../../utils/lucideIconConverter';
 import { FileTypeIconConfig } from '../../utils/fileColorHighlightLayers';
 import { getFileTypeIcon, drawFileTypeIcon } from '../../utils/fileTypeIcons';
 
-// Layer types and interfaces
-export type LayerRenderStrategy =
-  | 'border'
-  | 'fill'
-  | 'glow'
-  | 'pattern'
-  | 'cover'
-  | 'icon'
-  | 'custom';
-
-export interface LayerItem {
-  path: string;
-  type: 'file' | 'directory';
-  renderStrategy?: LayerRenderStrategy;
-  // Cover-specific options
-  coverOptions?: {
-    opacity?: number;
-    image?: string;
-    text?: string;
-    textSize?: number;
-    backgroundColor?: string;
-    borderRadius?: number;
-    icon?: string;
-    iconSize?: number;
-    lucideIcon?: string;
-  };
-  // Custom render function
-  customRender?: (
-    ctx: CanvasRenderingContext2D,
-    bounds: { x: number; y: number; width: number; height: number },
-    scale: number,
-  ) => void;
-}
-
-export interface HighlightLayer {
-  id: string;
-  name: string;
-  enabled: boolean;
-  color: string;
-  opacity?: number;
-  borderWidth?: number;
-  priority: number; // Higher priority layers render on top
-  items: LayerItem[];
-  // Performance optimization - mark frequently changing layers as dynamic
-  dynamic?: boolean; // If true, this layer changes frequently (e.g., hover effects)
-}
+// Re-export for backward compatibility
+export type { LayerItem, LayerRenderStrategy, HighlightLayer };
 
 /**
  * LayerIndex provides O(1) path lookups instead of O(n) iteration.
@@ -930,10 +892,35 @@ export function drawLayeredBuildings(
     }
 
     // Draw file type icon if enabled and icon map is provided
+    // Track icon size for positioning file name below
+    let iconBottomY = pos.y;
     if (showFileTypeIcons && iconMap) {
       const iconConfig = getFileTypeIcon(building.path, iconMap);
       if (iconConfig) {
-        drawFileTypeIcon(ctx, iconConfig, pos.x, pos.y, width, height);
+        // For wide buildings (wider than tall), shift icon up to make room for text below
+        const isWide = width > height;
+        const iconYOffset = isWide ? -height * 0.15 : 0;
+        const iconY = pos.y + iconYOffset;
+
+        drawFileTypeIcon(ctx, iconConfig, pos.x, iconY, width, height);
+
+        // Calculate where the icon ends vertically
+        const minDimension = Math.min(width, height);
+        if (iconConfig.type === 'emoji') {
+          const sizeScale = iconConfig.size || 0.75;
+          const emojiSize = minDimension * sizeScale;
+          iconBottomY = iconY + emojiSize / 2;
+        } else if (iconConfig.type === 'lucide') {
+          const sizeScale = iconConfig.size || 0.5;
+          const actualIconSize = minDimension * sizeScale;
+          // Account for background circle if present
+          if (iconConfig.backgroundColor) {
+            const bgRadius = actualIconSize * 0.7;
+            iconBottomY = iconY + bgRadius;
+          } else {
+            iconBottomY = iconY + actualIconSize / 2;
+          }
+        }
       }
     }
 
@@ -946,26 +933,19 @@ export function drawLayeredBuildings(
       const fontSize = Math.min(30, Math.max(10, Math.floor(Math.min(width, height) * 0.3)));
       ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+      ctx.textBaseline = 'top'; // Changed from 'middle' to 'top'
 
       const textMetrics = ctx.measureText(fileName);
       const textWidth = textMetrics.width;
 
       if (textWidth < width - 8) {
-        // Background for contrast
-        const textPadding = 2;
-        const textHeight = fontSize * 1.2;
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(
-          pos.x - textWidth / 2 - textPadding,
-          pos.y - textHeight / 2,
-          textWidth + textPadding * 2,
-          textHeight,
-        );
+        // Add spacing between icon and text
+        const spacing = 4;
+        const textY = iconBottomY + spacing;
 
         // Text
         ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-        ctx.fillText(fileName, pos.x, pos.y);
+        ctx.fillText(fileName, pos.x, textY);
       }
 
       ctx.restore();

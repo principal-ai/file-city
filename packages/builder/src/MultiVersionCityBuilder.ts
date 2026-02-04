@@ -5,8 +5,8 @@ import {
 } from '@principal-ai/repository-abstraction';
 import { CodebaseView } from '@principal-ai/alexandria-core-library';
 
-import { CityData } from './types/cityData';
-import { CodeCityBuilderWithGrid } from './CodeCityBuilderWithGrid';
+import { CityData } from './types/cityData.js';
+import { CodeCityBuilderWithGrid } from './CodeCityBuilderWithGrid.js';
 
 export interface MultiVersionOptions {
   gridLayout?: CodebaseView;

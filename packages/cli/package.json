@@ -1,0 +1,45 @@
+{
+  "name": "@principal-ai/file-city-cli",
+  "version": "0.1.0",
+  "description": "CLI tool for File City tours - validation, creation, and linting",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "tour": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "bun run build:clean && bun run build:ts && chmod +x dist/index.js",
+    "build:clean": "rm -rf dist",
+    "build:ts": "tsc",
+    "dev": "tsc --watch",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@principal-ai/file-city-builder": "^0.4.0",
+    "@principal-ai/repository-abstraction": "^0.2.4",
+    "chalk": "^4.1.2",
+    "commander": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.0.4"
+  },
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "keywords": [
+    "file-city",
+    "tour",
+    "validation",
+    "cli",
+    "codebase-visualization"
+  ],
+  "license": "MIT"
+}

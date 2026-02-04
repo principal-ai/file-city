@@ -7,11 +7,11 @@ import { CodebaseView } from '@principal-ai/alexandria-core-library';
 import { hierarchy, treemap, treemapSquarify } from 'd3-hierarchy';
 import type { HierarchyRectangularNode } from 'd3-hierarchy';
 
-import { CityData, CityBuilding, CityDistrict, Bounds2D } from './types/cityData';
-import { DirectorySortFunction, FileSortFunction } from './types/sorts';
-import { getUIMetadata } from './types/ui-metadata';
+import { CityData, CityBuilding, CityDistrict, Bounds2D } from './types/cityData.js';
+import { DirectorySortFunction, FileSortFunction } from './types/sorts.js';
+import { getUIMetadata } from './types/ui-metadata.js';
 
-import { GridLayoutManager } from './GridLayoutManager';
+import { GridLayoutManager } from './GridLayoutManager.js';
 
 // D3 Hierarchy data structure
 interface D3HierarchyData {

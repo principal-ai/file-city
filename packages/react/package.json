@@ -1,6 +1,6 @@
 {
   "name": "@principal-ai/file-city-react",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "description": "React components for File City visualization",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,7 +14,7 @@
   "dependencies": {
     "@principal-ade/industry-theme": "^0.1.3",
     "@principal-ai/alexandria-core-library": "^0.1.36",
-    "@principal-ai/file-city-builder": "^0.3.3",
+    "@principal-ai/file-city-builder": "^0.4.0",
     "lucide-react": "^0.563.0",
     "reactflow": "^11.11.4"
   },

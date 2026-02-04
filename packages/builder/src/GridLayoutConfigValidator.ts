@@ -1,8 +1,8 @@
 import { CodebaseView } from '@principal-ai/alexandria-core-library';
 
-import { getUIMetadata } from './types/ui-metadata';
+import { getUIMetadata } from './types/ui-metadata.js';
 
-import { GridLayoutManager } from './GridLayoutManager';
+import { GridLayoutManager } from './GridLayoutManager.js';
 
 export interface GridConfigValidationIssue {
   code: string;

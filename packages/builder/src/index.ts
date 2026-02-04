@@ -1,17 +1,17 @@
 // Main export for multi-version city building
-export { buildMultiVersionCity } from './buildMultiVersionCity';
+export { buildMultiVersionCity } from './buildMultiVersionCity.js';
 
 // Multi-version builder and options
-export { MultiVersionCityBuilder } from './MultiVersionCityBuilder';
-export type { MultiVersionOptions, MultiVersionResult } from './MultiVersionCityBuilder';
+export { MultiVersionCityBuilder } from './MultiVersionCityBuilder.js';
+export type { MultiVersionOptions, MultiVersionResult } from './MultiVersionCityBuilder.js';
 
 // Grid-based builder and layout manager
-export { CodeCityBuilderWithGrid } from './CodeCityBuilderWithGrid';
-export { GridLayoutManager } from './GridLayoutManager';
+export { CodeCityBuilderWithGrid } from './CodeCityBuilderWithGrid.js';
+export { GridLayoutManager } from './GridLayoutManager.js';
 
 // File tree builder utilities
-export { buildFileSystemTreeFromFileInfoList, getFilesFromGitHubTree } from './FileTreeBuilder';
-export type { GitHubTreeResponse } from './FileTreeBuilder';
+export { buildFileSystemTreeFromFileInfoList, getFilesFromGitHubTree } from './FileTreeBuilder.js';
+export type { GitHubTreeResponse } from './FileTreeBuilder.js';
 
 // Core types
 export type {
@@ -26,15 +26,43 @@ export type {
   PRVisualizationData,
   SelectiveRenderOptions,
   DirectoryRenderMode,
-} from './types/cityData';
+} from './types/cityData.js';
 
 // Re-export FileTree type from repository-abstraction for convenience
 export type { FileTree } from '@principal-ai/repository-abstraction';
 
 // Sort functions
-export type { DirectorySortFunction, FileSortFunction } from './types/sorts';
+export type { DirectorySortFunction, FileSortFunction } from './types/sorts.js';
 
-export { CommonSorts } from './types/sorts';
+export { CommonSorts } from './types/sorts.js';
 
 // File color configuration
-export { default as defaultFileColorConfig } from './config/files.json';
+export { default as defaultFileColorConfig } from './config/files.json' with { type: 'json' };
+
+// Layer types for highlighting and visualization
+export type { LayerItem, LayerRenderStrategy, HighlightLayer } from './layers/types.js';
+
+// Tour types and utilities
+export type {
+  IntroductionTour,
+  IntroductionTourStep,
+  HighlightLayerConfig,
+  InteractiveAction,
+  InteractiveActionType,
+  TourResource,
+  TourResourceType,
+  TourMetadata,
+  ColorMode,
+} from './tour/types.js';
+
+// Tour validation
+export { TourValidationError, parseTour, parseTourOrThrow } from './tour/validation.js';
+export type { TourParseResult } from './tour/validation.js';
+
+// Tour discovery
+export {
+  findTourFilePathInFileTree,
+  findAllTourFilesInFileTree,
+  loadTourFromFileTree,
+  loadAllToursFromFileTree,
+} from './tour/discovery.js';

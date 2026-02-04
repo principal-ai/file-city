@@ -1,7 +1,7 @@
 import { FileTree, DirectoryInfo, FileInfo } from '@principal-ai/repository-abstraction';
 import { CodebaseView } from '@principal-ai/alexandria-core-library';
 
-import { getUIMetadata } from './types/ui-metadata';
+import { getUIMetadata } from './types/ui-metadata.js';
 
 /**
  * Manages grid-based spatial layout for city visualization
