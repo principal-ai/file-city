@@ -1,0 +1,65 @@
+{
+  "id": "codebase-onboarding",
+  "title": "Codebase Onboarding Tour",
+  "description": "Learn the structure and key components of this codebase",
+  "version": "1.0.0",
+  "audience": "New Developers",
+  "prerequisites": [
+    "Basic understanding of the technology stack"
+  ],
+  "steps": [
+    {
+      "id": "step-1-overview",
+      "title": "Project Overview",
+      "description": "Welcome to the codebase! This tour will guide you through the main areas.",
+      "estimatedTime": 60,
+      "colorMode": "fileTypes"
+    },
+    {
+      "id": "step-2-core",
+      "title": "Core Components",
+      "description": "These are the main building blocks of the application.",
+      "estimatedTime": 120,
+      "focusDirectory": "src",
+      "highlightLayers": [
+        {
+          "id": "core-layer",
+          "name": "Core Files",
+          "color": "#3b82f6",
+          "items": [
+            {
+              "path": "src/index.ts",
+              "type": "file"
+            },
+            {
+              "path": "src/components",
+              "type": "directory"
+            }
+          ],
+          "opacity": 0.7,
+          "borderWidth": 2
+        }
+      ],
+      "colorMode": "fileTypes"
+    },
+    {
+      "id": "step-3-configuration",
+      "title": "Configuration",
+      "description": "Configuration files that control the application behavior.",
+      "estimatedTime": 60,
+      "highlightFiles": [
+        "package.json",
+        "tsconfig.json"
+      ],
+      "colorMode": "fileTypes"
+    }
+  ],
+  "metadata": {
+    "author": "Your Name",
+    "createdAt": "2026-02-04T16:08:49.293Z",
+    "tags": [
+      "onboarding",
+      "tutorial"
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "id": "quick-start",
+  "title": "Quick Start Guide",
+  "description": "Get started with the codebase in 5 minutes",
+  "version": "1.0.0",
+  "audience": "New Users & AI Assistants",
+  "steps": [
+    {
+      "id": "step-1-welcome",
+      "title": "Welcome!",
+      "description": "This is a simple introduction to the project structure.",
+      "estimatedTime": 30,
+      "focusDirectory": "src",
+      "colorMode": "fileTypes"
+    }
+  ]
+}

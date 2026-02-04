@@ -1,0 +1,77 @@
+{
+  "id": "architecture-overview",
+  "title": "Architecture Overview",
+  "description": "Understand the architectural decisions and patterns in this codebase",
+  "version": "1.0.0",
+  "audience": "Engineers & Architects",
+  "steps": [
+    {
+      "id": "step-1-layered-architecture",
+      "title": "Layered Architecture",
+      "description": "The application follows a layered architecture pattern.",
+      "estimatedTime": 120,
+      "highlightLayers": [
+        {
+          "id": "presentation-layer",
+          "name": "Presentation Layer",
+          "color": "#10b981",
+          "items": [
+            {
+              "path": "src/components",
+              "type": "directory"
+            }
+          ],
+          "opacity": 0.6
+        },
+        {
+          "id": "business-layer",
+          "name": "Business Logic",
+          "color": "#f59e0b",
+          "items": [
+            {
+              "path": "src/services",
+              "type": "directory"
+            }
+          ],
+          "opacity": 0.6
+        },
+        {
+          "id": "data-layer",
+          "name": "Data Layer",
+          "color": "#ef4444",
+          "items": [
+            {
+              "path": "src/models",
+              "type": "directory"
+            }
+          ],
+          "opacity": 0.6
+        }
+      ],
+      "colorMode": "fileTypes"
+    },
+    {
+      "id": "step-2-patterns",
+      "title": "Design Patterns",
+      "description": "Key design patterns used throughout the codebase.",
+      "estimatedTime": 180,
+      "resources": [
+        {
+          "title": "Design Patterns Documentation",
+          "url": "https://refactoring.guru/design-patterns",
+          "type": "documentation"
+        }
+      ],
+      "colorMode": "fileTypes"
+    }
+  ],
+  "metadata": {
+    "author": "Architecture Team",
+    "createdAt": "2026-02-04T16:11:59.979Z",
+    "tags": [
+      "architecture",
+      "patterns",
+      "advanced"
+    ]
+  }
+}
