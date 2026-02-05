@@ -1,4 +1,3 @@
-import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import {
   CodeCityBuilderWithGrid,
@@ -50,7 +49,7 @@ const meta = {
     layout: 'fullscreen',
   },
   decorators: [
-    Story => (
+    (Story: React.ComponentType) => (
       <div style={{ width: '100vw', height: '100vh' }}>
         <Story />
       </div>

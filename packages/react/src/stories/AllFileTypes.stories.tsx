@@ -1,4 +1,3 @@
-import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { ArchitectureMapHighlightLayers } from '../components/ArchitectureMapHighlightLayers';
 import { CodeCityBuilderWithGrid, buildFileSystemTreeFromFileInfoList } from '@principal-ai/file-city-builder';
@@ -11,7 +10,7 @@ const meta = {
     layout: 'fullscreen',
   },
   decorators: [
-    Story => (
+    (Story: React.ComponentType) => (
       <div style={{ width: '100vw', height: '100vh', backgroundColor: '#1a1a1a' }}>
         <Story />
       </div>
@@ -199,7 +198,7 @@ function createAllFileTypesCityData() {
     };
   });
 
-  const fileTree = buildFileSystemTreeFromFileInfoList(fileInfos);
+  const fileTree = buildFileSystemTreeFromFileInfoList(fileInfos, 'all-file-types');
   const builder = new CodeCityBuilderWithGrid();
   return builder.buildCityFromFileSystem(fileTree, '', {
     paddingTop: 2,
@@ -288,7 +287,7 @@ export const TestFilesWithIcons: Story = {
       };
     });
 
-    const fileTree = buildFileSystemTreeFromFileInfoList(fileInfos);
+    const fileTree = buildFileSystemTreeFromFileInfoList(fileInfos, 'test-files');
     const builder = new CodeCityBuilderWithGrid();
     const cityData = builder.buildCityFromFileSystem(fileTree, '', {
       paddingTop: 2,

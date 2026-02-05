@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 
 import { ArchitectureMapHighlightLayers } from '../components/ArchitectureMapHighlightLayers';
@@ -353,7 +353,7 @@ const meta = {
     layout: 'fullscreen',
   },
   decorators: [
-    Story => (
+    (Story: React.ComponentType) => (
       <div style={{ width: '100vw', height: '100vh' }}>
         <Story />
       </div>

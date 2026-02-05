@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 
 import { ArchitectureMapHighlightLayers } from '../components/ArchitectureMapHighlightLayers';
@@ -12,7 +12,7 @@ const meta = {
     layout: 'fullscreen',
   },
   decorators: [
-    Story => (
+    (Story: React.ComponentType) => (
       <div style={{ width: '100vw', height: '100vh', backgroundColor: '#1a1a1a' }}>
         <Story />
       </div>
@@ -200,7 +200,6 @@ export const WithAbstractionLayer: Story = {
         color: '#1e40af',
         priority: 0,
         items: [],
-        // @ts-expect-error - abstraction layer specific properties
         abstractionLayer: true,
         abstractionConfig: {
           maxZoomLevel: 2.0,
@@ -208,7 +207,7 @@ export const WithAbstractionLayer: Story = {
           backgroundColor: '#1e40af',
           allowRootAbstraction: false,
         },
-      },
+      } as HighlightLayer,
     ],
     fullSize: true,
     enableZoom: true,

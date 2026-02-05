@@ -1,4 +1,3 @@
-import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { CityViewWithReactFlow } from '../components/CityViewWithReactFlow';
 import { FileTree, FileInfo, DirectoryInfo } from '@principal-ai/repository-abstraction';
@@ -11,7 +10,7 @@ const meta = {
     layout: 'fullscreen',
   },
   decorators: [
-    Story => (
+    (Story: React.ComponentType) => (
       <div style={{ height: '100vh', width: '100vw' }}>
         <Story />
       </div>
