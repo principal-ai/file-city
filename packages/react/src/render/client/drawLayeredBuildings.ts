@@ -894,12 +894,16 @@ export function drawLayeredBuildings(
     // Draw file type icon if enabled and icon map is provided
     // Track icon size for positioning file name below
     let iconBottomY = pos.y;
+    let hasIcon = false;
     if (showFileTypeIcons && iconMap) {
       const iconConfig = getFileTypeIcon(building.path, iconMap);
       if (iconConfig) {
+        hasIcon = true;
         // For wide buildings (wider than tall), shift icon up to make room for text below
+        // Only shift if text will actually be rendered
+        const willShowText = showFileNames && width > 100 && height > 30;
         const isWide = width > height;
-        const iconYOffset = isWide ? -height * 0.15 : 0;
+        const iconYOffset = (willShowText && isWide) ? -height * 0.15 : 0;
         const iconY = pos.y + iconYOffset;
 
         drawFileTypeIcon(ctx, iconConfig, pos.x, iconY, width, height);
@@ -933,15 +937,23 @@ export function drawLayeredBuildings(
       const fontSize = Math.min(30, Math.max(10, Math.floor(Math.min(width, height) * 0.3)));
       ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'top'; // Changed from 'middle' to 'top'
 
       const textMetrics = ctx.measureText(fileName);
       const textWidth = textMetrics.width;
 
       if (textWidth < width - 8) {
-        // Add spacing between icon and text
-        const spacing = 4;
-        const textY = iconBottomY + spacing;
+        let textY: number;
+
+        if (hasIcon) {
+          // Position text below icon
+          ctx.textBaseline = 'top';
+          const spacing = 4;
+          textY = iconBottomY + spacing;
+        } else {
+          // Center text vertically when no icon
+          ctx.textBaseline = 'middle';
+          textY = pos.y;
+        }
 
         // Text
         ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';

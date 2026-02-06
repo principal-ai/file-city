@@ -1,3 +1,4 @@
+import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { ArchitectureMapHighlightLayers } from '../components/ArchitectureMapHighlightLayers';
 import { CodeCityBuilderWithGrid, buildFileSystemTreeFromFileInfoList } from '@principal-ai/file-city-builder';
@@ -229,6 +230,8 @@ export const AllFileTypesWithColors: Story = {
           enableZoom={true}
           buildingBorderRadius={2}
           districtBorderRadius={4}
+          showFileTypeIcons={true}
+          showFileNames={true}
         />
         <div
           style={{

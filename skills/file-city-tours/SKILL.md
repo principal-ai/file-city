@@ -12,14 +12,14 @@ Create guided introduction tours that help users navigate and understand codebas
 
 ### Using the CLI (Recommended)
 
-Use `@principal-ai/file-city-cli` to create and validate tours:
+Use `@principal-ai/file-city-cli@latest` to create and validate tours:
 
 ```bash
 # Create a new tour from template
-npx @principal-ai/file-city-cli init --template onboarding
+npx @principal-ai/file-city-cli@latest init --template onboarding
 
 # Validate a tour file
-npx @principal-ai/file-city-cli validate my-tour.tour.json
+npx @principal-ai/file-city-cli@latest validate my-tour.tour.json
 
 # Available templates: minimal, onboarding, architecture
 ```
@@ -59,8 +59,12 @@ Tours are JSON files ending with `.tour.json` placed in repository root.
 
 **Focus & Zoom**
 ```json
-"focusDirectory": "src/components"  // Zoom into specific directory
+"focusDirectory": "src/components",  // Zoom into specific directory
+"focusDirectory": "",                // Repository root (entire codebase)
+"focusDirectory": "src"              // Top-level directory
 ```
+
+**Important**: Steps with `highlightLayers` **must** include `focusDirectory`. Use `""` (empty string) to focus on repository root.
 
 **Highlight Layers**
 ```json
@@ -95,7 +99,7 @@ Available: `fileTypes` (default), `git`, `pr`, `commit`, `coverage`, `eslint`, `
 1. **Overview** - Full codebase view with `fileTypes` mode
 2. **Core Areas** - Focus on key directories with highlights
 3. **Configuration** - Highlight config files
-4. **Next Steps** - Resources and documentation links
+4. **Next Steps** - Resources and documentation links, `focusDirectory: ""` to show full codebase
 
 ### Architecture Tour
 1. **Layered View** - Use multiple highlight layers with different colors
@@ -109,7 +113,7 @@ Use `"colorMode": "git"` to highlight modified files
 
 **Always validate before deploying:**
 ```bash
-npx @principal-ai/file-city-cli validate your-tour.tour.json
+npx @principal-ai/file-city-cli@latest validate your-tour.tour.json
 ```
 
 Common errors and fixes are in `references/troubleshooting.md`.
@@ -122,6 +126,11 @@ Common errors and fixes are in `references/troubleshooting.md`.
 4. **Test thoroughly** - Walk through the tour in File City
 5. **Hex colors only** - Format: `#RRGGBB` or `#RGB`
 6. **Kebab-case IDs** - Lowercase, hyphens only
+7. **Always set focusDirectory with highlightLayers** - Ensures camera focuses on highlighted area:
+   - Use `""` for repository root (full codebase view)
+   - Use `"src"` to focus on a specific top-level directory
+   - Use `"src/components"` to zoom into nested areas
+8. **Last step must focus on root** - Set `"focusDirectory": ""` on the final step for complete overview
 
 ## Path Rules
 

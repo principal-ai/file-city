@@ -596,15 +596,19 @@ export function drawBuildings(
     // Draw React symbol for JSX/TSX files
     // Track icon bottom position for placing filename below
     let iconBottomY = pos.y;
+    let hasIcon = false;
     if (isReactFile(building.fileExtension)) {
+      hasIcon = true;
       // Position React symbol centered in the building
       // Size is 75% of the smaller dimension
       const reactSize = Math.min(width, height) * 0.75;
       const reactX = pos.x;
 
       // For wide buildings (wider than tall), shift icon up to make room for text below
+      // Only shift if text will actually be rendered
+      const willShowText = showFileNames && width > 100 && height > 30;
       const isWide = width > height;
-      const iconYOffset = isWide ? -height * 0.15 : 0;
+      const iconYOffset = (willShowText && isWide) ? -height * 0.15 : 0;
       const reactY = pos.y + iconYOffset;
 
       drawReactSymbol(ctx, reactX, reactY, reactSize);
@@ -668,7 +672,6 @@ export function drawBuildings(
       // Use sans-serif for better readability at small sizes
       ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'top'; // Changed from 'middle' to 'top'
 
       // Measure text and adjust font size if needed to ensure it fits
       let textMetrics = ctx.measureText(fileName);
@@ -685,9 +688,18 @@ export function drawBuildings(
 
       // Only draw if text fits within building with padding
       if (textWidth < width - 8) {
-        // Add spacing between icon and text
-        const spacing = 4;
-        const textY = iconBottomY + spacing;
+        let textY: number;
+
+        if (hasIcon) {
+          // Position text below icon
+          ctx.textBaseline = 'top';
+          const spacing = 4;
+          textY = iconBottomY + spacing;
+        } else {
+          // Center text vertically when no icon
+          ctx.textBaseline = 'middle';
+          textY = pos.y;
+        }
 
         // Draw text
         ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';

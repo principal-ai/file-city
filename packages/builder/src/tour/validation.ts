@@ -130,6 +130,17 @@ function validateStep(step: IntroductionTourStep, index: number): TourValidation
     }
   }
 
+  // Validate that steps with highlight layers have focusDirectory
+  if (step.highlightLayers && step.highlightLayers.length > 0 && step.focusDirectory === undefined) {
+    errors.push(
+      new TourValidationError(
+        `Step ${index}: Steps with 'highlightLayers' must specify 'focusDirectory' to ensure the camera focuses on the highlighted area. Use "" (empty string) to focus on repository root, or specify a directory path like "src"`,
+        'focusDirectory',
+        undefined
+      )
+    );
+  }
+
   // Validate highlight layers
   if (step.highlightLayers) {
     step.highlightLayers.forEach((layer, layerIndex) => {
@@ -290,6 +301,18 @@ function validateTour(tour: IntroductionTour): TourValidationError[] {
       }
       stepIds.add(step.id);
     });
+
+    // Validate that the last step focuses on repository root
+    const lastStep = tour.steps[tour.steps.length - 1];
+    if (lastStep.focusDirectory !== '') {
+      errors.push(
+        new TourValidationError(
+          `The last step must set 'focusDirectory' to "" (empty string) to focus on repository root, providing a complete overview at tour end`,
+          `steps[${tour.steps.length - 1}].focusDirectory`,
+          lastStep.focusDirectory
+        )
+      );
+    }
   }
 
   // Validate optional audience (any string is valid)

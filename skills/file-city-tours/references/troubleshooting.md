@@ -14,7 +14,7 @@ Common issues when creating and using File City tours.
 
 **Validation**:
 ```bash
-npx @principal-ai/file-city-cli validate your-tour.tour.json
+npx @principal-ai/file-city-cli@latest validate your-tour.tour.json
 ```
 
 ## Validation Errors
@@ -161,7 +161,7 @@ npx @principal-ai/file-city-cli validate your-tour.tour.json
 npm install -g @principal-ai/file-city-cli
 
 # Option 2: Use npx
-npx @principal-ai/file-city-cli validate my-tour.tour.json
+npx @principal-ai/file-city-cli@latest validate my-tour.tour.json
 
 # Option 3: Use local install
 npm install --save-dev @principal-ai/file-city-cli
@@ -183,7 +183,7 @@ npx tour validate my-tour.tour.json
 
 ### Test your tour
 1. Create the tour file
-2. Validate with CLI: `npx @principal-ai/file-city-cli validate`
+2. Validate with CLI: `npx @principal-ai/file-city-cli@latest validate`
 3. Place in repository root
 4. Open in File City
 5. Walk through each step
