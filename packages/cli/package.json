@@ -1,6 +1,6 @@
 {
   "name": "@principal-ai/file-city-cli",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "description": "CLI tool for File City tours - validation, creation, and linting",
   "type": "module",
   "main": "./dist/index.js",
@@ -14,24 +14,25 @@
     "README.md"
   ],
   "scripts": {
-    "build": "bun run build:clean && bun run build:ts && chmod +x dist/index.js",
+    "build": "bun run build:clean && bun run build:bundle && chmod +x dist/index.js",
     "build:clean": "rm -rf dist",
-    "build:ts": "tsc",
+    "build:bundle": "esbuild src/index.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/index.js --external:chalk --external:commander",
     "dev": "tsc --watch",
     "test": "bun test"
   },
   "dependencies": {
-    "@principal-ai/file-city-builder": "^0.4.0",
-    "@principal-ai/repository-abstraction": "^0.2.4",
     "chalk": "^4.1.2",
     "commander": "^11.1.0"
   },
   "devDependencies": {
+    "@principal-ai/file-city-builder": "^0.4.1",
+    "@principal-ai/repository-abstraction": "^0.2.4",
     "@types/node": "^20.10.0",
+    "esbuild": "^0.24.2",
     "typescript": "^5.0.4"
   },
   "publishConfig": {
-    "access": "restricted",
+    "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
   "keywords": [

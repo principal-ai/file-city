@@ -12,7 +12,7 @@ Create guided introduction tours that help users navigate and understand codebas
 
 ### Using the CLI (Recommended)
 
-Use `@principal-ai/file-city-cli@latest` to create and validate tours:
+Use `npx` to run `@principal-ai/file-city-cli@latest` without installing globally:
 
 ```bash
 # Create a new tour from template
@@ -23,6 +23,8 @@ npx @principal-ai/file-city-cli@latest validate my-tour.tour.json
 
 # Available templates: minimal, onboarding, architecture
 ```
+
+**Note**: Using `npx` ensures you always run the latest version without needing to install the CLI globally.
 
 ### Manual Creation
 
