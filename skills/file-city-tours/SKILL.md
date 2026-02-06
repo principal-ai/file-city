@@ -37,6 +37,8 @@ Use template files from `assets/` directory:
 
 Tours are JSON files ending with `.tour.json` placed in repository root.
 
+**Important**: Only create **one tour per repository**. If multiple `.tour.json` files exist, only the first one alphabetically will be loaded.
+
 ### Minimal Structure
 
 ```json
@@ -122,17 +124,18 @@ Common errors and fixes are in `references/troubleshooting.md`.
 
 ## Best Practices
 
-1. **Keep focused** - 5-10 steps ideal
-2. **One concept per step** - Don't overwhelm
-3. **Use relative paths** - No leading `/` or `./`
-4. **Test thoroughly** - Walk through the tour in File City
-5. **Hex colors only** - Format: `#RRGGBB` or `#RGB`
-6. **Kebab-case IDs** - Lowercase, hyphens only
-7. **Always set focusDirectory with highlightLayers** - Ensures camera focuses on highlighted area:
+1. **One tour per repository** - Create only a single `.tour.json` file
+2. **Keep focused** - 5-10 steps ideal
+3. **One concept per step** - Don't overwhelm
+4. **Use relative paths** - No leading `/` or `./`
+5. **Test thoroughly** - Walk through the tour in File City
+6. **Hex colors only** - Format: `#RRGGBB` or `#RGB`
+7. **Kebab-case IDs** - Lowercase, hyphens only
+8. **Always set focusDirectory with highlightLayers** - Ensures camera focuses on highlighted area:
    - Use `""` for repository root (full codebase view)
    - Use `"src"` to focus on a specific top-level directory
    - Use `"src/components"` to zoom into nested areas
-8. **Last step must focus on root** - Set `"focusDirectory": ""` on the final step for complete overview
+9. **Last step must focus on root** - Set `"focusDirectory": ""` on the final step for complete overview
 
 ## Path Rules
 
