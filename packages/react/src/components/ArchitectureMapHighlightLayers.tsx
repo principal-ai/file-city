@@ -1624,15 +1624,61 @@ function ArchitectureMapHighlightLayersInner({
           width: '100%',
           height: '100%',
           minHeight: '250px',
-          backgroundColor: theme.colors.backgroundSecondary,
-          borderRadius: `${theme.radii[2]}px`,
-          padding: `${theme.space[4]}px`,
+          backgroundColor: resolvedCanvasBackgroundColor,
+          borderRadius: fullSize ? 0 : `${theme.radii[2]}px`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          position: 'relative',
+          overflow: 'hidden',
         }}
       >
-        <div style={{ color: theme.colors.textMuted, fontFamily: theme.fonts.body }}>
+        {/* Decorative grid background with integrated text */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))',
+            gridAutoRows: 'minmax(80px, 1fr)',
+            gap: '20px',
+            padding: '20px',
+          }}
+        >
+          {/* Generate grid squares to fill space */}
+          {Array.from({ length: 200 }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                backgroundColor: resolvedDefaultBuildingColor,
+                borderRadius: buildingBorderRadius,
+                opacity: 0.6 + (i % 3) * 0.2,
+              }}
+            />
+          ))}
+        </div>
+        {/* Text overlay centered */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '35%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: theme.colors.textMuted,
+            fontFamily: theme.fonts.body,
+            fontSize: `${theme.fontSizes[3]}px`,
+            fontWeight: theme.fontWeights.medium,
+            backgroundColor: resolvedCanvasBackgroundColor,
+            borderRadius: `${theme.radii[2]}px`,
+            padding: `${theme.space[4]}px ${theme.space[5]}px`,
+            textAlign: 'center',
+            minWidth: '300px',
+          }}
+        >
           No city data available
         </div>
       </div>

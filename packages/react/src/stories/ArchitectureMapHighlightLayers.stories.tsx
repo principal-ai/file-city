@@ -310,6 +310,14 @@ export const WithBorderRadius: Story = {
   },
 };
 
+// Story showing the loading/empty state when cityData is not available
+export const LoadingState: Story = {
+  args: {
+    cityData: undefined,
+    fullSize: true,
+  },
+};
+
 // Story with programmatic zoom only (no user interaction)
 // Demonstrates allowZoomToPath={true} with enableZoom={false}
 export const ProgrammaticZoomOnly: Story = {
