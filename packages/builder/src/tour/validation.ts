@@ -118,6 +118,18 @@ function validateStep(step: IntroductionTourStep, index: number): TourValidation
     }
   }
 
+  if (step.coverImage !== undefined) {
+    if (typeof step.coverImage !== 'string' || step.coverImage.trim().length === 0) {
+      errors.push(
+        new TourValidationError(
+          `Step ${index}: 'coverImage' must be a non-empty string`,
+          'coverImage',
+          step.coverImage
+        )
+      );
+    }
+  }
+
   if (step.autoAdvance && step.autoAdvanceDelay !== undefined) {
     if (typeof step.autoAdvanceDelay !== 'number' || step.autoAdvanceDelay < 1000) {
       errors.push(
@@ -324,6 +336,19 @@ function validateTour(tour: IntroductionTour): TourValidationError[] {
         tour.audience
       )
     );
+  }
+
+  // Validate optional coverImage
+  if (tour.coverImage !== undefined) {
+    if (typeof tour.coverImage !== 'string' || tour.coverImage.trim().length === 0) {
+      errors.push(
+        new TourValidationError(
+          `Invalid 'coverImage' - must be a non-empty string`,
+          'coverImage',
+          tour.coverImage
+        )
+      );
+    }
   }
 
   return errors;

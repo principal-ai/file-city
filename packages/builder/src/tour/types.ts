@@ -94,6 +94,8 @@ export interface IntroductionTourStep {
   estimatedTime?: number;
   /** Directory to focus on (will zoom and highlight this directory) */
   focusDirectory?: string;
+  /** Cover image URL or path relative to repo root (e.g., 'assets/architecture.png'). Displayed as overlay on File City during this step. Useful for showing diagrams, architecture visuals, or explanatory images. Supports static images (jpg, png, svg) and animated (gif, webp). */
+  coverImage?: string;
   /** Highlight layers to show during this step */
   highlightLayers?: HighlightLayerConfig[];
   /** Specific files to highlight or point out */
@@ -140,6 +142,8 @@ export interface IntroductionTour {
   audience?: string;
   /** Prerequisites or required knowledge */
   prerequisites?: string[];
+  /** Cover image URL or path relative to repo root (e.g., 'assets/tour-cover.gif'). Displayed as overlay on File City during welcome screen. Supports static images (jpg, png, svg) and animated (gif, webp). */
+  coverImage?: string;
   /** Ordered list of steps */
   steps: IntroductionTourStep[];
   /** Tour metadata */
