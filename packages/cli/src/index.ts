@@ -10,6 +10,7 @@
 import { Command } from 'commander';
 import { createValidateCommand } from './commands/validate.js';
 import { createInitCommand } from './commands/init.js';
+import { createStatsCommand } from './commands/stats.js';
 
 const program = new Command();
 
@@ -21,6 +22,7 @@ program
 // Add commands
 program.addCommand(createValidateCommand());
 program.addCommand(createInitCommand());
+program.addCommand(createStatsCommand());
 
 // Parse command line arguments
 program.parse(process.argv);
