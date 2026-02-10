@@ -17,7 +17,7 @@ const program = new Command();
 program
   .name('tour')
   .description('CLI tool for File City introduction tours')
-  .version('0.1.0');
+  .version('0.1.5');
 
 // Add commands
 program.addCommand(createValidateCommand());
