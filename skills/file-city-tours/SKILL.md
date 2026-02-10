@@ -125,10 +125,15 @@ Common errors and fixes are in `references/troubleshooting.md`.
 ## Best Practices
 
 1. **One tour per repository** - Create only a single `.tour.json` file
-2. **Keep focused** - 5-10 steps ideal
-3. **One concept per step** - Don't overwhelm
+2. **Target duration: 2 minutes ideal, 3 minutes max** - Keep tours concise and focused:
+   - **4-6 steps** for 2-minute tours (ideal)
+   - **6-8 steps maximum** for 3-minute tours
+   - **20-30 seconds per step** - Include reading + viewing + interaction time
+   - **200-250 characters per description** - Max 300 characters
+   - **Total text: 800-1,500 chars** for 2 minutes, up to 2,000 chars for 3 minutes
+3. **One concept per step** - Don't overwhelm, stay focused
 4. **Use relative paths** - No leading `/` or `./`
-5. **Test thoroughly** - Walk through the tour in File City
+5. **Test thoroughly** - Walk through the tour in File City and verify timing
 6. **Hex colors only** - Format: `#RRGGBB` or `#RGB`
 7. **Kebab-case IDs** - Lowercase, hyphens only
 8. **Always set focusDirectory with highlightLayers** - Ensures camera focuses on highlighted area:

@@ -222,18 +222,24 @@ Resources provide links to additional documentation or context.
 
 ### Tour Design
 
-1. **Start broad, then narrow** - Begin with overview, then focus on specific areas
-2. **Limit steps** - 5-10 steps is ideal for most tours
-3. **Estimate time accurately** - Test the tour and update `estimatedTime` values
+1. **Target duration: 2 minutes ideal, 3 minutes maximum** - Keep tours concise and impactful:
+   - **4-6 steps** for 2-minute tours (recommended)
+   - **6-8 steps maximum** for 3-minute tours (absolute max)
+   - **One tour per repository** - Don't split into multiple tours
+   - **Test and time** - Walk through your tour and verify it fits within 3 minutes
+2. **Start broad, then narrow** - Begin with overview, then focus on specific areas
+3. **Estimate time accurately** - Use `estimatedTime` field, allocate 20-30 seconds per step
 4. **Use progressive disclosure** - Don't overwhelm with too much information at once
 
 ### Step Design
 
 1. **One concept per step** - Each step should teach one main idea
 2. **Keep descriptions concise** - Aim for 200-250 characters, maximum 300. Focus on key points users need to know.
-3. **Use visual hierarchy** - Combine `focusDirectory` with `highlightLayers` for clarity
-4. **Make it interactive** - Include at least one `interactiveAction` per step
-5. **Provide resources** - Link to relevant documentation
+3. **Allocate 20-30 seconds per step** - Include time for reading description, viewing visualization, and interaction
+4. **Total text budget** - For 2-minute tours: 800-1,500 characters across all steps. For 3-minute max: up to 2,000 characters.
+5. **Use visual hierarchy** - Combine `focusDirectory` with `highlightLayers` for clarity
+6. **Make it interactive** - Include at least one `interactiveAction` per step
+7. **Provide resources** - Link to relevant documentation
 
 ### Cover Images
 
@@ -324,6 +330,7 @@ A CLI tool for generating and validating tours should support:
 3. **`tour init`** - Initialize a new tour with template
 4. **`tour test <file>`** - Test tour in a File City instance
 5. **`tour lint <file>`** - Check for best practices violations
+6. **`tour stats <file>`** - Display tour statistics and timing analysis
 
 ### Validation
 
@@ -332,6 +339,49 @@ A CLI tool for generating and validating tours should support:
 - Color code validation (valid hex colors)
 - Unique ID validation (tour and step IDs)
 - Cross-reference validation (layer IDs match in actions)
+
+### Tour Statistics (`tour stats`)
+
+Displays timing and content analysis to help meet the 2-minute ideal / 3-minute max target:
+
+**Output should include:**
+```
+Tour Statistics: "Quick Start Guide"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Steps:               6 steps
+Total duration:      2m 30s (150 seconds)
+Total description:   1,423 characters
+
+Target Guidelines:
+  ✓ Steps: 6 (within 4-6 ideal range)
+  ⚠ Duration: 2m 30s (exceeds 2min ideal, within 3min max)
+  ✓ Characters: 1,423 (within 800-1,500 ideal range)
+
+Per-Step Breakdown:
+  1. Welcome          (25s, 245 chars) ✓
+  2. Core Components  (30s, 280 chars) ⚠ Approaching limit
+  3. Configuration    (20s, 198 chars) ✓
+  4. Data Flow        (35s, 312 chars) ✗ Exceeds 300 char limit
+  5. Testing          (22s, 210 chars) ✓
+  6. Next Steps       (18s, 178 chars) ✓
+
+Recommendations:
+  • Reduce step 4 description by 12 characters
+  • Consider reducing overall duration to meet 2-minute ideal
+```
+
+**Metrics to calculate:**
+- Total step count
+- Sum of all `estimatedTime` values (if provided)
+- Total character count across all step descriptions
+- Per-step character counts
+- Comparison against targets:
+  - ✓ Ideal: 4-6 steps, ≤120s, 800-1,500 chars
+  - ⚠ Acceptable: 6-8 steps, ≤180s, 1,500-2,000 chars
+  - ✗ Over limit: >8 steps, >180s, >2,000 chars
+- Flag individual steps exceeding 300 characters
+- Suggest estimated time per step if not provided (based on char count)
 
 ### Generation
 
