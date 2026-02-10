@@ -59,6 +59,35 @@ Tours are JSON files ending with `.tour.json` placed in repository root.
 }
 ```
 
+## Tour Content Strategy
+
+### Focus on Concepts, Not Just Structure
+
+**Tours should teach mental models, not just show directories.**
+
+When creating tours, prioritize explaining:
+- **What the code does** - Core functionality and purpose
+- **How it works** - Architectural patterns and mechanisms (state management, reconciliation, etc.)
+- **Why it's designed this way** - Design decisions and trade-offs
+- **How components relate** - Relationships between different parts
+- **Where to extend** - How developers can build on top of it
+
+**Concrete descriptions beat abstract labels:**
+- ❌ "Core packages with framework functionality"
+- ✅ "LexicalEditor.ts manages the editor instance and wires everything together - updates, listeners, commands, and DOM reconciliation"
+
+**Show implementation of concepts:**
+- Connect architectural concepts to actual code files
+- Use highlights to show which files implement which concepts
+- Explain patterns like immutability, double-buffering, command dispatching
+
+**Build understanding progressively:**
+- Start with high-level concepts ("What is this?")
+- Show the core engine/system ("How does it work?")
+- Highlight key abstractions ("What are the building blocks?")
+- Demonstrate extensibility ("How can I use/extend it?")
+- Point to examples ("Where can I see it in action?")
+
 ### Key Features
 
 **Focus & Zoom**
@@ -97,21 +126,63 @@ Tours are JSON files ending with `.tour.json` placed in repository root.
 **Color Modes**
 Available: `fileTypes` (default), `git`, `pr`, `commit`, `coverage`, `eslint`, `typescript`, `prettier`, `knip`, `alexandria`
 
+## Tour Philosophy: Concepts Over Structure
+
+**IMPORTANT**: Focus tours on **what the code does** and **core concepts**, not just file structure.
+
+### Good Tour Practices ✅
+- **Explain architectural concepts** - "This uses an immutable state model for reliable updates"
+- **Show relationships between components** - "Editor manages EditorState, which contains the node tree"
+- **Describe functionality** - "These nodes are immutable - getWritable() creates clones for editing"
+- **Connect files to concepts** - "LexicalEditor.ts manages the editor instance and wires everything together"
+- **Build understanding progressively** - Start with core concepts, then show how they're implemented
+
+### What to Avoid ❌
+- **Don't just list directories** - "The packages directory contains all modules" (too generic)
+- **Don't focus only on structure** - "These are the source files" (doesn't explain what they do)
+- **Avoid surface-level descriptions** - "Config files" without explaining their purpose
+- **Don't skip the "why"** - Always explain why something exists, not just where it is
+
+### Example Comparison
+
+**Before (Structure-focused):**
+```
+"The packages directory contains the core functionality.
+The lexical package has the main code, and lexical-react has React bindings."
+```
+
+**After (Concept-focused):**
+```
+"Lexical's core: LexicalEditor.ts manages the editor instance,
+LexicalEditorState.ts holds immutable content snapshots.
+Updates use double-buffering - clone state, mutate, reconcile to DOM."
+```
+
 ## Common Patterns
 
-### Onboarding Flow
-1. **Overview** - Full codebase view with `fileTypes` mode
-2. **Core Areas** - Focus on key directories with highlights
-3. **Configuration** - Highlight config files
-4. **Next Steps** - Resources and documentation links, `focusDirectory: ""` to show full codebase
+### Concept-Driven Onboarding
+1. **What is it?** - Explain the core purpose and architecture (e.g., "immutable state editor framework")
+2. **Core Engine** - Show the main system files and how they work together (Editor, State, Updates, Reconciler)
+3. **Key Abstractions** - Highlight the primary abstractions (Nodes, Commands, Transforms) and their relationships
+4. **Extensibility** - Show the plugin/extension system and how features compose
+5. **See It Working** - Point to examples/playground showing concepts in action
+6. **Next Steps** - Resources and documentation, `focusDirectory: ""` for complete overview
 
 ### Architecture Tour
-1. **Layered View** - Use multiple highlight layers with different colors
-2. **Data Flow** - Show connections between layers
-3. **Patterns** - Link to design pattern documentation
+1. **Core Concepts** - Explain the fundamental architectural patterns (state management, reconciliation, etc.)
+2. **Component Relationships** - Show how major components interact using multiple highlight layers
+3. **Data Flow** - Explain how data moves through the system with visual highlights
+4. **Extension Points** - Show where and how developers can extend functionality
+5. **Patterns in Practice** - Link to examples demonstrating architectural patterns
+
+### Feature Deep-Dive
+1. **Feature Overview** - What does this feature do and why does it exist?
+2. **Implementation** - Show the core files implementing the feature
+3. **Integration Points** - How does it integrate with the rest of the system?
+4. **Usage Examples** - Where is this feature used in practice?
 
 ### Recent Changes
-Use `"colorMode": "git"` to highlight modified files
+Use `"colorMode": "git"` to highlight modified files, but **explain what changed and why**, not just "these files were modified"
 
 ## Validation
 
@@ -124,23 +195,30 @@ Common errors and fixes are in `references/troubleshooting.md`.
 
 ## Best Practices
 
-1. **One tour per repository** - Create only a single `.tour.json` file
-2. **Target duration: 2 minutes ideal, 3 minutes max** - Keep tours concise and focused:
+### Content Guidelines
+1. **Teach concepts, not just structure** - Explain what the code does and how it works, not just where files are
+2. **Connect code to concepts** - Highlight files while explaining the concepts they implement
+3. **Explain the "why"** - Include architectural reasoning and design decisions
+4. **Show relationships** - Use highlight layers to show how components work together
+5. **One concept per step** - Don't overwhelm, stay focused on a single idea
+
+### Technical Guidelines
+6. **One tour per repository** - Create only a single `.tour.json` file
+7. **Target duration: 2 minutes ideal, 3 minutes max** - Keep tours concise and focused:
    - **4-6 steps** for 2-minute tours (ideal)
    - **6-8 steps maximum** for 3-minute tours
    - **20-30 seconds per step** - Include reading + viewing + interaction time
    - **200-250 characters per description** - Max 300 characters
    - **Total text: 800-1,500 chars** for 2 minutes, up to 2,000 chars for 3 minutes
-3. **One concept per step** - Don't overwhelm, stay focused
-4. **Use relative paths** - No leading `/` or `./`
-5. **Test thoroughly** - Walk through the tour in File City and verify timing
-6. **Hex colors only** - Format: `#RRGGBB` or `#RGB`
-7. **Kebab-case IDs** - Lowercase, hyphens only
-8. **Always set focusDirectory with highlightLayers** - Ensures camera focuses on highlighted area:
-   - Use `""` for repository root (full codebase view)
-   - Use `"src"` to focus on a specific top-level directory
-   - Use `"src/components"` to zoom into nested areas
-9. **Last step must focus on root** - Set `"focusDirectory": ""` on the final step for complete overview
+8. **Use relative paths** - No leading `/` or `./`
+9. **Test thoroughly** - Walk through the tour in File City and verify timing
+10. **Hex colors only** - Format: `#RRGGBB` or `#RGB`
+11. **Kebab-case IDs** - Lowercase, hyphens only
+12. **Always set focusDirectory with highlightLayers** - Ensures camera focuses on highlighted area:
+    - Use `""` for repository root (full codebase view)
+    - Use `"src"` to focus on a specific top-level directory
+    - Use `"src/components"` to zoom into nested areas
+13. **Last step must focus on root** - Set `"focusDirectory": ""` on the final step for complete overview
 
 ## Path Rules
 

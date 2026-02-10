@@ -1,65 +1,116 @@
 {
-  "id": "codebase-onboarding",
-  "title": "Codebase Onboarding Tour",
-  "description": "Learn the structure and key components of this codebase",
+  "id": "understanding-your-project",
+  "title": "Understanding [Your Project]",
+  "description": "Learn how [Your Project] works - core concepts, architecture, and key components",
   "version": "1.0.0",
   "audience": "New Developers",
   "prerequisites": [
-    "Basic understanding of the technology stack"
+    "Basic understanding of [technology stack]"
   ],
   "steps": [
     {
-      "id": "step-1-overview",
-      "title": "Project Overview",
-      "description": "Welcome to the codebase! This tour will guide you through the main areas.",
-      "estimatedTime": 60,
+      "id": "what-is-it",
+      "title": "What is [Your Project]?",
+      "description": "[Replace with: Brief explanation of what your project does, its core purpose, and key architectural approach. Example: 'An extensible text editor framework with immutable state for reliability. Uses EditorState snapshots and double-buffering updates.']",
+      "estimatedTime": 30,
+      "focusDirectory": "",
       "colorMode": "fileTypes"
     },
     {
-      "id": "step-2-core",
-      "title": "Core Components",
-      "description": "These are the main building blocks of the application.",
-      "estimatedTime": 120,
+      "id": "core-engine",
+      "title": "The Core Engine",
+      "description": "[Replace with: Explain how your core system works, highlighting the main files. Example: 'Editor.ts manages the instance, State.ts holds immutable content, Updates.ts batches mutations, Reconciler.ts syncs to DOM.']",
+      "estimatedTime": 30,
       "focusDirectory": "src",
       "highlightLayers": [
         {
-          "id": "core-layer",
-          "name": "Core Files",
+          "id": "core-system",
+          "name": "Core System",
           "color": "#3b82f6",
           "items": [
             {
-              "path": "src/index.ts",
+              "path": "src/core/Engine.ts",
+              "type": "file",
+              "comment": "Replace with your actual core files"
+            },
+            {
+              "path": "src/core/State.ts",
               "type": "file"
+            }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "border"
+        }
+      ],
+      "colorMode": "fileTypes",
+      "interactiveActions": [
+        {
+          "type": "click-file",
+          "description": "View the main engine implementation",
+          "target": "src/core/Engine.ts"
+        }
+      ]
+    },
+    {
+      "id": "key-abstractions",
+      "title": "Key Abstractions",
+      "description": "[Replace with: Explain your main abstractions/building blocks. Example: 'Content is represented as Nodes. Three types: TextNode (text), ElementNode (containers), DecoratorNode (custom components). All immutable - getWritable() creates clones.']",
+      "estimatedTime": 30,
+      "focusDirectory": "src",
+      "highlightLayers": [
+        {
+          "id": "abstractions",
+          "name": "Core Abstractions",
+          "color": "#10b981",
+          "items": [
+            {
+              "path": "src/core/Node.ts",
+              "type": "file",
+              "comment": "Replace with your abstraction files"
             },
             {
               "path": "src/components",
               "type": "directory"
             }
           ],
-          "opacity": 0.7,
-          "borderWidth": 2
+          "opacity": 0.8,
+          "renderStrategy": "border"
         }
       ],
       "colorMode": "fileTypes"
     },
     {
-      "id": "step-3-configuration",
-      "title": "Configuration",
-      "description": "Configuration files that control the application behavior.",
-      "estimatedTime": 60,
-      "highlightFiles": [
-        "package.json",
-        "tsconfig.json"
+      "id": "extensibility",
+      "title": "How to Extend",
+      "description": "[Replace with: Explain your plugin/extension system. Example: 'Plugins hook into lifecycle. Each plugin is independent but composed: HistoryPlugin (undo/redo), RichTextPlugin (formatting), ListPlugin (lists).']",
+      "estimatedTime": 30,
+      "focusDirectory": "",
+      "highlightLayers": [
+        {
+          "id": "plugins",
+          "name": "Plugin System",
+          "color": "#f59e0b",
+          "items": [
+            {
+              "path": "src/plugins",
+              "type": "directory",
+              "comment": "Replace with your extension points"
+            }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "border"
+        }
       ],
       "colorMode": "fileTypes"
     }
   ],
   "metadata": {
     "author": "Your Name",
-    "createdAt": "2026-02-04T16:08:49.293Z",
+    "createdAt": "2026-02-10",
     "tags": [
       "onboarding",
-      "tutorial"
+      "concepts",
+      "architecture"
     ]
   }
 }

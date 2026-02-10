@@ -1,65 +1,133 @@
 {
-  "id": "architecture-overview",
-  "title": "Architecture Overview",
-  "description": "Understand the architectural decisions and patterns in this codebase",
+  "id": "architecture-deep-dive",
+  "title": "[Your Project] Architecture Deep Dive",
+  "description": "Understand the architectural patterns that make [Your Project] work - [pattern 1], [pattern 2], and [pattern 3]",
   "version": "1.0.0",
   "audience": "Engineers & Architects",
   "steps": [
     {
-      "id": "step-1-layered-architecture",
-      "title": "Layered Architecture",
-      "description": "The application follows a layered architecture pattern.",
-      "estimatedTime": 120,
+      "id": "core-pattern-1",
+      "title": "[Pattern Name 1]",
+      "description": "[Replace with: Explain the first core architectural pattern. Example: 'EditorState is immutable - never modified directly. Every update clones the state, applies changes, then replaces it atomically. This enables time-travel debugging and prevents race conditions. Implemented in EditorState.ts.']",
+      "estimatedTime": 30,
+      "focusDirectory": "src",
       "highlightLayers": [
         {
-          "id": "presentation-layer",
-          "name": "Presentation Layer",
+          "id": "pattern-1-implementation",
+          "name": "[Pattern 1 Implementation]",
+          "color": "#3b82f6",
+          "items": [
+            {
+              "path": "src/core/State.ts",
+              "type": "file",
+              "comment": "Replace with files implementing this pattern"
+            },
+            {
+              "path": "src/core/Node.ts",
+              "type": "file"
+            }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "border"
+        }
+      ],
+      "colorMode": "fileTypes",
+      "interactiveActions": [
+        {
+          "type": "click-file",
+          "description": "View pattern implementation",
+          "target": "src/core/State.ts"
+        }
+      ]
+    },
+    {
+      "id": "core-pattern-2",
+      "title": "[Pattern Name 2]",
+      "description": "[Replace with: Explain the second architectural pattern. Example: 'Updates use double-buffering like graphics rendering. Updates.ts clones EditorState, batches all mutations, then Reconciler.ts diffs and applies minimal DOM changes. This ensures consistency and performance.']",
+      "estimatedTime": 30,
+      "focusDirectory": "src",
+      "highlightLayers": [
+        {
+          "id": "pattern-2-implementation",
+          "name": "[Pattern 2 Pipeline]",
           "color": "#10b981",
           "items": [
             {
-              "path": "src/components",
-              "type": "directory"
-            }
-          ],
-          "opacity": 0.6
-        },
-        {
-          "id": "business-layer",
-          "name": "Business Logic",
-          "color": "#f59e0b",
-          "items": [
+              "path": "src/core/Updates.ts",
+              "type": "file",
+              "comment": "Replace with files implementing this pattern"
+            },
             {
-              "path": "src/services",
-              "type": "directory"
+              "path": "src/core/Reconciler.ts",
+              "type": "file"
             }
           ],
-          "opacity": 0.6
-        },
-        {
-          "id": "data-layer",
-          "name": "Data Layer",
-          "color": "#ef4444",
-          "items": [
-            {
-              "path": "src/models",
-              "type": "directory"
-            }
-          ],
-          "opacity": 0.6
+          "opacity": 0.8,
+          "renderStrategy": "border"
         }
       ],
       "colorMode": "fileTypes"
     },
     {
-      "id": "step-2-patterns",
-      "title": "Design Patterns",
-      "description": "Key design patterns used throughout the codebase.",
-      "estimatedTime": 180,
+      "id": "extensibility-pattern",
+      "title": "[Extensibility Pattern]",
+      "description": "[Replace with: Explain how the system can be extended. Example: 'Commands enable decoupled communication. Plugins dispatch commands, handlers respond by priority. Commands.ts defines the pattern. This allows extensions without tight coupling.']",
+      "estimatedTime": 30,
+      "focusDirectory": "src",
+      "highlightLayers": [
+        {
+          "id": "extension-system",
+          "name": "[Extension System]",
+          "color": "#f59e0b",
+          "items": [
+            {
+              "path": "src/core/Commands.ts",
+              "type": "file",
+              "comment": "Replace with your extension mechanism"
+            },
+            {
+              "path": "src/plugins",
+              "type": "directory"
+            }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "border"
+        }
+      ],
+      "colorMode": "fileTypes",
       "resources": [
         {
-          "title": "Design Patterns Documentation",
-          "url": "https://refactoring.guru/design-patterns",
-          "type": "documentation"
+          "title": "[Pattern] Documentation",
+          "url": "https://refactoring.guru/design-patterns/command",
+          "type": "documentation",
+          "comment": "Replace with relevant pattern docs"
+        }
+      ]
+    },
+    {
+      "id": "patterns-in-practice",
+      "title": "Patterns in Practice",
+      "description": "[Replace with: Show how patterns work together in practice. Example: 'React layer turns architectural concepts into composable components. Composer provides editor context, plugins hook into lifecycle. Each plugin is independent but composed: HistoryPlugin, RichTextPlugin, ListPlugin.']",
+      "estimatedTime": 30,
+      "focusDirectory": "",
+      "highlightLayers": [
+        {
+          "id": "practical-implementation",
+          "name": "[Practical Use]",
+          "color": "#ec4899",
+          "items": [
+            {
+              "path": "src/ui/Composer.tsx",
+              "type": "file",
+              "comment": "Replace with your integration layer"
+            },
+            {
+              "path": "src/plugins",
+              "type": "directory"
+            }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "border"
         }
       ],
       "colorMode": "fileTypes"
@@ -67,11 +135,11 @@
   ],
   "metadata": {
     "author": "Architecture Team",
-    "createdAt": "2026-02-04T16:11:59.979Z",
+    "createdAt": "2026-02-10",
     "tags": [
       "architecture",
       "patterns",
-      "advanced"
+      "deep-dive"
     ]
   }
 }
