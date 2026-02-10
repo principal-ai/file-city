@@ -43,6 +43,7 @@ Tours are defined as JSON files that match the `IntroductionTour` interface.
 |-------|------|-------------|
 | `audience` | `string` | Target audience (e.g., "beginner", "New Users & AI Assistants") |
 | `prerequisites` | `string[]` | List of required knowledge or setup |
+| `coverImage` | `string` | Cover image URL or path relative to repo root (e.g., "assets/tour-cover.png"). Displayed as overlay on File City during welcome screen. Supports static (jpg, png, svg) and animated (gif, webp). |
 | `metadata` | `object` | Additional tour metadata |
 
 ### Metadata Object
@@ -76,6 +77,7 @@ Each step represents one stage of the guided tour.
 |-------|------|-------------|---------|
 | `estimatedTime` | `number` | Estimated time in seconds | - |
 | `focusDirectory` | `string` | Directory path to zoom/focus on | - |
+| `coverImage` | `string` | Cover image URL or path relative to repo root. Displayed as overlay during this step. Useful for diagrams, architecture visuals, or explanatory images. | - |
 | `colorMode` | `ColorMode` | Visualization mode to use | `"fileTypes"` |
 | `highlightLayers` | `HighlightLayerConfig[]` | Custom highlight layers | `[]` |
 | `highlightFiles` | `string[]` | Specific files to highlight | `[]` |
@@ -228,9 +230,19 @@ Resources provide links to additional documentation or context.
 ### Step Design
 
 1. **One concept per step** - Each step should teach one main idea
-2. **Use visual hierarchy** - Combine `focusDirectory` with `highlightLayers` for clarity
-3. **Make it interactive** - Include at least one `interactiveAction` per step
-4. **Provide resources** - Link to relevant documentation
+2. **Keep descriptions concise** - Aim for 200-250 characters, maximum 300. Focus on key points users need to know.
+3. **Use visual hierarchy** - Combine `focusDirectory` with `highlightLayers` for clarity
+4. **Make it interactive** - Include at least one `interactiveAction` per step
+5. **Provide resources** - Link to relevant documentation
+
+### Cover Images
+
+1. **Use descriptively** - Cover images should enhance understanding, not just decorate
+2. **Show, don't tell** - Use diagrams for architecture, flowcharts for processes
+3. **Organize assets** - Store images in `docs/assets/` or similar dedicated directory
+4. **Name clearly** - Use descriptive names: `layered-architecture.png` not `img1.png`
+5. **Optimize size** - Keep images under 2MB for fast loading
+6. **Choose wisely** - Use cover images when visual explanation adds significant value
 
 ### Highlight Layers
 
