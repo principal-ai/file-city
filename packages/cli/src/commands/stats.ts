@@ -207,7 +207,8 @@ function formatStatsOutput(tour: IntroductionTour, stats: TourStats): string {
   // Per-step breakdown
   lines.push(chalk.bold('Per-Step Breakdown:'));
   stats.steps.forEach((step, index) => {
-    const timeStr = step.hasTime ? formatTime(step.estimatedTime!) : formatTime(step.estimatedTime!) + ' est';
+    const estimatedTime = step.estimatedTime ?? 0;
+    const timeStr = step.hasTime ? formatTime(estimatedTime) : formatTime(estimatedTime) + ' est';
     const charStatus = step.characterCount > 300
       ? chalk.red('✗ Exceeds 300 char limit')
       : step.characterCount >= 280

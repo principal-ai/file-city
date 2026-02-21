@@ -66,6 +66,7 @@ export function formatJson(data: unknown): string {
  * Print to console with color
  */
 export function print(message: string): void {
+  // eslint-disable-next-line no-console
   console.log(message);
 }
 
