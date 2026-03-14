@@ -190,10 +190,8 @@ export function drawDistricts(
   theme?: ColorTheme,
   customColorFn?: ColorFunction,
   defaultDirectoryColor?: string,
+  showDirectoryLabels: boolean = true,
 ) {
-  // Create BuildingTypeResolver for directory classification
-  const typeResolver = new BuildingTypeResolver(theme, customColorFn, defaultDirectoryColor);
-
   // Count districts by depth for debugging
   const depthCounts = new Map<number, number>();
   districts.forEach(district => {
@@ -282,18 +280,8 @@ export function drawDistricts(
     const width = (district.worldBounds.maxX - district.worldBounds.minX) * scale;
     const depth = (district.worldBounds.maxZ - district.worldBounds.minZ) * scale;
 
-    // Get the directory name for classification
-    const directoryName = districtPath.split('/').pop() || '';
-
-    // Classify the directory to get its color
-    const classification = typeResolver.classifyDirectory({
-      path: districtPath,
-      name: directoryName,
-      fileCount: district.fileCount,
-    });
-
-    // Use the classified color or fall back to depth-based grey
-    const baseColorHex = classification.buildingType.color;
+    // Use default directory color (matching React's behavior - no classification)
+    const baseColorHex = defaultDirectoryColor || '#4B5155';
 
     // Convert hex to RGB for the rgba() format used below
     const hexToRgb = (hex: string): [number, number, number] => {
@@ -357,10 +345,11 @@ export function drawDistricts(
     }
 
     // Label - show for all districts with sufficient size
-    const districtName = district.path?.split('/').pop() || 'root';
-    const minSize = fullSize ? 40 : 30;
+    if (showDirectoryLabels) {
+      const districtName = district.path?.split('/').pop() || 'root';
+      const minSize = fullSize ? 40 : 30;
 
-    if (width > minSize && depth > minSize) {
+      if (width > minSize && depth > minSize) {
       ctx.save();
       ctx.fillStyle = isHighlighted ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.7)';
 
@@ -384,6 +373,7 @@ export function drawDistricts(
         canvasPos.y + depth - bottomPadding, // Position at bottom minus small padding
       );
       ctx.restore();
+      }
     }
   });
 }

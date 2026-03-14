@@ -49,11 +49,11 @@ function calculateScaleAndOffset(
   const cityWidth = bounds.maxX - bounds.minX;
   const cityDepth = bounds.maxZ - bounds.minZ;
 
-  const horizontalPadding = padding * 2;
+  const horizontalPadding = padding;
   const verticalPadding = padding * 2;
 
-  const scaleX = (width - horizontalPadding) / cityWidth;
-  const scaleZ = (height - verticalPadding) / cityDepth;
+  const scaleX = (width - horizontalPadding) / cityDepth;
+  const scaleZ = (height - verticalPadding) / cityWidth;
   const scale = Math.min(scaleX, scaleZ);
 
   const scaledCityWidth = cityWidth * scale;

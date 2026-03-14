@@ -28,9 +28,11 @@ import {
 import type { FileInfo } from '@principal-ai/repository-abstraction';
 
 // Configuration
-const WIDTH = 1920;
+const WIDTH = 1080;
 const HEIGHT = 1080;
-const BACKGROUND_COLOR = '#1a1a2e';
+const BACKGROUND_COLOR = '#0f1419';
+const DEFAULT_DIRECTORY_COLOR = '#111827';
+const DEFAULT_BUILDING_COLOR = '#36454F';
 
 // Patterns to ignore when scanning
 const IGNORE_PATTERNS = [
@@ -132,6 +134,16 @@ async function generateCityImage(repoPath: string, outputPath: string): Promise<
     cityData.districts,
     drawContext.worldToCanvas,
     drawContext.scale,
+    undefined, // highlightedDirectories
+    undefined, // hoveredDirectories
+    undefined, // hoveredDistrict
+    true, // fullSize
+    undefined, // selectedPaths
+    undefined, // changedFiles
+    undefined, // theme
+    undefined, // customColorFn
+    DEFAULT_DIRECTORY_COLOR, // defaultDirectoryColor
+    false, // showDirectoryLabels
   );
 
   // Draw buildings on top
@@ -147,7 +159,7 @@ async function generateCityImage(repoPath: string, outputPath: string): Promise<
     undefined, // hoveredBuilding
     undefined, // theme
     undefined, // customColorFn
-    true, // showFileNames
+    false, // showFileNames
     true, // fullSize
   );
 

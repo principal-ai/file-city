@@ -354,7 +354,7 @@ export class BuildingTypeResolver {
   constructor(
     theme?: ColorTheme,
     customColorFn?: ColorFunction,
-    defaultDirectoryColor: string = '#64b5f6',
+    defaultDirectoryColor: string = '#4b5055',
   ) {
     this.theme = theme;
     this.customColorFn = customColorFn;
