@@ -66,6 +66,7 @@ export interface ArchitectureMapHighlightLayersProps {
 
   // Canvas appearance
   canvasBackgroundColor?: string;
+  maxCanvasSize?: number; // Maximum canvas dimension in pixels (default: 6000, use ~2048 for mobile)
 
   // Additional styling options
   hoverBorderColor?: string;
@@ -305,6 +306,7 @@ function ArchitectureMapHighlightLayersInner({
   className = '',
   selectiveRender,
   canvasBackgroundColor,
+  maxCanvasSize,
   hoverBorderColor,
   disableOpacityDimming = true,
   defaultDirectoryColor,
@@ -476,7 +478,11 @@ function ArchitectureMapHighlightLayersInner({
   ) => {
     const minSize = 400;
     const scaleFactor = Math.sqrt(fileCount / 5);
-    const resolution = Math.max(minSize, minSize + scaleFactor * 300);
+    let resolution = Math.max(minSize, minSize + scaleFactor * 300);
+
+    if (maxCanvasSize !== undefined) {
+      resolution = Math.min(resolution, maxCanvasSize);
+    }
 
     return { width: resolution, height: resolution };
   };
@@ -1152,8 +1158,14 @@ function ArchitectureMapHighlightLayersInner({
 
     // Performance monitoring start available for debugging
 
-    const displayWidth = canvas.clientWidth || canvasSize.width;
-    const displayHeight = canvas.clientHeight || canvasSize.height;
+    let displayWidth = canvas.clientWidth || canvasSize.width;
+    let displayHeight = canvas.clientHeight || canvasSize.height;
+
+    // Cap canvas size if maxCanvasSize is set (prevents iOS Safari crashes)
+    if (maxCanvasSize !== undefined) {
+      displayWidth = Math.min(displayWidth, maxCanvasSize);
+      displayHeight = Math.min(displayHeight, maxCanvasSize);
+    }
 
     canvas.width = displayWidth;
     canvas.height = displayHeight;
