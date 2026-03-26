@@ -1,6 +1,6 @@
 {
   "name": "@principal-ai/file-city-server",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "Server-side rendering utilities for File City visualization",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

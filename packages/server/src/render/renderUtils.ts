@@ -702,7 +702,8 @@ export function drawBuildings(
 }
 
 /**
- * Draw a React symbol (⚛) at the given position
+ * Draw a React symbol (atom with orbits) at the given position using canvas paths
+ * This avoids font rendering issues with the Unicode ⚛ character
  */
 export function drawReactSymbol(
   ctx: CanvasRenderingContext2D,
@@ -717,18 +718,39 @@ export function drawReactSymbol(
   // Position and setup
   ctx.translate(x, y);
 
+  // Scale factor - size is the overall diameter
+  const scale = size / 24; // Base icon is 24x24
+
   // Glow effect for React symbol
   if (glow) {
     ctx.shadowColor = color;
     ctx.shadowBlur = 8;
   }
 
-  // Draw the React symbol (⚛)
+  ctx.strokeStyle = color;
   ctx.fillStyle = color;
-  ctx.font = `${size}px Arial`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('⚛', 0, 0);
+  ctx.lineWidth = 1.5 * scale;
+
+  // Draw center nucleus (small filled circle)
+  ctx.beginPath();
+  ctx.arc(0, 0, 2 * scale, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Draw three elliptical orbits rotated at 0°, 60°, and 120°
+  const orbitRadiusX = 10 * scale; // Horizontal radius of ellipse
+  const orbitRadiusY = 4 * scale;  // Vertical radius of ellipse
+
+  for (let i = 0; i < 3; i++) {
+    ctx.save();
+    ctx.rotate((i * Math.PI) / 3); // Rotate by 0°, 60°, 120°
+
+    // Draw ellipse
+    ctx.beginPath();
+    ctx.ellipse(0, 0, orbitRadiusX, orbitRadiusY, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.restore();
+  }
 
   ctx.restore();
 }
