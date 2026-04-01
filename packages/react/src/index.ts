@@ -70,3 +70,19 @@ export {
 
 // Re-export theme utilities for consumers
 export { ThemeProvider, useTheme } from '@principal-ade/industry-theme';
+
+// 3D visualization component
+export { FileCity3D, resetCamera } from './components/FileCity3D';
+export type {
+  FileCity3DProps,
+  AnimationConfig,
+  HighlightLayer as FileCity3DHighlightLayer,
+  HighlightItem as FileCity3DHighlightItem,
+  HighlightItem,
+  IsolationMode,
+  HeightScaling,
+} from './components/FileCity3D';
+
+// Re-export HighlightLayer from FileCity3D with distinct name to avoid conflict
+// with the 2D HighlightLayer from drawLayeredBuildings
+export type { HighlightLayer as FileCity3DHL } from './components/FileCity3D';

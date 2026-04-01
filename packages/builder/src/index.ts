@@ -39,6 +39,15 @@ export { CommonSorts } from './types/sorts.js';
 // File color configuration
 export { default as defaultFileColorConfig } from './config/files.json' with { type: 'json' };
 
+// File config lookup utilities
+export { getFileConfig, getFileColor } from './config/getFileConfig.js';
+export type {
+  FileConfigResult,
+  FileIconConfig,
+  SecondaryColorConfig,
+  RenderStrategy,
+} from './config/getFileConfig.js';
+
 // Layer types for highlighting and visualization
 export type { LayerItem, LayerRenderStrategy, HighlightLayer } from './layers/types.js';
 

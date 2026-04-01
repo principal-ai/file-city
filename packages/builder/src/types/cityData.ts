@@ -30,6 +30,7 @@ export interface CityBuilding {
   type: 'file';
   fileExtension?: string;
   size?: number; // File size in bytes
+  lineCount?: number; // Number of lines (for code files)
   lastModified?: Date;
 }
 
