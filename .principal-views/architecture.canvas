@@ -1,139 +1,205 @@
 {
-  "metadata": {
+  "pv": {
     "name": "File City Architecture",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "markdown": ".principal-views/architecture.md"
   },
-  "nodeTypes": {
-    "package": {
-      "description": "Monorepo package module",
-      "shape": "rectangle",
+  "nodes": [
+    {
+      "id": "pkg-builder",
+      "type": "text",
+      "text": "@principal-ai/file-city-builder",
+      "x": 400,
+      "y": 300,
+      "width": 200,
+      "height": 80,
       "color": "#3b82f6",
-      "sources": ["packages/*/package.json"]
+      "pv": {
+        "nodeType": "package",
+        "name": "@principal-ai/file-city-builder",
+        "description": "Core algorithms and data structures for file city visualization",
+        "sources": ["packages/builder/package.json"]
+      }
     },
-    "core-module": {
-      "description": "Core functionality module",
-      "shape": "rectangle",
-      "color": "#8b5cf6",
-      "sources": ["packages/builder/src/*.ts"]
-    },
-    "component": {
-      "description": "React component",
-      "shape": "rectangle",
-      "color": "#10b981",
-      "sources": ["packages/react/src/components/*.tsx"]
-    },
-    "hook": {
-      "description": "React hook",
-      "shape": "rectangle",
-      "color": "#f59e0b",
-      "sources": ["packages/react/src/hooks/*.ts"]
-    },
-    "utility": {
-      "description": "Utility module",
-      "shape": "rectangle",
-      "color": "#6366f1",
-      "sources": ["packages/*/src/**/*.ts"]
-    },
-    "type-def": {
-      "description": "TypeScript type definitions",
-      "shape": "rectangle",
-      "color": "#ec4899",
-      "sources": ["packages/*/src/types/*.ts"]
-    },
-    "external-dep": {
-      "description": "External library or package",
-      "shape": "rectangle",
-      "color": "#64748b",
-      "sources": ["node_modules/*"]
-    }
-  },
-  "edgeTypes": {
-    "depends-on": {
-      "style": "solid",
+    {
+      "id": "pkg-react",
+      "type": "text",
+      "text": "@principal-ai/file-city-react",
+      "x": 100,
+      "y": 100,
+      "width": 200,
+      "height": 80,
       "color": "#3b82f6",
-      "directed": true
+      "pv": {
+        "nodeType": "package",
+        "name": "@principal-ai/file-city-react",
+        "description": "React components for File City visualization",
+        "sources": ["packages/react/package.json"]
+      }
     },
-    "uses": {
-      "style": "solid",
-      "color": "#6366f1",
-      "directed": true
+    {
+      "id": "pkg-server",
+      "type": "text",
+      "text": "@principal-ai/file-city-server",
+      "x": 400,
+      "y": 100,
+      "width": 200,
+      "height": 80,
+      "color": "#3b82f6",
+      "pv": {
+        "nodeType": "package",
+        "name": "@principal-ai/file-city-server",
+        "description": "Server-side rendering utilities for File City visualization",
+        "sources": ["packages/server/package.json"]
+      }
     },
-    "exports": {
-      "style": "dashed",
-      "color": "#10b981",
-      "directed": true
+    {
+      "id": "pkg-cli",
+      "type": "text",
+      "text": "@principal-ai/file-city-cli",
+      "x": 700,
+      "y": 100,
+      "width": 200,
+      "height": 80,
+      "color": "#3b82f6",
+      "pv": {
+        "nodeType": "package",
+        "name": "@principal-ai/file-city-cli",
+        "description": "CLI tool for File City tours - validation, creation, and linting",
+        "sources": ["packages/cli/package.json"]
+      }
+    },
+    {
+      "id": "ext-d3-hierarchy",
+      "type": "text",
+      "text": "d3-hierarchy",
+      "x": 300,
+      "y": 500,
+      "width": 150,
+      "height": 60,
+      "color": "#6b7280",
+      "pv": {
+        "nodeType": "external-dep",
+        "name": "d3-hierarchy",
+        "description": "Treemap layout algorithms"
+      }
+    },
+    {
+      "id": "ext-three",
+      "type": "text",
+      "text": "three",
+      "x": 0,
+      "y": 300,
+      "width": 150,
+      "height": 60,
+      "color": "#6b7280",
+      "pv": {
+        "nodeType": "external-dep",
+        "name": "three",
+        "description": "3D rendering library"
+      }
+    },
+    {
+      "id": "ext-react-three-fiber",
+      "type": "text",
+      "text": "@react-three/fiber",
+      "x": 0,
+      "y": 380,
+      "width": 150,
+      "height": 60,
+      "color": "#6b7280",
+      "pv": {
+        "nodeType": "external-dep",
+        "name": "@react-three/fiber",
+        "description": "React renderer for Three.js"
+      }
+    },
+    {
+      "id": "ext-canvas",
+      "type": "text",
+      "text": "canvas",
+      "x": 500,
+      "y": 500,
+      "width": 150,
+      "height": 60,
+      "color": "#6b7280",
+      "pv": {
+        "nodeType": "external-dep",
+        "name": "canvas",
+        "description": "Node.js canvas implementation for server-side rendering"
+      }
     }
-  },
-  "allowedConnections": [
+  ],
+  "edges": [
     {
-      "from": "package",
-      "to": "package",
-      "via": "depends-on"
+      "id": "react-depends-builder",
+      "fromNode": "pkg-react",
+      "toNode": "pkg-builder",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "pv": {
+        "edgeType": "depends-on"
+      }
     },
     {
-      "from": "package",
-      "to": "external-dep",
-      "via": "uses"
+      "id": "server-depends-builder",
+      "fromNode": "pkg-server",
+      "toNode": "pkg-builder",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "pv": {
+        "edgeType": "depends-on"
+      }
     },
     {
-      "from": "package",
-      "to": "core-module",
-      "via": "exports"
+      "id": "cli-depends-builder",
+      "fromNode": "pkg-cli",
+      "toNode": "pkg-builder",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "pv": {
+        "edgeType": "depends-on"
+      }
     },
     {
-      "from": "package",
-      "to": "component",
-      "via": "exports"
+      "id": "builder-uses-d3",
+      "fromNode": "pkg-builder",
+      "toNode": "ext-d3-hierarchy",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "pv": {
+        "edgeType": "uses"
+      }
     },
     {
-      "from": "package",
-      "to": "hook",
-      "via": "exports"
+      "id": "react-uses-three",
+      "fromNode": "pkg-react",
+      "toNode": "ext-three",
+      "fromSide": "left",
+      "toSide": "right",
+      "pv": {
+        "edgeType": "uses"
+      }
     },
     {
-      "from": "package",
-      "to": "utility",
-      "via": "exports"
+      "id": "react-uses-r3f",
+      "fromNode": "pkg-react",
+      "toNode": "ext-react-three-fiber",
+      "fromSide": "left",
+      "toSide": "right",
+      "pv": {
+        "edgeType": "uses"
+      }
     },
     {
-      "from": "package",
-      "to": "type-def",
-      "via": "exports"
-    },
-    {
-      "from": "core-module",
-      "to": "core-module",
-      "via": "uses"
-    },
-    {
-      "from": "core-module",
-      "to": "external-dep",
-      "via": "uses"
-    },
-    {
-      "from": "core-module",
-      "to": "type-def",
-      "via": "uses"
-    },
-    {
-      "from": "component",
-      "to": "hook",
-      "via": "uses"
-    },
-    {
-      "from": "component",
-      "to": "utility",
-      "via": "uses"
-    },
-    {
-      "from": "component",
-      "to": "external-dep",
-      "via": "uses"
-    },
-    {
-      "from": "utility",
-      "to": "type-def",
-      "via": "uses"
+      "id": "server-uses-canvas",
+      "fromNode": "pkg-server",
+      "toNode": "ext-canvas",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "pv": {
+        "edgeType": "uses"
+      }
     }
   ]
 }

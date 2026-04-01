@@ -1,91 +1,250 @@
 {
-  "metadata": {
+  "pv": {
     "name": "Code City Builder Architecture",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "markdown": ".principal-views/builder.md"
   },
-  "nodeTypes": {
-    "core-module": {
-      "description": "Core functionality module",
-      "shape": "rectangle",
+  "nodes": [
+    {
+      "id": "code-city-builder",
+      "type": "text",
+      "text": "CodeCityBuilderWithGrid",
+      "x": 300,
+      "y": 100,
+      "width": 220,
+      "height": 80,
       "color": "#8b5cf6",
-      "sources": ["packages/builder/src/*.ts"]
+      "pv": {
+        "nodeType": "core-module",
+        "name": "CodeCityBuilderWithGrid",
+        "description": "Main builder class that orchestrates city generation with grid-based layouts",
+        "sources": ["packages/builder/src/CodeCityBuilderWithGrid.ts"]
+      }
     },
-    "utility": {
-      "description": "Utility module or function",
-      "shape": "rectangle",
-      "color": "#6366f1",
-      "sources": ["packages/builder/src/**/*.ts"]
+    {
+      "id": "grid-layout-manager",
+      "type": "text",
+      "text": "GridLayoutManager",
+      "x": 100,
+      "y": 250,
+      "width": 200,
+      "height": 80,
+      "color": "#8b5cf6",
+      "pv": {
+        "nodeType": "core-module",
+        "name": "GridLayoutManager",
+        "description": "Manages grid system for positioning buildings and districts",
+        "sources": ["packages/builder/src/GridLayoutManager.ts"]
+      }
     },
-    "type-def": {
-      "description": "TypeScript type definitions",
-      "shape": "rectangle",
+    {
+      "id": "file-tree-builder",
+      "type": "text",
+      "text": "FileTreeBuilder",
+      "x": 500,
+      "y": 250,
+      "width": 200,
+      "height": 80,
+      "color": "#8b5cf6",
+      "pv": {
+        "nodeType": "core-module",
+        "name": "FileTreeBuilder",
+        "description": "Constructs hierarchical file tree from repository data",
+        "sources": ["packages/builder/src/FileTreeBuilder.ts"]
+      }
+    },
+    {
+      "id": "multi-version-builder",
+      "type": "text",
+      "text": "MultiVersionCityBuilder",
+      "x": 600,
+      "y": 100,
+      "width": 220,
+      "height": 80,
+      "color": "#8b5cf6",
+      "pv": {
+        "nodeType": "core-module",
+        "name": "MultiVersionCityBuilder",
+        "description": "Handles visualization of multiple repository versions for diff views",
+        "sources": ["packages/builder/src/MultiVersionCityBuilder.ts"]
+      }
+    },
+    {
+      "id": "grid-config-validator",
+      "type": "text",
+      "text": "GridLayoutConfigValidator",
+      "x": 0,
+      "y": 400,
+      "width": 200,
+      "height": 60,
+      "color": "#f59e0b",
+      "pv": {
+        "nodeType": "utility",
+        "name": "GridLayoutConfigValidator",
+        "description": "Validates grid layout configuration",
+        "sources": ["packages/builder/src/GridLayoutConfigValidator.ts"]
+      }
+    },
+    {
+      "id": "tour-validation",
+      "type": "text",
+      "text": "Tour Validation",
+      "x": 300,
+      "y": 500,
+      "width": 180,
+      "height": 60,
+      "color": "#f59e0b",
+      "pv": {
+        "nodeType": "utility",
+        "name": "Tour Validation",
+        "description": "Validates tour configuration files against city layout",
+        "sources": ["packages/builder/src/tour/validation.ts"]
+      }
+    },
+    {
+      "id": "tour-discovery",
+      "type": "text",
+      "text": "Tour Discovery",
+      "x": 520,
+      "y": 500,
+      "width": 180,
+      "height": 60,
+      "color": "#f59e0b",
+      "pv": {
+        "nodeType": "utility",
+        "name": "Tour Discovery",
+        "description": "Auto-discovers available tours in a repository",
+        "sources": ["packages/builder/src/tour/discovery.ts"]
+      }
+    },
+    {
+      "id": "city-data-types",
+      "type": "text",
+      "text": "City Data Types",
+      "x": 200,
+      "y": 400,
+      "width": 160,
+      "height": 60,
       "color": "#ec4899",
-      "sources": ["packages/builder/src/types/*.ts"]
+      "pv": {
+        "nodeType": "type-def",
+        "name": "City Data Types",
+        "description": "TypeScript types for city data structures",
+        "sources": ["packages/builder/src/types/cityData.ts"]
+      }
     },
-    "external-dep": {
-      "description": "External library or package",
-      "shape": "rectangle",
-      "color": "#64748b",
-      "sources": ["node_modules/*"]
+    {
+      "id": "tour-types",
+      "type": "text",
+      "text": "Tour Types",
+      "x": 400,
+      "y": 620,
+      "width": 160,
+      "height": 60,
+      "color": "#ec4899",
+      "pv": {
+        "nodeType": "type-def",
+        "name": "Tour Types",
+        "description": "TypeScript types for tour system",
+        "sources": ["packages/builder/src/tour/types.ts"]
+      }
+    },
+    {
+      "id": "ext-d3-hierarchy",
+      "type": "text",
+      "text": "d3-hierarchy",
+      "x": 0,
+      "y": 500,
+      "width": 150,
+      "height": 60,
+      "color": "#6b7280",
+      "pv": {
+        "nodeType": "external-dep",
+        "name": "d3-hierarchy",
+        "description": "Treemap layout algorithms"
+      }
     }
-  },
-  "edgeTypes": {
-    "uses": {
-      "style": "solid",
-      "color": "#6366f1",
-      "directed": true
-    },
-    "exports": {
-      "style": "dashed",
-      "color": "#10b981",
-      "directed": true
-    }
-  },
-  "allowedConnections": [
+  ],
+  "edges": [
     {
-      "from": "core-module",
-      "to": "core-module",
-      "via": "uses"
+      "id": "builder-uses-grid",
+      "fromNode": "code-city-builder",
+      "toNode": "grid-layout-manager",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "pv": {
+        "edgeType": "uses"
+      }
     },
     {
-      "from": "core-module",
-      "to": "utility",
-      "via": "uses"
+      "id": "builder-uses-file-tree",
+      "fromNode": "code-city-builder",
+      "toNode": "file-tree-builder",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "pv": {
+        "edgeType": "uses"
+      }
     },
     {
-      "from": "core-module",
-      "to": "type-def",
-      "via": "uses"
+      "id": "builder-uses-city-types",
+      "fromNode": "code-city-builder",
+      "toNode": "city-data-types",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "pv": {
+        "edgeType": "uses"
+      }
     },
     {
-      "from": "core-module",
-      "to": "type-def",
-      "via": "exports"
+      "id": "grid-uses-validator",
+      "fromNode": "grid-layout-manager",
+      "toNode": "grid-config-validator",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "pv": {
+        "edgeType": "uses"
+      }
     },
     {
-      "from": "core-module",
-      "to": "external-dep",
-      "via": "uses"
+      "id": "grid-uses-d3",
+      "fromNode": "grid-layout-manager",
+      "toNode": "ext-d3-hierarchy",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "pv": {
+        "edgeType": "uses"
+      }
     },
     {
-      "from": "utility",
-      "to": "core-module",
-      "via": "uses"
+      "id": "multi-version-uses-builder",
+      "fromNode": "multi-version-builder",
+      "toNode": "code-city-builder",
+      "fromSide": "left",
+      "toSide": "right",
+      "pv": {
+        "edgeType": "uses"
+      }
     },
     {
-      "from": "utility",
-      "to": "utility",
-      "via": "uses"
+      "id": "tour-validation-uses-types",
+      "fromNode": "tour-validation",
+      "toNode": "tour-types",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "pv": {
+        "edgeType": "uses"
+      }
     },
     {
-      "from": "utility",
-      "to": "type-def",
-      "via": "uses"
-    },
-    {
-      "from": "utility",
-      "to": "external-dep",
-      "via": "uses"
+      "id": "tour-discovery-uses-types",
+      "fromNode": "tour-discovery",
+      "toNode": "tour-types",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "pv": {
+        "edgeType": "uses"
+      }
     }
   ]
 }
