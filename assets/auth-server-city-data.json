@@ -1,0 +1,1760 @@
+{
+  "buildings": [
+    {
+      "path": "auth-server/src/app/api/auth/workos/callback/route.ts",
+      "position": {
+        "x": 73,
+        "y": 20,
+        "z": 159
+      },
+      "dimensions": [85.5, 40, 36.1],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 23991,
+      "lineCount": 695
+    },
+    {
+      "path": "auth-server/src/app/api/auth/workos/callback/mobile/route.ts",
+      "position": {
+        "x": 167,
+        "y": 20,
+        "z": 159
+      },
+      "dimensions": [77.89999999999999, 40, 1],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 10057,
+      "lineCount": 307
+    },
+    {
+      "path": "auth-server/src/app/api/auth/workos/verify/route.ts",
+      "position": {
+        "x": 73,
+        "y": 20,
+        "z": 241
+      },
+      "dimensions": [85.5, 40, 36.1],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 10144,
+      "lineCount": 294
+    },
+    {
+      "path": "auth-server/src/app/api/auth/workos/verify/check/route.ts",
+      "position": {
+        "x": 167,
+        "y": 4.9754000000000005,
+        "z": 241
+      },
+      "dimensions": [77.89999999999999, 9.950800000000001, 1],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 1653,
+      "lineCount": 59
+    },
+    {
+      "path": "auth-server/src/app/api/auth/workos/token/route.ts",
+      "position": {
+        "x": 73,
+        "y": 17.827399999999997,
+        "z": 323
+      },
+      "dimensions": [85.5, 35.654799999999994, 36.1],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 8793,
+      "lineCount": 263
+    },
+    {
+      "path": "auth-server/src/app/api/auth/workos/token/mobile/route.ts",
+      "position": {
+        "x": 167,
+        "y": 10.559,
+        "z": 323
+      },
+      "dimensions": [77.89999999999999, 21.118, 1],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 4755,
+      "lineCount": 155
+    },
+    {
+      "path": "auth-server/src/app/api/auth/workos/refresh/route.ts",
+      "position": {
+        "x": 250.5,
+        "y": 7.5782,
+        "z": 179.5
+      },
+      "dimensions": [50.349999999999994, 15.1564, 75.05],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 3099,
+      "lineCount": 103
+    },
+    {
+      "path": "auth-server/src/app/api/auth/workos/start/route.ts",
+      "position": {
+        "x": 250.5,
+        "y": 9.603200000000001,
+        "z": 302.5
+      },
+      "dimensions": [50.349999999999994, 19.206400000000002, 75.05],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 4224,
+      "lineCount": 138
+    },
+    {
+      "path": "auth-server/src/app/api/auth/browser/room-token/route.ts",
+      "position": {
+        "x": 87.5,
+        "y": 12.1574,
+        "z": 420
+      },
+      "dimensions": [113.05, 24.3148, 1],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 5643,
+      "lineCount": 211
+    },
+    {
+      "path": "auth-server/src/app/api/auth/browser/user-token/route.ts",
+      "position": {
+        "x": 218,
+        "y": 10.0334,
+        "z": 420
+      },
+      "dimensions": [112.1, 20.0668, 1],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 4463,
+      "lineCount": 157
+    },
+    {
+      "path": "auth-server/src/app/api/auth/cli/presence-token/route.ts",
+      "position": {
+        "x": 316,
+        "y": 8.0822,
+        "z": 187.5
+      },
+      "dimensions": [36.1, 16.1644, 90.25],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 3379,
+      "lineCount": 129
+    },
+    {
+      "path": "auth-server/src/app/api/auth/cli/room-token/route.ts",
+      "position": {
+        "x": 366,
+        "y": 13.348999999999998,
+        "z": 187.5
+      },
+      "dimensions": [36.1, 26.697999999999997, 90.25],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 6305,
+      "lineCount": 238
+    },
+    {
+      "path": "auth-server/src/app/api/auth/token/current/route.ts",
+      "position": {
+        "x": 341,
+        "y": 13.952,
+        "z": 321.5
+      },
+      "dimensions": [83.6, 27.904, 4.75],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 6640,
+      "lineCount": 224
+    },
+    {
+      "path": "auth-server/src/app/api/auth/user/route.ts",
+      "position": {
+        "x": 341,
+        "y": 4.3022,
+        "z": 410.5
+      },
+      "dimensions": [91.19999999999999, 8.6044, 42.75],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 1279,
+      "lineCount": 48
+    },
+    {
+      "path": "auth-server/src/app/api/diagnostic/presence/route.ts",
+      "position": {
+        "x": 206.5,
+        "y": 4.2248,
+        "z": 489
+      },
+      "dimensions": [346.75, 8.4496, 1],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 1236,
+      "lineCount": 48
+    },
+    {
+      "path": "auth-server/src/app/globals.css",
+      "position": {
+        "x": 435.5,
+        "y": 4.446199999999999,
+        "z": 151
+      },
+      "dimensions": [57.949999999999996, 8.892399999999999, 172.9],
+      "type": "file",
+      "fileExtension": ".css",
+      "size": 1359,
+      "lineCount": 81
+    },
+    {
+      "path": "auth-server/src/app/layout.tsx",
+      "position": {
+        "x": 501,
+        "y": 3.8774,
+        "z": 151
+      },
+      "dimensions": [58.9, 7.7548, 172.9],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 1043,
+      "lineCount": 41
+    },
+    {
+      "path": "auth-server/src/app/page.tsx",
+      "position": {
+        "x": 435.5,
+        "y": 3.674,
+        "z": 337.5
+      },
+      "dimensions": [57.949999999999996, 7.348, 173.85],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 930,
+      "lineCount": 38
+    },
+    {
+      "path": "auth-server/src/app/diagnostic/page.tsx",
+      "position": {
+        "x": 501,
+        "y": 20,
+        "z": 337.5
+      },
+      "dimensions": [51.3, 40, 135.85],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 15447,
+      "lineCount": 549
+    },
+    {
+      "path": "auth-server/src/app/auth/verify-email/page.tsx",
+      "position": {
+        "x": 468.5,
+        "y": 16.6034,
+        "z": 477.5
+      },
+      "dimensions": [105.44999999999999, 33.2068, 8.549999999999999],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 8113,
+      "lineCount": 285
+    },
+    {
+      "path": "auth-server/src/lib/auth-provider.ts",
+      "position": {
+        "x": 585,
+        "y": 4.1042000000000005,
+        "z": 124
+      },
+      "dimensions": [77.89999999999999, 8.208400000000001, 121.6],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 1169,
+      "lineCount": 50
+    },
+    {
+      "path": "auth-server/src/lib/auth-session-manager.ts",
+      "position": {
+        "x": 671,
+        "y": 6.3469999999999995,
+        "z": 124
+      },
+      "dimensions": [77.89999999999999, 12.693999999999999, 121.6],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 2415,
+      "lineCount": 107
+    },
+    {
+      "path": "auth-server/src/lib/org-membership.ts",
+      "position": {
+        "x": 757,
+        "y": 4.7954,
+        "z": 124
+      },
+      "dimensions": [77.89999999999999, 9.5908, 121.6],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 1553,
+      "lineCount": 56
+    },
+    {
+      "path": "auth-server/src/lib/room-utils.ts",
+      "position": {
+        "x": 628,
+        "y": 4.8314,
+        "z": 223
+      },
+      "dimensions": [159.6, 9.6628, 58.9],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 1573,
+      "lineCount": 66
+    },
+    {
+      "path": "auth-server/src/lib/telemetry.ts",
+      "position": {
+        "x": 628,
+        "y": 20,
+        "z": 288.5
+      },
+      "dimensions": [159.6, 40, 57.949999999999996],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 10385,
+      "lineCount": 387
+    },
+    {
+      "path": "auth-server/src/lib/token-store.ts",
+      "position": {
+        "x": 757,
+        "y": 7.8932,
+        "z": 255.5
+      },
+      "dimensions": [77.89999999999999, 15.7864, 120.64999999999999],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 3274,
+      "lineCount": 140
+    },
+    {
+      "path": "auth-server/src/instrumentation.ts",
+      "position": {
+        "x": 604.5,
+        "y": 4.1852,
+        "z": 392
+      },
+      "dimensions": [122.55, 8.3704, 93.1],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 1214,
+      "lineCount": 34
+    },
+    {
+      "path": "auth-server/src/middleware.ts",
+      "position": {
+        "x": 604.5,
+        "y": 5.686400000000001,
+        "z": 493.5
+      },
+      "dimensions": [122.55, 11.372800000000002, 92.14999999999999],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 2048,
+      "lineCount": 71
+    },
+    {
+      "path": "auth-server/src/components/providers/ClientThemeProvider.tsx",
+      "position": {
+        "x": 704,
+        "y": 2.5922,
+        "z": 442.5
+      },
+      "dimensions": [43.699999999999996, 5.1844, 113.05],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 329,
+      "lineCount": 16
+    },
+    {
+      "path": "auth-server/src/types/auth-session.d.ts",
+      "position": {
+        "x": 770.5,
+        "y": 3.4238,
+        "z": 442.5
+      },
+      "dimensions": [52.25, 6.8476, 151.04999999999998],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 791,
+      "lineCount": 37
+    },
+    {
+      "path": "auth-server/bruno/Auth/WorkOS/Callback Mobile.bru",
+      "position": {
+        "x": 74.5,
+        "y": 2.8316,
+        "z": 661.5
+      },
+      "dimensions": [111.14999999999999, 5.6632, 67.45],
+      "type": "file",
+      "fileExtension": ".bru",
+      "size": 462,
+      "lineCount": 29
+    },
+    {
+      "path": "auth-server/bruno/Auth/WorkOS/Callback.bru",
+      "position": {
+        "x": 74.5,
+        "y": 2.8928,
+        "z": 736.5
+      },
+      "dimensions": [111.14999999999999, 5.7856, 67.45],
+      "type": "file",
+      "fileExtension": ".bru",
+      "size": 496,
+      "lineCount": 31
+    },
+    {
+      "path": "auth-server/bruno/Auth/WorkOS/Refresh.bru",
+      "position": {
+        "x": 74.5,
+        "y": 2.9378,
+        "z": 811.5
+      },
+      "dimensions": [111.14999999999999, 5.8756, 67.45],
+      "type": "file",
+      "fileExtension": ".bru",
+      "size": 521,
+      "lineCount": 33
+    },
+    {
+      "path": "auth-server/bruno/Auth/WorkOS/Start Auth.bru",
+      "position": {
+        "x": 169,
+        "y": 3.1646,
+        "z": 691.5
+      },
+      "dimensions": [60.8, 6.3292, 124.44999999999999],
+      "type": "file",
+      "fileExtension": ".bru",
+      "size": 647,
+      "lineCount": 37
+    },
+    {
+      "path": "auth-server/bruno/Auth/WorkOS/Token Mobile.bru",
+      "position": {
+        "x": 236.5,
+        "y": 2.8676,
+        "z": 691.5
+      },
+      "dimensions": [59.849999999999994, 5.7352, 124.44999999999999],
+      "type": "file",
+      "fileExtension": ".bru",
+      "size": 482,
+      "lineCount": 33
+    },
+    {
+      "path": "auth-server/bruno/Auth/WorkOS/Token.bru",
+      "position": {
+        "x": 304,
+        "y": 3.2546,
+        "z": 691.5
+      },
+      "dimensions": [60.8, 6.5092, 124.44999999999999],
+      "type": "file",
+      "fileExtension": ".bru",
+      "size": 697,
+      "lineCount": 38
+    },
+    {
+      "path": "auth-server/bruno/Auth/WorkOS/Verify Check.bru",
+      "position": {
+        "x": 185.5,
+        "y": 2.891,
+        "z": 804
+      },
+      "dimensions": [92.14999999999999, 5.782, 81.7],
+      "type": "file",
+      "fileExtension": ".bru",
+      "size": 495,
+      "lineCount": 33
+    },
+    {
+      "path": "auth-server/bruno/Auth/WorkOS/Verify.bru",
+      "position": {
+        "x": 287,
+        "y": 2.9432,
+        "z": 804
+      },
+      "dimensions": [93.1, 5.8864, 81.7],
+      "type": "file",
+      "fileExtension": ".bru",
+      "size": 524,
+      "lineCount": 34
+    },
+    {
+      "path": "auth-server/bruno/Auth/Browser/Room Token.bru",
+      "position": {
+        "x": 385.5,
+        "y": 3.1916,
+        "z": 670
+      },
+      "dimensions": [71.25, 6.3832, 83.6],
+      "type": "file",
+      "fileExtension": ".bru",
+      "size": 662,
+      "lineCount": 37
+    },
+    {
+      "path": "auth-server/bruno/Auth/Browser/User Token.bru",
+      "position": {
+        "x": 464,
+        "y": 2.891,
+        "z": 670
+      },
+      "dimensions": [70.3, 5.782, 83.6],
+      "type": "file",
+      "fileExtension": ".bru",
+      "size": 495,
+      "lineCount": 32
+    },
+    {
+      "path": "auth-server/bruno/Auth/User/Get User.bru",
+      "position": {
+        "x": 385.5,
+        "y": 2.7721999999999998,
+        "z": 802.5
+      },
+      "dimensions": [71.25, 5.5443999999999996, 84.55],
+      "type": "file",
+      "fileExtension": ".bru",
+      "size": 429,
+      "lineCount": 26
+    },
+    {
+      "path": "auth-server/bruno/Auth/User/Logout.bru",
+      "position": {
+        "x": 464,
+        "y": 2.504,
+        "z": 802.5
+      },
+      "dimensions": [70.3, 5.008, 84.55],
+      "type": "file",
+      "fileExtension": ".bru",
+      "size": 280,
+      "lineCount": 24
+    },
+    {
+      "path": "auth-server/bruno/Auth/CLI/Presence Token.bru",
+      "position": {
+        "x": 540.5,
+        "y": 3.0782,
+        "z": 692.5
+      },
+      "dimensions": [52.25, 6.1564, 126.35],
+      "type": "file",
+      "fileExtension": ".bru",
+      "size": 599,
+      "lineCount": 35
+    },
+    {
+      "path": "auth-server/bruno/Auth/CLI/Room Token.bru",
+      "position": {
+        "x": 599,
+        "y": 3.2546,
+        "z": 692.5
+      },
+      "dimensions": [51.3, 6.5092, 126.35],
+      "type": "file",
+      "fileExtension": ".bru",
+      "size": 697,
+      "lineCount": 39
+    },
+    {
+      "path": "auth-server/bruno/Auth/Token/Get Current Token.bru",
+      "position": {
+        "x": 569.5,
+        "y": 3.008,
+        "z": 825
+      },
+      "dimensions": [107.35, 6.016, 41.8],
+      "type": "file",
+      "fileExtension": ".bru",
+      "size": 560,
+      "lineCount": 34
+    },
+    {
+      "path": "auth-server/bruno/environments/local.json",
+      "position": {
+        "x": 720,
+        "y": 4.0034,
+        "z": 632
+      },
+      "dimensions": [148.2, 8.0068, 49.4],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 1113,
+      "lineCount": 16
+    },
+    {
+      "path": "auth-server/bruno/environments/production.json",
+      "position": {
+        "x": 720,
+        "y": 4.0214,
+        "z": 688
+      },
+      "dimensions": [148.2, 8.0428, 49.4],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 1123,
+      "lineCount": 16
+    },
+    {
+      "path": "auth-server/bruno/bruno.json",
+      "position": {
+        "x": 720,
+        "y": 2.216,
+        "z": 774.5
+      },
+      "dimensions": [155.79999999999998, 4.432, 69.35],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 120,
+      "lineCount": 9
+    },
+    {
+      "path": "auth-server/bruno/Diagnostic/Presence.bru",
+      "position": {
+        "x": 720,
+        "y": 2.5004,
+        "z": 851
+      },
+      "dimensions": [148.2, 5.0008, 30.4],
+      "type": "file",
+      "fileExtension": ".bru",
+      "size": 278,
+      "lineCount": 18
+    },
+    {
+      "path": "auth-server/.principal-views/workos-auth/auth-flow/ROUTE_SEPARATION.md",
+      "position": {
+        "x": 65,
+        "y": 6.865399999999999,
+        "z": 1007.5
+      },
+      "dimensions": [93.1, 13.730799999999999, 69.35],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 2703,
+      "lineCount": 88
+    },
+    {
+      "path": "auth-server/.principal-views/workos-auth/auth-flow/auth-start.workflow.json",
+      "position": {
+        "x": 65,
+        "y": 3.3446,
+        "z": 1084
+      },
+      "dimensions": [93.1, 6.6892, 68.39999999999999],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 747,
+      "lineCount": 22
+    },
+    {
+      "path": "auth-server/.principal-views/workos-auth/auth-flow/cli-auth.workflow.json",
+      "position": {
+        "x": 167,
+        "y": 5.3012,
+        "z": 1007.5
+      },
+      "dimensions": [93.1, 10.6024, 69.35],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 1834,
+      "lineCount": 59
+    },
+    {
+      "path": "auth-server/.principal-views/workos-auth/auth-flow/mobile-auth-callback.workflow.json",
+      "position": {
+        "x": 167,
+        "y": 4.8637999999999995,
+        "z": 1084
+      },
+      "dimensions": [93.1, 9.727599999999999, 68.39999999999999],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 1591,
+      "lineCount": 47
+    },
+    {
+      "path": "auth-server/.principal-views/workos-auth/auth-flow/mobile-auth-token.workflow.json",
+      "position": {
+        "x": 269,
+        "y": 3.8072,
+        "z": 1007.5
+      },
+      "dimensions": [93.1, 7.6144, 69.35],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 1004,
+      "lineCount": 33
+    },
+    {
+      "path": "auth-server/.principal-views/workos-auth/auth-flow/token-refresh.workflow.json",
+      "position": {
+        "x": 269,
+        "y": 3.4958,
+        "z": 1084
+      },
+      "dimensions": [93.1, 6.9916, 68.39999999999999],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 831,
+      "lineCount": 32
+    },
+    {
+      "path": "auth-server/.principal-views/workos-auth/auth-flow/web-auth.workflow.json",
+      "position": {
+        "x": 345.5,
+        "y": 5.2184,
+        "z": 1045.5
+      },
+      "dimensions": [44.65, 10.4368, 141.54999999999998],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 1788,
+      "lineCount": 59
+    },
+    {
+      "path": "auth-server/.principal-views/workos-auth/workos-auth.otel.canvas",
+      "position": {
+        "x": 401,
+        "y": 20,
+        "z": 1045.5
+      },
+      "dimensions": [45.599999999999994, 40, 179.54999999999998],
+      "type": "file",
+      "fileExtension": ".canvas",
+      "size": 14196,
+      "lineCount": 485
+    },
+    {
+      "path": "auth-server/.principal-views/architecture.md",
+      "position": {
+        "x": 511,
+        "y": 3.7658,
+        "z": 968
+      },
+      "dimensions": [148.2, 7.5316, 70.3],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 981,
+      "lineCount": 27
+    },
+    {
+      "path": "auth-server/.principal-views/architecture.scopes.canvas",
+      "position": {
+        "x": 511,
+        "y": 4.2428,
+        "z": 1045.5
+      },
+      "dimensions": [148.2, 8.4856, 69.35],
+      "type": "file",
+      "fileExtension": ".canvas",
+      "size": 1246,
+      "lineCount": 54
+    },
+    {
+      "path": "auth-server/.principal-views/architecture.spans.canvas",
+      "position": {
+        "x": 511,
+        "y": 4.259,
+        "z": 1123
+      },
+      "dimensions": [148.2, 8.518, 70.3],
+      "type": "file",
+      "fileExtension": ".canvas",
+      "size": 1255,
+      "lineCount": 56
+    },
+    {
+      "path": "auth-server/.principal-views/library.yaml",
+      "position": {
+        "x": 644,
+        "y": 2.9054,
+        "z": 987.5
+      },
+      "dimensions": [96.89999999999999, 5.8108, 107.35],
+      "type": "file",
+      "fileExtension": ".yaml",
+      "size": 503,
+      "lineCount": 21
+    },
+    {
+      "path": "auth-server/.principal-views/workos-auth-flow.canvas",
+      "position": {
+        "x": 750.5,
+        "y": 20,
+        "z": 987.5
+      },
+      "dimensions": [97.85, 40, 107.35],
+      "type": "file",
+      "fileExtension": ".canvas",
+      "size": 10791,
+      "lineCount": 473
+    },
+    {
+      "path": "auth-server/.principal-views/workos-auth-flow.md",
+      "position": {
+        "x": 644,
+        "y": 13.658600000000002,
+        "z": 1104
+      },
+      "dimensions": [96.89999999999999, 27.317200000000003, 106.39999999999999],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 6477,
+      "lineCount": 159
+    },
+    {
+      "path": "auth-server/.principal-views/workos-auth.md",
+      "position": {
+        "x": 750.5,
+        "y": 14.639600000000002,
+        "z": 1104
+      },
+      "dimensions": [97.85, 29.279200000000003, 106.39999999999999],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 7022,
+      "lineCount": 240
+    },
+    {
+      "path": "auth-server/public/.gitkeep",
+      "position": {
+        "x": 881.5,
+        "y": 2.063,
+        "z": 84.5
+      },
+      "dimensions": [128.25, 4.126, 84.55],
+      "type": "file",
+      "fileExtension": ".gitkeep",
+      "size": 35,
+      "lineCount": 1
+    },
+    {
+      "path": "auth-server/public/android-chrome-192x192.png",
+      "position": {
+        "x": 881.5,
+        "y": 20,
+        "z": 178
+      },
+      "dimensions": [128.25, 40, 85.5],
+      "type": "file",
+      "fileExtension": ".png",
+      "size": 37820
+    },
+    {
+      "path": "auth-server/public/android-chrome-512x512.png",
+      "position": {
+        "x": 881.5,
+        "y": 20,
+        "z": 271.5
+      },
+      "dimensions": [128.25, 40, 84.55],
+      "type": "file",
+      "fileExtension": ".png",
+      "size": 150702
+    },
+    {
+      "path": "auth-server/public/apple-touch-icon.png",
+      "position": {
+        "x": 881.5,
+        "y": 20,
+        "z": 364.5
+      },
+      "dimensions": [128.25, 40, 84.55],
+      "type": "file",
+      "fileExtension": ".png",
+      "size": 34623
+    },
+    {
+      "path": "auth-server/public/favicon-16x16.png",
+      "position": {
+        "x": 991.5,
+        "y": 17.1506,
+        "z": 118
+      },
+      "dimensions": [73.14999999999999, 34.3012, 148.2],
+      "type": "file",
+      "fileExtension": ".png",
+      "size": 8417
+    },
+    {
+      "path": "auth-server/public/favicon-32x32.png",
+      "position": {
+        "x": 1072.5,
+        "y": 17.953400000000002,
+        "z": 118
+      },
+      "dimensions": [73.14999999999999, 35.906800000000004, 148.2],
+      "type": "file",
+      "fileExtension": ".png",
+      "size": 8863
+    },
+    {
+      "path": "auth-server/public/favicon.ico",
+      "position": {
+        "x": 1153.5,
+        "y": 20,
+        "z": 118
+      },
+      "dimensions": [73.14999999999999, 40, 148.2],
+      "type": "file",
+      "fileExtension": ".ico",
+      "size": 15086
+    },
+    {
+      "path": "auth-server/public/favicon.png",
+      "position": {
+        "x": 1011.5,
+        "y": 17.953400000000002,
+        "z": 251
+      },
+      "dimensions": [111.14999999999999, 35.906800000000004, 96.89999999999999],
+      "type": "file",
+      "fileExtension": ".png",
+      "size": 8863
+    },
+    {
+      "path": "auth-server/public/logo.svg",
+      "position": {
+        "x": 1011.5,
+        "y": 6.5414,
+        "z": 357.5
+      },
+      "dimensions": [111.14999999999999, 13.0828, 97.85],
+      "type": "file",
+      "fileExtension": ".svg",
+      "size": 2523
+    },
+    {
+      "path": "auth-server/public/manifest.json",
+      "position": {
+        "x": 1133,
+        "y": 3.143,
+        "z": 251
+      },
+      "dimensions": [112.1, 6.286, 96.89999999999999],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 635,
+      "lineCount": 26
+    },
+    {
+      "path": "auth-server/public/principal-ade-icon.png",
+      "position": {
+        "x": 1133,
+        "y": 20,
+        "z": 357.5
+      },
+      "dimensions": [112.1, 40, 97.85],
+      "type": "file",
+      "fileExtension": ".png",
+      "size": 334178
+    },
+    {
+      "path": "auth-server/.husky/pre-commit",
+      "position": {
+        "x": 856.5,
+        "y": 2.2142,
+        "z": 506
+      },
+      "dimensions": [80.75, 4.4284, 100.69999999999999],
+      "type": "file",
+      "fileExtension": ".husky/pre-commit",
+      "size": 119,
+      "lineCount": 2
+    },
+    {
+      "path": "auth-server/.vscode/settings.json",
+      "position": {
+        "x": 954,
+        "y": 2.0846,
+        "z": 506
+      },
+      "dimensions": [81.7, 4.1692, 100.69999999999999],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 47,
+      "lineCount": 3
+    },
+    {
+      "path": "auth-server/.env.example",
+      "position": {
+        "x": 1051.5,
+        "y": 11.576,
+        "z": 506
+      },
+      "dimensions": [88.35, 23.152, 138.7],
+      "type": "file",
+      "fileExtension": ".example",
+      "size": 5320,
+      "lineCount": 151
+    },
+    {
+      "path": "auth-server/.env.local.example",
+      "position": {
+        "x": 1149,
+        "y": 2.2754,
+        "z": 506
+      },
+      "dimensions": [89.3, 4.5508, 138.7],
+      "type": "file",
+      "fileExtension": ".example",
+      "size": 153,
+      "lineCount": 4
+    },
+    {
+      "path": "auth-server/.eslintrc.json",
+      "position": {
+        "x": 856.5,
+        "y": 3.3104,
+        "z": 656
+      },
+      "dimensions": [88.35, 6.6208, 138.7],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 728,
+      "lineCount": 29
+    },
+    {
+      "path": "auth-server/.gitignore",
+      "position": {
+        "x": 954,
+        "y": 2.7721999999999998,
+        "z": 656
+      },
+      "dimensions": [89.3, 5.5443999999999996, 138.7],
+      "type": "file",
+      "fileExtension": ".gitignore",
+      "size": 429,
+      "lineCount": 44
+    },
+    {
+      "path": "auth-server/.privurc.yaml",
+      "position": {
+        "x": 1051.5,
+        "y": 4.34,
+        "z": 656
+      },
+      "dimensions": [88.35, 8.68, 138.7],
+      "type": "file",
+      "fileExtension": ".yaml",
+      "size": 1300,
+      "lineCount": 53
+    },
+    {
+      "path": "auth-server/CODE_REVIEW_USER_TOKEN.md",
+      "position": {
+        "x": 1149,
+        "y": 10.9748,
+        "z": 656
+      },
+      "dimensions": [89.3, 21.9496, 138.7],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 4986,
+      "lineCount": 127
+    },
+    {
+      "path": "auth-server/Dockerfile",
+      "position": {
+        "x": 856.5,
+        "y": 6.941000000000001,
+        "z": 806.5
+      },
+      "dimensions": [88.35, 13.882000000000001, 139.65],
+      "type": "file",
+      "fileExtension": "",
+      "size": 2745,
+      "lineCount": 115
+    },
+    {
+      "path": "auth-server/README.md",
+      "position": {
+        "x": 954,
+        "y": 4.037599999999999,
+        "z": 806.5
+      },
+      "dimensions": [89.3, 8.075199999999999, 139.65],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 1132,
+      "lineCount": 48
+    },
+    {
+      "path": "auth-server/TESTING_USER_TOKEN.md",
+      "position": {
+        "x": 1051.5,
+        "y": 10.6418,
+        "z": 806.5
+      },
+      "dimensions": [88.35, 21.2836, 139.65],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 4801,
+      "lineCount": 209
+    },
+    {
+      "path": "auth-server/amplify.yml",
+      "position": {
+        "x": 1149,
+        "y": 3.5084,
+        "z": 806.5
+      },
+      "dimensions": [89.3, 7.0168, 139.65],
+      "type": "file",
+      "fileExtension": ".yml",
+      "size": 838,
+      "lineCount": 26
+    },
+    {
+      "path": "auth-server/apprunner.yaml",
+      "position": {
+        "x": 881,
+        "y": 6.8258,
+        "z": 932
+      },
+      "dimensions": [134.9, 13.6516, 91.19999999999999],
+      "type": "file",
+      "fileExtension": ".yaml",
+      "size": 2681,
+      "lineCount": 82
+    },
+    {
+      "path": "auth-server/next.config.mjs",
+      "position": {
+        "x": 881,
+        "y": 5.2094,
+        "z": 1032
+      },
+      "dimensions": [134.9, 10.4188, 91.19999999999999],
+      "type": "file",
+      "fileExtension": ".mjs",
+      "size": 1783,
+      "lineCount": 77
+    },
+    {
+      "path": "auth-server/package-lock.json",
+      "position": {
+        "x": 881,
+        "y": 20,
+        "z": 1132
+      },
+      "dimensions": [134.9, 40, 91.19999999999999],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 267035,
+      "lineCount": 7544
+    },
+    {
+      "path": "auth-server/package.json",
+      "position": {
+        "x": 994.5,
+        "y": 4.2212,
+        "z": 972
+      },
+      "dimensions": [73.14999999999999, 8.4424, 167.2],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 1234,
+      "lineCount": 44
+    },
+    {
+      "path": "auth-server/postcss.config.mjs",
+      "position": {
+        "x": 1076,
+        "y": 2.1692,
+        "z": 972
+      },
+      "dimensions": [74.1, 4.3384, 167.2],
+      "type": "file",
+      "fileExtension": ".mjs",
+      "size": 94,
+      "lineCount": 7
+    },
+    {
+      "path": "auth-server/server.js",
+      "position": {
+        "x": 1157.5,
+        "y": 6.1454,
+        "z": 972
+      },
+      "dimensions": [73.14999999999999, 12.2908, 167.2],
+      "type": "file",
+      "fileExtension": ".js",
+      "size": 2303,
+      "lineCount": 73
+    },
+    {
+      "path": "auth-server/test-user-token.sh",
+      "position": {
+        "x": 1015,
+        "y": 7.4018,
+        "z": 1122
+      },
+      "dimensions": [112.1, 14.8036, 110.19999999999999],
+      "type": "file",
+      "fileExtension": ".sh",
+      "size": 3001,
+      "lineCount": 110
+    },
+    {
+      "path": "auth-server/tsconfig.json",
+      "position": {
+        "x": 1137,
+        "y": 3.2942,
+        "z": 1122
+      },
+      "dimensions": [112.1, 6.5884, 110.19999999999999],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 719,
+      "lineCount": 42
+    }
+  ],
+  "districts": [
+    {
+      "path": "auth-server",
+      "worldBounds": {
+        "minX": 0,
+        "maxX": 1200,
+        "minZ": 0,
+        "maxZ": 1200
+      },
+      "fileCount": 18,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src",
+      "worldBounds": {
+        "minX": 4,
+        "maxX": 806,
+        "minZ": 20,
+        "maxZ": 562
+      },
+      "fileCount": 2,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app",
+      "worldBounds": {
+        "minX": 8,
+        "maxX": 536,
+        "minZ": 40,
+        "maxZ": 542
+      },
+      "fileCount": 3,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api",
+      "worldBounds": {
+        "minX": 12,
+        "maxX": 401,
+        "minZ": 60,
+        "maxZ": 522
+      },
+      "fileCount": 0,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/auth",
+      "worldBounds": {
+        "minX": 16,
+        "maxX": 397,
+        "minZ": 80,
+        "maxZ": 473
+      },
+      "fileCount": 0,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/auth/workos",
+      "worldBounds": {
+        "minX": 20,
+        "maxX": 285,
+        "minZ": 100,
+        "maxZ": 382
+      },
+      "fileCount": 0,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/auth/workos/callback",
+      "worldBounds": {
+        "minX": 24,
+        "maxX": 216,
+        "minZ": 120,
+        "maxZ": 198
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/auth/workos/callback/mobile",
+      "worldBounds": {
+        "minX": 122,
+        "maxX": 212,
+        "minZ": 140,
+        "maxZ": 178
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/auth/workos/verify",
+      "worldBounds": {
+        "minX": 24,
+        "maxX": 216,
+        "minZ": 202,
+        "maxZ": 280
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/auth/workos/verify/check",
+      "worldBounds": {
+        "minX": 122,
+        "maxX": 212,
+        "minZ": 222,
+        "maxZ": 260
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/auth/workos/token",
+      "worldBounds": {
+        "minX": 24,
+        "maxX": 216,
+        "minZ": 284,
+        "maxZ": 362
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/auth/workos/token/mobile",
+      "worldBounds": {
+        "minX": 122,
+        "maxX": 212,
+        "minZ": 304,
+        "maxZ": 342
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/auth/workos/refresh",
+      "worldBounds": {
+        "minX": 220,
+        "maxX": 281,
+        "minZ": 120,
+        "maxZ": 239
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/auth/workos/start",
+      "worldBounds": {
+        "minX": 220,
+        "maxX": 281,
+        "minZ": 243,
+        "maxZ": 362
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/auth/browser",
+      "worldBounds": {
+        "minX": 20,
+        "maxX": 285,
+        "minZ": 386,
+        "maxZ": 453
+      },
+      "fileCount": 0,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/auth/browser/room-token",
+      "worldBounds": {
+        "minX": 24,
+        "maxX": 151,
+        "minZ": 406,
+        "maxZ": 433
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/auth/browser/user-token",
+      "worldBounds": {
+        "minX": 155,
+        "maxX": 281,
+        "minZ": 406,
+        "maxZ": 433
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/auth/cli",
+      "worldBounds": {
+        "minX": 289,
+        "maxX": 393,
+        "minZ": 100,
+        "maxZ": 275
+      },
+      "fileCount": 0,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/auth/cli/presence-token",
+      "worldBounds": {
+        "minX": 293,
+        "maxX": 339,
+        "minZ": 120,
+        "maxZ": 255
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/auth/cli/room-token",
+      "worldBounds": {
+        "minX": 343,
+        "maxX": 389,
+        "minZ": 120,
+        "maxZ": 255
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/auth/token",
+      "worldBounds": {
+        "minX": 289,
+        "maxX": 393,
+        "minZ": 279,
+        "maxZ": 364
+      },
+      "fileCount": 0,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/auth/token/current",
+      "worldBounds": {
+        "minX": 293,
+        "maxX": 389,
+        "minZ": 299,
+        "maxZ": 344
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/auth/user",
+      "worldBounds": {
+        "minX": 289,
+        "maxX": 393,
+        "minZ": 368,
+        "maxZ": 453
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/diagnostic",
+      "worldBounds": {
+        "minX": 16,
+        "maxX": 397,
+        "minZ": 477,
+        "maxZ": 502
+      },
+      "fileCount": 0,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/api/diagnostic/presence",
+      "worldBounds": {
+        "minX": 20,
+        "maxX": 393,
+        "minZ": 489,
+        "maxZ": 489
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/diagnostic",
+      "worldBounds": {
+        "minX": 470,
+        "maxX": 532,
+        "minZ": 246,
+        "maxZ": 429
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/auth",
+      "worldBounds": {
+        "minX": 405,
+        "maxX": 532,
+        "minZ": 433,
+        "maxZ": 522
+      },
+      "fileCount": 0,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/app/auth/verify-email",
+      "worldBounds": {
+        "minX": 409,
+        "maxX": 528,
+        "minZ": 453,
+        "maxZ": 502
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/lib",
+      "worldBounds": {
+        "minX": 540,
+        "maxX": 802,
+        "minZ": 40,
+        "maxZ": 339
+      },
+      "fileCount": 6,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/components",
+      "worldBounds": {
+        "minX": 673,
+        "maxX": 735,
+        "minZ": 343,
+        "maxZ": 542
+      },
+      "fileCount": 0,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/components/providers",
+      "worldBounds": {
+        "minX": 677,
+        "maxX": 731,
+        "minZ": 363,
+        "maxZ": 522
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/src/types",
+      "worldBounds": {
+        "minX": 739,
+        "maxX": 802,
+        "minZ": 343,
+        "maxZ": 542
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/bruno",
+      "worldBounds": {
+        "minX": 4,
+        "maxX": 806,
+        "minZ": 566,
+        "maxZ": 907
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/bruno/Auth",
+      "worldBounds": {
+        "minX": 8,
+        "maxX": 634,
+        "minZ": 586,
+        "maxZ": 887
+      },
+      "fileCount": 0,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/bruno/Auth/WorkOS",
+      "worldBounds": {
+        "minX": 12,
+        "maxX": 340,
+        "minZ": 606,
+        "maxZ": 867
+      },
+      "fileCount": 8,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/bruno/Auth/Browser",
+      "worldBounds": {
+        "minX": 344,
+        "maxX": 505,
+        "minZ": 606,
+        "maxZ": 734
+      },
+      "fileCount": 2,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/bruno/Auth/User",
+      "worldBounds": {
+        "minX": 344,
+        "maxX": 505,
+        "minZ": 738,
+        "maxZ": 867
+      },
+      "fileCount": 2,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/bruno/Auth/CLI",
+      "worldBounds": {
+        "minX": 509,
+        "maxX": 630,
+        "minZ": 606,
+        "maxZ": 779
+      },
+      "fileCount": 2,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/bruno/Auth/Token",
+      "worldBounds": {
+        "minX": 509,
+        "maxX": 630,
+        "minZ": 783,
+        "maxZ": 867
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/bruno/environments",
+      "worldBounds": {
+        "minX": 638,
+        "maxX": 802,
+        "minZ": 586,
+        "maxZ": 734
+      },
+      "fileCount": 2,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/bruno/Diagnostic",
+      "worldBounds": {
+        "minX": 638,
+        "maxX": 802,
+        "minZ": 815,
+        "maxZ": 887
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/.principal-views",
+      "worldBounds": {
+        "minX": 4,
+        "maxX": 806,
+        "minZ": 911,
+        "maxZ": 1180
+      },
+      "fileCount": 7,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/.principal-views/workos-auth",
+      "worldBounds": {
+        "minX": 8,
+        "maxX": 429,
+        "minZ": 931,
+        "maxZ": 1160
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/.principal-views/workos-auth/auth-flow",
+      "worldBounds": {
+        "minX": 12,
+        "maxX": 373,
+        "minZ": 951,
+        "maxZ": 1140
+      },
+      "fileCount": 7,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/public",
+      "worldBounds": {
+        "minX": 810,
+        "maxX": 1196,
+        "minZ": 20,
+        "maxZ": 429
+      },
+      "fileCount": 11,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/.husky",
+      "worldBounds": {
+        "minX": 810,
+        "maxX": 903,
+        "minZ": 433,
+        "maxZ": 579
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "auth-server/.vscode",
+      "worldBounds": {
+        "minX": 907,
+        "maxX": 1001,
+        "minZ": 433,
+        "maxZ": 579
+      },
+      "fileCount": 1,
+      "type": "directory"
+    }
+  ],
+  "bounds": {
+    "minX": 0,
+    "maxX": 1200,
+    "minZ": 0,
+    "maxZ": 1200
+  },
+  "metadata": {
+    "totalFiles": 95,
+    "totalDirectories": 46,
+    "rootPath": "auth-server"
+  }
+}

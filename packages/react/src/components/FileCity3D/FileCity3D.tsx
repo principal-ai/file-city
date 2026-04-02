@@ -424,6 +424,7 @@ interface InstancedBuildingsProps {
   onHover?: (building: CityBuilding | null) => void;
   onClick?: (building: CityBuilding) => void;
   hoveredIndex: number | null;
+  selectedIndex: number | null;
   growProgress: number;
   animationConfig: AnimationConfig;
   heightScaling: HeightScaling;
@@ -446,6 +447,7 @@ function InstancedBuildings({
   onHover,
   onClick,
   hoveredIndex,
+  selectedIndex,
   growProgress,
   animationConfig,
   heightScaling,
@@ -620,7 +622,8 @@ function InstancedBuildings({
       const yPosition = height / 2 + baseOffset;
 
       const isHovered = hoveredIndex === data.index;
-      const scale = isHovered ? 1.05 : 1;
+      const isSelected = selectedIndex === data.index;
+      const scale = isSelected ? 1.08 : isHovered ? 1.05 : 1;
 
       tempObject.position.set(x, yPosition, z);
       tempObject.scale.set(width * scale, height, depth * scale);
@@ -638,7 +641,9 @@ function InstancedBuildings({
         tempColor.g = tempColor.g * (1 - grayAmount) + gray * grayAmount;
         tempColor.b = tempColor.b * (1 - grayAmount) + gray * grayAmount;
       }
-      if (isHovered) {
+      if (isSelected) {
+        tempColor.multiplyScalar(1.4);
+      } else if (isHovered) {
         tempColor.multiplyScalar(1.2);
       }
       meshRef.current!.setColorAt(instanceIndex, tempColor);
@@ -648,6 +653,9 @@ function InstancedBuildings({
     if (meshRef.current.instanceColor) {
       meshRef.current.instanceColor.needsUpdate = true;
     }
+
+    // Update bounding sphere for raycasting as buildings grow/animate
+    meshRef.current.computeBoundingSphere();
   });
 
   const handlePointerMove = useCallback(
@@ -796,7 +804,12 @@ function AnimatedIcon({
   });
 
   return (
-    <sprite ref={spriteRef} position={[x, 0, z]} scale={[iconSize, iconSize, 1]}>
+    <sprite
+      ref={spriteRef}
+      position={[x, 0, z]}
+      scale={[iconSize, iconSize, 1]}
+      raycast={() => null}
+    >
       <spriteMaterial
         ref={materialRef}
         map={texture}
@@ -983,6 +996,7 @@ function AnimatedCamera({ citySize, isFlat, focusTarget }: AnimatedCameraProps) 
   const { camera } = useThree();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
+  const isAnimatingRef = useRef(true);
 
   // Animated camera position and target
   const targetPos = useMemo(() => {
@@ -1021,11 +1035,18 @@ function AnimatedCamera({ citySize, isFlat, focusTarget }: AnimatedCameraProps) 
     lookY: targetPos.targetY,
     lookZ: targetPos.targetZ,
     config: { tension: 60, friction: 20 },
+    onStart: () => {
+      isAnimatingRef.current = true;
+    },
+    onRest: () => {
+      isAnimatingRef.current = false;
+    },
   });
 
-  // Update camera each frame based on spring values
+  // Update camera each frame only while spring is animating
+  // Once animation settles, let OrbitControls handle user interaction
   useFrame(() => {
-    if (!controlsRef.current) return;
+    if (!controlsRef.current || !isAnimatingRef.current) return;
 
     camera.position.set(camX.get(), camY.get(), camZ.get());
     controlsRef.current.target.set(lookX.get(), lookY.get(), lookZ.get());
@@ -1171,6 +1192,7 @@ interface CitySceneProps {
   onBuildingHover?: (building: CityBuilding | null) => void;
   onBuildingClick?: (building: CityBuilding) => void;
   hoveredBuilding: CityBuilding | null;
+  selectedBuilding: CityBuilding | null;
   growProgress: number;
   animationConfig: AnimationConfig;
   highlightLayers: HighlightLayer[];
@@ -1185,6 +1207,7 @@ function CityScene({
   onBuildingHover,
   onBuildingClick,
   hoveredBuilding,
+  selectedBuilding,
   growProgress,
   animationConfig,
   highlightLayers,
@@ -1387,6 +1410,11 @@ function CityScene({
     return cityData.buildings.findIndex(b => b.path === hoveredBuilding.path);
   }, [hoveredBuilding, cityData.buildings]);
 
+  const selectedIndex = useMemo(() => {
+    if (!selectedBuilding) return null;
+    return cityData.buildings.findIndex(b => b.path === selectedBuilding.path);
+  }, [selectedBuilding, cityData.buildings]);
+
   // Calculate spring duration for animation sync
   const tension = animationConfig.tension || 120;
   const friction = animationConfig.friction || 14;
@@ -1425,6 +1453,7 @@ function CityScene({
         onHover={onBuildingHover}
         onClick={onBuildingClick}
         hoveredIndex={hoveredIndex}
+        selectedIndex={selectedIndex}
         growProgress={growProgress}
         animationConfig={animationConfig}
         heightScaling={heightScaling}
@@ -1501,6 +1530,8 @@ export interface FileCity3DProps {
   backgroundColor?: string;
   /** Text color for secondary/placeholder text */
   textColor?: string;
+  /** Currently selected building (controlled by host) */
+  selectedBuilding?: CityBuilding | null;
 }
 
 /**
@@ -1532,6 +1563,7 @@ export function FileCity3D({
   onDirectorySelect,
   backgroundColor = '#0f172a',
   textColor = '#94a3b8',
+  selectedBuilding = null,
 }: FileCity3DProps) {
   const [hoveredBuilding, setHoveredBuilding] = useState<CityBuilding | null>(null);
   const [internalIsGrown, setInternalIsGrown] = useState(false);
@@ -1637,6 +1669,7 @@ export function FileCity3D({
           onBuildingHover={setHoveredBuilding}
           onBuildingClick={onBuildingClick}
           hoveredBuilding={hoveredBuilding}
+          selectedBuilding={selectedBuilding}
           growProgress={growProgress}
           animationConfig={animationConfig}
           highlightLayers={highlightLayers}
@@ -1646,7 +1679,7 @@ export function FileCity3D({
           focusDirectory={focusDirectory}
         />
       </Canvas>
-      <InfoPanel building={hoveredBuilding} />
+      <InfoPanel building={selectedBuilding || hoveredBuilding} />
       {showControls && (
         <ControlsOverlay isFlat={!isGrown} onToggle={handleToggle} onResetCamera={resetCamera} />
       )}

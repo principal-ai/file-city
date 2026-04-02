@@ -374,6 +374,28 @@ export const WithClickHandler: Story = {
 };
 
 /**
+ * With selection - Click to select a building, click again to deselect
+ */
+const WithSelectionTemplate: React.FC = () => {
+  const [selectedBuilding, setSelectedBuilding] = React.useState<CityBuilding | null>(null);
+
+  return (
+    <FileCity3D
+      cityData={sampleCityData}
+      height="100vh"
+      selectedBuilding={selectedBuilding}
+      onBuildingClick={building => {
+        setSelectedBuilding(prev => (prev?.path === building.path ? null : building));
+      }}
+    />
+  );
+};
+
+export const WithSelection: Story = {
+  render: () => <WithSelectionTemplate />,
+};
+
+/**
  * Isolation - transparent mode
  */
 export const IsolationTransparent: Story = {

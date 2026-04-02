@@ -1,0 +1,2434 @@
+{
+  "buildings": [
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/components/IsometricInteractionManager.ts",
+      "position": {
+        "x": 51,
+        "y": 20,
+        "z": 150.5
+      },
+      "dimensions": [58.9, 40, 95.94999999999999],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 21971,
+      "lineCount": 549
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/components/IsometricPathManager.ts",
+      "position": {
+        "x": 116.5,
+        "y": 9.4016,
+        "z": 150.5
+      },
+      "dimensions": [57.949999999999996, 18.8032, 95.94999999999999],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 4112,
+      "lineCount": 103
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/components/IsometricPixiCanvas.ts",
+      "position": {
+        "x": 182,
+        "y": 15.921199999999999,
+        "z": 150.5
+      },
+      "dimensions": [58.9, 31.842399999999998, 95.94999999999999],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 7734,
+      "lineCount": 193
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/components/IsometricRenderer.ts",
+      "position": {
+        "x": 51,
+        "y": 20,
+        "z": 255.5
+      },
+      "dimensions": [58.9, 40, 95.94999999999999],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 48151,
+      "lineCount": 1204
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/components/RegionTracker.ts",
+      "position": {
+        "x": 116.5,
+        "y": 9.0272,
+        "z": 255.5
+      },
+      "dimensions": [57.949999999999996, 18.0544, 95.94999999999999],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 3904,
+      "lineCount": 98
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/components/buildingSpriteGenerator.ts",
+      "position": {
+        "x": 182,
+        "y": 8.911999999999999,
+        "z": 255.5
+      },
+      "dimensions": [58.9, 17.823999999999998, 95.94999999999999],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 3840,
+      "lineCount": 96
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/components/collaboratorDecorationSprites.ts",
+      "position": {
+        "x": 83.5,
+        "y": 11.135,
+        "z": 334
+      },
+      "dimensions": [120.64999999999999, 22.27, 45.599999999999994],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 5075,
+      "lineCount": 127
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/components/licenseSignSprites.ts",
+      "position": {
+        "x": 83.5,
+        "y": 20,
+        "z": 386
+      },
+      "dimensions": [120.64999999999999, 40, 45.599999999999994],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 38030,
+      "lineCount": 951
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/components/starDecorationSprites.ts",
+      "position": {
+        "x": 182,
+        "y": 6.1742,
+        "z": 360
+      },
+      "dimensions": [58.9, 12.3484, 95],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 2319,
+      "lineCount": 58
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/BuildingSizeTest.stories.tsx",
+      "position": {
+        "x": 116.5,
+        "y": 3.5408,
+        "z": 452
+      },
+      "dimensions": [190.95, 7.0816, 34.199999999999996],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 856,
+      "lineCount": 21
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/BuildingSizeTest.tsx",
+      "position": {
+        "x": 116.5,
+        "y": 14.598199999999999,
+        "z": 491.5
+      },
+      "dimensions": [190.95, 29.196399999999997, 33.25],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 6999,
+      "lineCount": 175
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/EXAMPLES.md",
+      "position": {
+        "x": 116.5,
+        "y": 13.3184,
+        "z": 530.5
+      },
+      "dimensions": [190.95, 26.6368, 33.25],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 6288
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/LayoutEngineTest.stories.tsx",
+      "position": {
+        "x": 116.5,
+        "y": 7.372999999999999,
+        "z": 570
+      },
+      "dimensions": [190.95, 14.745999999999999, 34.199999999999996],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 2985,
+      "lineCount": 75
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/LayoutEngineTest.tsx",
+      "position": {
+        "x": 257,
+        "y": 8.858,
+        "z": 131.5
+      },
+      "dimensions": [68.39999999999999, 17.716, 97.85],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 3810,
+      "lineCount": 95
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/LicenseSignTest.stories.tsx",
+      "position": {
+        "x": 333,
+        "y": 3.2510000000000003,
+        "z": 131.5
+      },
+      "dimensions": [68.39999999999999, 6.502000000000001, 97.85],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 695,
+      "lineCount": 17
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/LicenseSignTest.tsx",
+      "position": {
+        "x": 408.5,
+        "y": 11.133199999999999,
+        "z": 131.5
+      },
+      "dimensions": [67.45, 22.266399999999997, 97.85],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 5074,
+      "lineCount": 127
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/OverworldMapPanel.tsx",
+      "position": {
+        "x": 484,
+        "y": 20,
+        "z": 131.5
+      },
+      "dimensions": [68.39999999999999, 40, 97.85],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 45146,
+      "lineCount": 1129
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/PackageExpansionTest.stories.tsx",
+      "position": {
+        "x": 560,
+        "y": 12.4292,
+        "z": 131.5
+      },
+      "dimensions": [68.39999999999999, 24.8584, 97.85],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 5794,
+      "lineCount": 145
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/PackageExpansionTest.tsx",
+      "position": {
+        "x": 257,
+        "y": 19.4312,
+        "z": 238
+      },
+      "dimensions": [68.39999999999999, 38.8624, 96.89999999999999],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 9684,
+      "lineCount": 242
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/RegionEditingTest.stories.tsx",
+      "position": {
+        "x": 333,
+        "y": 3.368,
+        "z": 238
+      },
+      "dimensions": [68.39999999999999, 6.736, 96.89999999999999],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 760,
+      "lineCount": 19
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/RegionEditingTest.tsx",
+      "position": {
+        "x": 408.5,
+        "y": 20,
+        "z": 238
+      },
+      "dimensions": [67.45, 40, 96.89999999999999],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 17406,
+      "lineCount": 435
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/UI_DESIGN_RESEARCH.md",
+      "position": {
+        "x": 484,
+        "y": 20,
+        "z": 238
+      },
+      "dimensions": [68.39999999999999, 40, 96.89999999999999],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 13707
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/UNIFIED_MAP_TODO.md",
+      "position": {
+        "x": 560,
+        "y": 9.911,
+        "z": 238
+      },
+      "dimensions": [68.39999999999999, 19.822, 96.89999999999999],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 4395
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/VISUAL_ITERATION_PLAN.md",
+      "position": {
+        "x": 273,
+        "y": 20,
+        "z": 328.5
+      },
+      "dimensions": [98.8, 40, 67.45],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 11182
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/collaboratorDecoration.ts",
+      "position": {
+        "x": 273,
+        "y": 7.3892,
+        "z": 403.5
+      },
+      "dimensions": [98.8, 14.7784, 67.45],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 2994,
+      "lineCount": 75
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/genericMapper.test.ts",
+      "position": {
+        "x": 273,
+        "y": 15.293000000000001,
+        "z": 478
+      },
+      "dimensions": [98.8, 30.586000000000002, 66.5],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 7385,
+      "lineCount": 185
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/genericMapper.ts",
+      "position": {
+        "x": 273,
+        "y": 20,
+        "z": 552.5
+      },
+      "dimensions": [98.8, 40, 67.45],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 25980,
+      "lineCount": 650
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/hoverHighlight.test.ts",
+      "position": {
+        "x": 361,
+        "y": 20,
+        "z": 351
+      },
+      "dimensions": [60.8, 40, 110.19999999999999],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 15912,
+      "lineCount": 398
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/index.ts",
+      "position": {
+        "x": 429,
+        "y": 5.9312000000000005,
+        "z": 351
+      },
+      "dimensions": [60.8, 11.862400000000001, 110.19999999999999],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 2184,
+      "lineCount": 55
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/isometricUtils.test.ts",
+      "position": {
+        "x": 496.5,
+        "y": 20,
+        "z": 351
+      },
+      "dimensions": [59.849999999999994, 40, 110.19999999999999],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 16256,
+      "lineCount": 406
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/isometricUtils.ts",
+      "position": {
+        "x": 564,
+        "y": 17.669,
+        "z": 351
+      },
+      "dimensions": [60.8, 35.338, 110.19999999999999],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 8705,
+      "lineCount": 218
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/packageExpansion.ts",
+      "position": {
+        "x": 395,
+        "y": 6.3848,
+        "z": 440.5
+      },
+      "dimensions": [125.39999999999999, 12.7696, 52.25],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 2436,
+      "lineCount": 61
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/spriteLayoutEngine.test.ts",
+      "position": {
+        "x": 395,
+        "y": 20,
+        "z": 500
+      },
+      "dimensions": [125.39999999999999, 40, 53.199999999999996],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 10148,
+      "lineCount": 254
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/spriteLayoutEngine.ts",
+      "position": {
+        "x": 395,
+        "y": 20,
+        "z": 560
+      },
+      "dimensions": [125.39999999999999, 40, 53.199999999999996],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 10983,
+      "lineCount": 275
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/starDecoration.ts",
+      "position": {
+        "x": 496.5,
+        "y": 8.6528,
+        "z": 470.5
+      },
+      "dimensions": [59.849999999999994, 17.3056, 109.25],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 3696,
+      "lineCount": 92
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/test-setup.ts",
+      "position": {
+        "x": 564,
+        "y": 6.3848,
+        "z": 470.5
+      },
+      "dimensions": [60.8, 12.7696, 109.25],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 2436,
+      "lineCount": 61
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/types.ts",
+      "position": {
+        "x": 530.5,
+        "y": 13.790000000000001,
+        "z": 560
+      },
+      "dimensions": [
+        124.44999999999999, 27.580000000000002, 53.199999999999996
+      ],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 6550,
+      "lineCount": 164
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/cards/components/CardBack.tsx",
+      "position": {
+        "x": 655,
+        "y": 13.3742,
+        "z": 134
+      },
+      "dimensions": [81.7, 26.7484, 64.6],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 6319,
+      "lineCount": 158
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/cards/components/CardBackCodeCity.tsx",
+      "position": {
+        "x": 655,
+        "y": 20,
+        "z": 206
+      },
+      "dimensions": [81.7, 40, 64.6],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 12990,
+      "lineCount": 325
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/cards/components/CardLayout.tsx",
+      "position": {
+        "x": 655,
+        "y": 13.0016,
+        "z": 278
+      },
+      "dimensions": [81.7, 26.0032, 64.6],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 6112,
+      "lineCount": 153
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/cards/components/CardLayoutOG.tsx",
+      "position": {
+        "x": 730.5,
+        "y": 20,
+        "z": 152
+      },
+      "dimensions": [54.15, 40, 98.8],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 18551,
+      "lineCount": 464
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/cards/components/RepoCard.tsx",
+      "position": {
+        "x": 791,
+        "y": 8.4368,
+        "z": 152
+      },
+      "dimensions": [53.199999999999996, 16.8736, 98.8],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 3576,
+      "lineCount": 89
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/cards/components/RepoCardStatic.tsx",
+      "position": {
+        "x": 851.5,
+        "y": 10.803799999999999,
+        "z": 152
+      },
+      "dimensions": [54.15, 21.607599999999998, 98.8],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 4891,
+      "lineCount": 122
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/cards/components/RepoSprite.tsx",
+      "position": {
+        "x": 760.5,
+        "y": 20,
+        "z": 233
+      },
+      "dimensions": [111.14999999999999, 40, 47.5],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 14348,
+      "lineCount": 359
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/cards/components/cardThemes.ts",
+      "position": {
+        "x": 760.5,
+        "y": 14.6684,
+        "z": 287
+      },
+      "dimensions": [111.14999999999999, 29.3368, 47.5],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 7038,
+      "lineCount": 176
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/cards/components/spriteRenderer.ts",
+      "position": {
+        "x": 851.5,
+        "y": 20,
+        "z": 260
+      },
+      "dimensions": [54.15, 40, 98.8],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 12819,
+      "lineCount": 320
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/cards/CardBack.stories.tsx",
+      "position": {
+        "x": 668,
+        "y": 6.761,
+        "z": 366
+      },
+      "dimensions": [114, 13.522, 57],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 2645,
+      "lineCount": 66
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/cards/CardBackCodeCity.stories.tsx",
+      "position": {
+        "x": 668,
+        "y": 4.908799999999999,
+        "z": 430
+      },
+      "dimensions": [114, 9.817599999999999, 57],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 1616,
+      "lineCount": 40
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/cards/CardLayoutOG.satori.stories.tsx",
+      "position": {
+        "x": 668,
+        "y": 20,
+        "z": 494
+      },
+      "dimensions": [114, 40, 57],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 16237,
+      "lineCount": 406
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/cards/CardLayoutOG.stories.tsx",
+      "position": {
+        "x": 668,
+        "y": 20,
+        "z": 558
+      },
+      "dimensions": [114, 40, 57],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 11481,
+      "lineCount": 287
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/cards/FileCityCard.stories.tsx",
+      "position": {
+        "x": 769,
+        "y": 20,
+        "z": 385
+      },
+      "dimensions": [70.3, 40, 93.1],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 11234,
+      "lineCount": 281
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/cards/RepoCard.stories.tsx",
+      "position": {
+        "x": 847,
+        "y": 20,
+        "z": 385
+      },
+      "dimensions": [70.3, 40, 93.1],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 13102,
+      "lineCount": 328
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/cards/RepoCardStatic.stories.tsx",
+      "position": {
+        "x": 782,
+        "y": 19.343,
+        "z": 474.5
+      },
+      "dimensions": [95, 38.686, 69.35],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 9635,
+      "lineCount": 241
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/cards/RepoSprite.stories.tsx",
+      "position": {
+        "x": 782,
+        "y": 20,
+        "z": 551.5
+      },
+      "dimensions": [95, 40, 69.35],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 17625,
+      "lineCount": 441
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/cards/index.ts",
+      "position": {
+        "x": 860,
+        "y": 4.8242,
+        "z": 513
+      },
+      "dimensions": [45.599999999999994, 9.6484, 142.5],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 1569,
+      "lineCount": 39
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/components/DependencyInfoModal.tsx",
+      "position": {
+        "x": 50.5,
+        "y": 14.2274,
+        "z": 682.5
+      },
+      "dimensions": [65.55, 28.4548, 95.94999999999999],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 6793,
+      "lineCount": 170
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/components/DependencyRow.tsx",
+      "position": {
+        "x": 123.5,
+        "y": 12.4868,
+        "z": 682.5
+      },
+      "dimensions": [65.55, 24.9736, 95.94999999999999],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 5826,
+      "lineCount": 146
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/components/EmptyDependencies.tsx",
+      "position": {
+        "x": 197,
+        "y": 12.2672,
+        "z": 682.5
+      },
+      "dimensions": [66.5, 24.5344, 95.94999999999999],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 5704,
+      "lineCount": 143
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/components/FilterBar.tsx",
+      "position": {
+        "x": 270.5,
+        "y": 10.7786,
+        "z": 682.5
+      },
+      "dimensions": [65.55, 21.5572, 95.94999999999999],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 4877,
+      "lineCount": 122
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/components/InheritedConfigIndicator.tsx",
+      "position": {
+        "x": 63,
+        "y": 13.0016,
+        "z": 774.5
+      },
+      "dimensions": [89.3, 26.0032, 71.25],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 6112,
+      "lineCount": 153
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/components/LensReadinessSection.tsx",
+      "position": {
+        "x": 63,
+        "y": 17.2046,
+        "z": 853
+      },
+      "dimensions": [89.3, 34.4092, 70.3],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 8447,
+      "lineCount": 211
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/components/OrchestratorBadge.tsx",
+      "position": {
+        "x": 63,
+        "y": 5.5766,
+        "z": 931.5
+      },
+      "dimensions": [89.3, 11.1532, 71.25],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 1987,
+      "lineCount": 50
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/components/OtherScriptsSection.tsx",
+      "position": {
+        "x": 144.5,
+        "y": 9.3008,
+        "z": 794
+      },
+      "dimensions": [57.949999999999996, 18.6016, 108.3],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 4056,
+      "lineCount": 101
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/components/PackageDetailCard.tsx",
+      "position": {
+        "x": 209.5,
+        "y": 20,
+        "z": 794
+      },
+      "dimensions": [57.949999999999996, 40, 108.3],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 51422,
+      "lineCount": 1286
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/components/PackageLoadingGraph.tsx",
+      "position": {
+        "x": 274.5,
+        "y": 17.5664,
+        "z": 794
+      },
+      "dimensions": [57.949999999999996, 35.1328, 108.3],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 8648,
+      "lineCount": 216
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/components/PackageManagerIcon.tsx",
+      "position": {
+        "x": 177,
+        "y": 20,
+        "z": 882.5
+      },
+      "dimensions": [119.69999999999999, 40, 52.25],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 12458,
+      "lineCount": 311
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/components/PackageSummaryCard.tsx",
+      "position": {
+        "x": 177,
+        "y": 15.940999999999999,
+        "z": 941.5
+      },
+      "dimensions": [119.69999999999999, 31.881999999999998, 52.25],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 7745,
+      "lineCount": 194
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/components/index.ts",
+      "position": {
+        "x": 274.5,
+        "y": 3.0746,
+        "z": 912
+      },
+      "dimensions": [57.949999999999996, 6.1492, 108.3],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 597,
+      "lineCount": 15
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/local-project-grid/LocalProjectCard.tsx",
+      "position": {
+        "x": 359.5,
+        "y": 15.7466,
+        "z": 667.5
+      },
+      "dimensions": [80.75, 31.4932, 67.45],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 7637,
+      "lineCount": 191
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/local-project-grid/LocalProjectGridPanel.stories.tsx",
+      "position": {
+        "x": 359.5,
+        "y": 20,
+        "z": 742.5
+      },
+      "dimensions": [80.75, 40, 67.45],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 13708,
+      "lineCount": 343
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/local-project-grid/LocalProjectGridPanel.tsx",
+      "position": {
+        "x": 437.5,
+        "y": 19.1486,
+        "z": 680
+      },
+      "dimensions": [59.849999999999994, 38.2972, 91.19999999999999],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 9527,
+      "lineCount": 238
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/local-project-grid/index.ts",
+      "position": {
+        "x": 504.5,
+        "y": 2.6875999999999998,
+        "z": 680
+      },
+      "dimensions": [59.849999999999994, 5.3751999999999995, 91.19999999999999],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 382,
+      "lineCount": 10
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/local-project-grid/types.ts",
+      "position": {
+        "x": 471,
+        "y": 6.1112,
+        "z": 755
+      },
+      "dimensions": [123.5, 12.2224, 43.699999999999996],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 2284,
+      "lineCount": 57
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/dependency-graph/DependencyGraphPanel.stories.tsx",
+      "position": {
+        "x": 359.5,
+        "y": 16.436,
+        "z": 858
+      },
+      "dimensions": [80.75, 32.872, 68.39999999999999],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 8020,
+      "lineCount": 201
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/dependency-graph/DependencyGraphPanel.tsx",
+      "position": {
+        "x": 359.5,
+        "y": 20,
+        "z": 933.5
+      },
+      "dimensions": [80.75, 40, 67.45],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 14779,
+      "lineCount": 369
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/dependency-graph/dependencyToCanvas.ts",
+      "position": {
+        "x": 437.5,
+        "y": 10.688600000000001,
+        "z": 870.5
+      },
+      "dimensions": [59.849999999999994, 21.377200000000002, 92.14999999999999],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 4827,
+      "lineCount": 121
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/dependency-graph/forceLayout.ts",
+      "position": {
+        "x": 504.5,
+        "y": 17.075000000000003,
+        "z": 870.5
+      },
+      "dimensions": [59.849999999999994, 34.150000000000006, 92.14999999999999],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 8375,
+      "lineCount": 209
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/dependency-graph/index.ts",
+      "position": {
+        "x": 471,
+        "y": 2.7686,
+        "z": 946
+      },
+      "dimensions": [123.5, 5.5372, 43.699999999999996],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 427,
+      "lineCount": 11
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/file-city-3d/FileCity3D.stories.tsx",
+      "position": {
+        "x": 594,
+        "y": 20,
+        "z": 664.5
+      },
+      "dimensions": [87.39999999999999, 40, 61.75],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 17213,
+      "lineCount": 430
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/file-city-3d/FileCity3D.tsx",
+      "position": {
+        "x": 594,
+        "y": 20,
+        "z": 733.5
+      },
+      "dimensions": [87.39999999999999, 40, 61.75],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 28160,
+      "lineCount": 704
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/file-city-3d/buildCityData.ts",
+      "position": {
+        "x": 665.5,
+        "y": 16.085,
+        "z": 699
+      },
+      "dimensions": [40.85, 32.17, 127.3],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 7825,
+      "lineCount": 196
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/file-city-3d/index.ts",
+      "position": {
+        "x": 713,
+        "y": 3.1466000000000003,
+        "z": 699
+      },
+      "dimensions": [41.8, 6.293200000000001, 127.3],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 637,
+      "lineCount": 16
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/CollectionMapPanel.IntegrationHarness.stories.tsx",
+      "position": {
+        "x": 765.5,
+        "y": 20,
+        "z": 699
+      },
+      "dimensions": [42.75, 40, 165.29999999999998],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 86589,
+      "lineCount": 2165
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/CollectionMapPanel.tsx",
+      "position": {
+        "x": 815,
+        "y": 20,
+        "z": 699
+      },
+      "dimensions": [43.699999999999996, 40, 165.29999999999998],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 52040,
+      "lineCount": 1301
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/GitChangesPanel.css",
+      "position": {
+        "x": 865,
+        "y": 2.3834,
+        "z": 699
+      },
+      "dimensions": [43.699999999999996, 4.7668, 165.29999999999998],
+      "type": "file",
+      "fileExtension": ".css",
+      "size": 213
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/GitChangesPanel.stories.tsx",
+      "position": {
+        "x": 607.5,
+        "y": 20,
+        "z": 822
+      },
+      "dimensions": [120.64999999999999, 40, 60.8],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 26733,
+      "lineCount": 668
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/GitChangesPanel.tsx",
+      "position": {
+        "x": 607.5,
+        "y": 20,
+        "z": 889.5
+      },
+      "dimensions": [120.64999999999999, 40, 59.849999999999994],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 17331,
+      "lineCount": 433
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/PackageCompositionPanel.stories.tsx",
+      "position": {
+        "x": 607.5,
+        "y": 20,
+        "z": 957
+      },
+      "dimensions": [120.64999999999999, 40, 60.8],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 36359,
+      "lineCount": 909
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/PackageCompositionPanel.tsx",
+      "position": {
+        "x": 738,
+        "y": 20,
+        "z": 822
+      },
+      "dimensions": [119.69999999999999, 40, 60.8],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 10146,
+      "lineCount": 254
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/SearchPanel.stories.tsx",
+      "position": {
+        "x": 738,
+        "y": 11.511199999999999,
+        "z": 889.5
+      },
+      "dimensions": [
+        119.69999999999999, 23.022399999999998, 59.849999999999994
+      ],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 5284,
+      "lineCount": 132
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/SearchPanel.tsx",
+      "position": {
+        "x": 738,
+        "y": 20,
+        "z": 957
+      },
+      "dimensions": [119.69999999999999, 40, 60.8],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 23409,
+      "lineCount": 585
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/TelemetryCoveragePanel.stories.tsx",
+      "position": {
+        "x": 846.5,
+        "y": 20,
+        "z": 838.5
+      },
+      "dimensions": [78.85, 40, 92.14999999999999],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 16495,
+      "lineCount": 412
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/TelemetryCoveragePanel.tsx",
+      "position": {
+        "x": 846.5,
+        "y": 20,
+        "z": 940
+      },
+      "dimensions": [78.85, 40, 93.1],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 28180,
+      "lineCount": 705
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/assets/orchestrators/index.tsx",
+      "position": {
+        "x": 54,
+        "y": 9.882200000000001,
+        "z": 1086
+      },
+      "dimensions": [72.2, 19.764400000000002, 62.699999999999996],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 4379,
+      "lineCount": 109
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/assets/orchestrators/lerna.svg",
+      "position": {
+        "x": 54,
+        "y": 4.0484,
+        "z": 1156
+      },
+      "dimensions": [72.2, 8.0968, 62.699999999999996],
+      "type": "file",
+      "fileExtension": ".svg",
+      "size": 1138
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/assets/orchestrators/nx.svg",
+      "position": {
+        "x": 133.5,
+        "y": 4.0466,
+        "z": 1086
+      },
+      "dimensions": [71.25, 8.0932, 62.699999999999996],
+      "type": "file",
+      "fileExtension": ".svg",
+      "size": 1137
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/assets/orchestrators/pnpm.svg",
+      "position": {
+        "x": 133.5,
+        "y": 2.5076,
+        "z": 1156
+      },
+      "dimensions": [71.25, 5.0152, 62.699999999999996],
+      "type": "file",
+      "fileExtension": ".svg",
+      "size": 282
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/assets/orchestrators/rush.svg",
+      "position": {
+        "x": 213,
+        "y": 2.4698,
+        "z": 1086
+      },
+      "dimensions": [72.2, 4.9396, 62.699999999999996],
+      "type": "file",
+      "fileExtension": ".svg",
+      "size": 261
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/assets/orchestrators/turbo.svg",
+      "position": {
+        "x": 213,
+        "y": 3.3823999999999996,
+        "z": 1156
+      },
+      "dimensions": [72.2, 6.764799999999999, 62.699999999999996],
+      "type": "file",
+      "fileExtension": ".svg",
+      "size": 768
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/assets/satori-icons/index.tsx",
+      "position": {
+        "x": 277.5,
+        "y": 4.1168,
+        "z": 1121
+      },
+      "dimensions": [27.549999999999997, 8.2336, 129.2],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 1176,
+      "lineCount": 29
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/utils/envParser.ts",
+      "position": {
+        "x": 367,
+        "y": 13.394,
+        "z": 1061
+      },
+      "dimensions": [112.1, 26.788, 53.199999999999996],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 6330,
+      "lineCount": 158
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/utils/licenseColors.ts",
+      "position": {
+        "x": 367,
+        "y": 5.4038,
+        "z": 1121
+      },
+      "dimensions": [112.1, 10.8076, 53.199999999999996],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 1891,
+      "lineCount": 47
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/utils/repositoryAging.ts",
+      "position": {
+        "x": 367,
+        "y": 9.5618,
+        "z": 1181
+      },
+      "dimensions": [112.1, 19.1236, 53.199999999999996],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 4201,
+      "lineCount": 105
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/utils/repositoryScaling.test.ts",
+      "position": {
+        "x": 468.5,
+        "y": 8.5412,
+        "z": 1076
+      },
+      "dimensions": [73.14999999999999, 17.0824, 81.7],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 3634,
+      "lineCount": 91
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/utils/repositoryScaling.ts",
+      "position": {
+        "x": 468.5,
+        "y": 6.356,
+        "z": 1166
+      },
+      "dimensions": [73.14999999999999, 12.712, 81.7],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 2420,
+      "lineCount": 61
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/types/composition.ts",
+      "position": {
+        "x": 571,
+        "y": 4.356199999999999,
+        "z": 1062.5
+      },
+      "dimensions": [98.8, 8.712399999999999, 56.05],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 1309,
+      "lineCount": 33
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/types/dependencies.ts",
+      "position": {
+        "x": 571,
+        "y": 3.5858,
+        "z": 1125
+      },
+      "dimensions": [98.8, 7.1716, 55.099999999999994],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 881,
+      "lineCount": 22
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/types/index.ts",
+      "position": {
+        "x": 651.5,
+        "y": 10.6994,
+        "z": 1093.5
+      },
+      "dimensions": [46.55, 21.3988, 114.94999999999999],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 4833,
+      "lineCount": 121
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/Introduction.mdx",
+      "position": {
+        "x": 597.5,
+        "y": 8.6006,
+        "z": 1203.5
+      },
+      "dimensions": [156.75, 17.2012, 48.449999999999996],
+      "type": "file",
+      "fileExtension": ".mdx",
+      "size": 3667
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/index.tsx",
+      "position": {
+        "x": 717.5,
+        "y": 20,
+        "z": 1077
+      },
+      "dimensions": [63.65, 40, 121.6],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 11958,
+      "lineCount": 299
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/og.ts",
+      "position": {
+        "x": 788,
+        "y": 3.4778000000000002,
+        "z": 1077
+      },
+      "dimensions": [62.699999999999996, 6.9556000000000004, 121.6],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 821,
+      "lineCount": 21
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/services/LocalSearchService.ts",
+      "position": {
+        "x": 858.5,
+        "y": 12.677599999999998,
+        "z": 1077
+      },
+      "dimensions": [56.05, 25.355199999999996, 83.6],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 5932,
+      "lineCount": 148
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/mocks/panelContext.tsx",
+      "position": {
+        "x": 735,
+        "y": 8.5232,
+        "z": 1187
+      },
+      "dimensions": [89.3, 17.0464, 41.8],
+      "type": "file",
+      "fileExtension": ".tsx",
+      "size": 3624,
+      "lineCount": 91
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/tools/index.ts",
+      "position": {
+        "x": 841,
+        "y": 7.832,
+        "z": 1187
+      },
+      "dimensions": [89.3, 15.664, 41.8],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 3240,
+      "lineCount": 81
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/collection-map-panel/project-placement/drawer-drop.workflow.json",
+      "position": {
+        "x": 937,
+        "y": 4.1312,
+        "z": 127.5
+      },
+      "dimensions": [47.5, 8.2624, 90.25],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 1184
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/collection-map-panel/project-placement/external-drop.workflow.json",
+      "position": {
+        "x": 991,
+        "y": 4.1546,
+        "z": 127.5
+      },
+      "dimensions": [47.5, 8.3092, 90.25],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 1197
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/collection-map-panel/project-placement/sprite-drag.workflow.json",
+      "position": {
+        "x": 964,
+        "y": 3.8288,
+        "z": 201.5
+      },
+      "dimensions": [98.8, 7.6576, 42.75],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 1016
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/collection-map-panel/region-operations/region-created.workflow.json",
+      "position": {
+        "x": 1053,
+        "y": 3.2816,
+        "z": 127.5
+      },
+      "dimensions": [47.5, 6.5632, 90.25],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 712
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/collection-map-panel/region-operations/region-deleted.workflow.json",
+      "position": {
+        "x": 1107,
+        "y": 3.2942,
+        "z": 127.5
+      },
+      "dimensions": [47.5, 6.5884, 90.25],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 719
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/collection-map-panel/region-operations/region-renamed.workflow.json",
+      "position": {
+        "x": 1080,
+        "y": 3.3571999999999997,
+        "z": 201.5
+      },
+      "dimensions": [98.8, 6.7143999999999995, 42.75],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 754
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/collection-map-panel/collection-map-panel.md",
+      "position": {
+        "x": 964,
+        "y": 5.2562,
+        "z": 277.5
+      },
+      "dimensions": [106.39999999999999, 10.5124, 56.05],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 1809
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/collection-map-panel/collection-map-panel.otel.canvas",
+      "position": {
+        "x": 964,
+        "y": 20,
+        "z": 340
+      },
+      "dimensions": [106.39999999999999, 40, 55.099999999999994],
+      "type": "file",
+      "fileExtension": ".canvas",
+      "size": 25482
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/collection-map-panel/repository-click/repository-click.workflow.json",
+      "position": {
+        "x": 1051,
+        "y": 4.0573999999999995,
+        "z": 308.5
+      },
+      "dimensions": [43.699999999999996, 8.114799999999999, 76.95],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 1143
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/collection-map-panel/collection-load/collection-load.workflow.json",
+      "position": {
+        "x": 1109,
+        "y": 5.3156,
+        "z": 308.5
+      },
+      "dimensions": [43.699999999999996, 10.6312, 76.95],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 1842
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/data-loading/data-loading.otel.canvas",
+      "position": {
+        "x": 1202.5,
+        "y": 20,
+        "z": 83.5
+      },
+      "dimensions": [103.55, 40, 44.65],
+      "type": "file",
+      "fileExtension": ".canvas",
+      "size": 13447
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/data-loading/data-change/data-change.workflow.json",
+      "position": {
+        "x": 1202.5,
+        "y": 8.946200000000001,
+        "z": 134
+      },
+      "dimensions": [95.94999999999999, 17.892400000000002, 5.699999999999999],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 3859
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/collection-map-panel.architecture.canvas",
+      "position": {
+        "x": 1172.5,
+        "y": 20,
+        "z": 250
+      },
+      "dimensions": [54.15, 40, 131.1],
+      "type": "file",
+      "fileExtension": ".canvas",
+      "size": 15590
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/collection-map-panel.dataflow.canvas",
+      "position": {
+        "x": 1233,
+        "y": 20,
+        "z": 250
+      },
+      "dimensions": [53.199999999999996, 40, 131.1],
+      "type": "file",
+      "fileExtension": ".canvas",
+      "size": 13996
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/library.yaml",
+      "position": {
+        "x": 1202.5,
+        "y": 3.7154,
+        "z": 356
+      },
+      "dimensions": [111.14999999999999, 7.4308, 62.699999999999996],
+      "type": "file",
+      "fileExtension": ".yaml",
+      "size": 953
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/assets/file-city-sample.png",
+      "position": {
+        "x": 968,
+        "y": 20,
+        "z": 459.5
+      },
+      "dimensions": [121.6, 40, 50.349999999999994],
+      "type": "file",
+      "fileExtension": ".png",
+      "size": 33967
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/assets/openclaw-city-transparent.png",
+      "position": {
+        "x": 968,
+        "y": 20,
+        "z": 516.5
+      },
+      "dimensions": [121.6, 40, 50.349999999999994],
+      "type": "file",
+      "fileExtension": ".png",
+      "size": 412017
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/assets/repo-sprite.json",
+      "position": {
+        "x": 968,
+        "y": 2.2898,
+        "z": 573
+      },
+      "dimensions": [121.6, 4.5796, 49.4],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 161
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/assets/repo-sprite.png",
+      "position": {
+        "x": 1056,
+        "y": 2.666,
+        "z": 516
+      },
+      "dimensions": [38, 5.332, 157.7],
+      "type": "file",
+      "fileExtension": ".png",
+      "size": 370
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.storybook/main.ts",
+      "position": {
+        "x": 1128.5,
+        "y": 3.3986,
+        "z": 473.5
+      },
+      "dimensions": [76.95, 6.7972, 76.95],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 777,
+      "lineCount": 19
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.storybook/preview.ts",
+      "position": {
+        "x": 1128.5,
+        "y": 3.3662,
+        "z": 558.5
+      },
+      "dimensions": [76.95, 6.7324, 76.95],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 759,
+      "lineCount": 19
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/backlog/config.yml",
+      "position": {
+        "x": 1221,
+        "y": 2.6498,
+        "z": 473.5
+      },
+      "dimensions": [76, 5.2996, 76.95],
+      "type": "file",
+      "fileExtension": ".yml",
+      "size": 361
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/backlog/tasks/task-1 - Investigate-hovering-and-click-issues-in-git-changes-panel.md",
+      "position": {
+        "x": 1221,
+        "y": 15.3002,
+        "z": 558.5
+      },
+      "dimensions": [68.39999999999999, 30.6004, 38.949999999999996],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 7389
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/public/roboto-regular.ttf",
+      "position": {
+        "x": 930.5,
+        "y": 20,
+        "z": 700
+      },
+      "dimensions": [50.349999999999994, 40, 108.3],
+      "type": "file",
+      "fileExtension": ".ttf",
+      "size": 515100
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/public/sample-avatar.png",
+      "position": {
+        "x": 988,
+        "y": 6.5252,
+        "z": 700
+      },
+      "dimensions": [51.3, 13.0504, 108.3],
+      "type": "file",
+      "fileExtension": ".png",
+      "size": 2514
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.husky/pre-commit",
+      "position": {
+        "x": 1051.5,
+        "y": 2.2538,
+        "z": 700
+      },
+      "dimensions": [46.55, 4.5076, 108.3],
+      "type": "file",
+      "fileExtension": ".husky/pre-commit",
+      "size": 141
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/docs/ENV_VARIABLES.md",
+      "position": {
+        "x": 1113,
+        "y": 12.737,
+        "z": 700
+      },
+      "dimensions": [47.5, 25.474, 108.3],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 5965
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.gitignore",
+      "position": {
+        "x": 1174.5,
+        "y": 3.0458,
+        "z": 700
+      },
+      "dimensions": [54.15, 6.0916, 146.29999999999998],
+      "type": "file",
+      "fileExtension": ".gitignore",
+      "size": 581
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.npmignore",
+      "position": {
+        "x": 1236,
+        "y": 2.729,
+        "z": 700
+      },
+      "dimensions": [55.099999999999994, 5.458, 146.29999999999998],
+      "type": "file",
+      "fileExtension": ".npmignore",
+      "size": 405
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.prettierignore",
+      "position": {
+        "x": 934.5,
+        "y": 2.1098,
+        "z": 844.5
+      },
+      "dimensions": [65.55, 4.2196, 120.64999999999999],
+      "type": "file",
+      "fileExtension": ".prettierignore",
+      "size": 61
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.prettierrc",
+      "position": {
+        "x": 1008,
+        "y": 2.3114,
+        "z": 844.5
+      },
+      "dimensions": [66.5, 4.6228, 120.64999999999999],
+      "type": "file",
+      "fileExtension": ".prettierrc",
+      "size": 173
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/CONTRIBUTING.md",
+      "position": {
+        "x": 1082,
+        "y": 10.424000000000001,
+        "z": 844.5
+      },
+      "dimensions": [66.5, 20.848000000000003, 120.64999999999999],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 4680
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/KANBAN_PANEL_DESIGN.md",
+      "position": {
+        "x": 1156,
+        "y": 20,
+        "z": 844.5
+      },
+      "dimensions": [66.5, 40, 120.64999999999999],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 18412
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/LICENSE",
+      "position": {
+        "x": 1230,
+        "y": 3.9188,
+        "z": 844.5
+      },
+      "dimensions": [66.5, 7.8376, 120.64999999999999],
+      "type": "file",
+      "fileExtension": "",
+      "size": 1066
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/PLAN-monorepo-visualization.md",
+      "position": {
+        "x": 954.5,
+        "y": 18.722,
+        "z": 952.5
+      },
+      "dimensions": [103.55, 37.444, 76.95],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 9290
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/PROJECT_STRUCTURE.md",
+      "position": {
+        "x": 954.5,
+        "y": 17.3378,
+        "z": 1037.5
+      },
+      "dimensions": [103.55, 34.6756, 76.95],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 8521
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/QUICKSTART.md",
+      "position": {
+        "x": 954.5,
+        "y": 7.391,
+        "z": 1123
+      },
+      "dimensions": [103.55, 14.782, 77.89999999999999],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 2995
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/README.md",
+      "position": {
+        "x": 954.5,
+        "y": 20,
+        "z": 1208.5
+      },
+      "dimensions": [103.55, 40, 76.95],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 12279
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/SPRITE_GUIDELINES.md",
+      "position": {
+        "x": 1053.5,
+        "y": 8.219,
+        "z": 967
+      },
+      "dimensions": [76.95, 16.438, 104.5],
+      "type": "file",
+      "fileExtension": ".md",
+      "size": 3455
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/bun.lock",
+      "position": {
+        "x": 1139,
+        "y": 20,
+        "z": 967
+      },
+      "dimensions": [77.89999999999999, 40, 104.5],
+      "type": "file",
+      "fileExtension": ".lock",
+      "size": 274340
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/eslint.config.js",
+      "position": {
+        "x": 1224.5,
+        "y": 4.3832,
+        "z": 967
+      },
+      "dimensions": [76.95, 8.7664, 104.5],
+      "type": "file",
+      "fileExtension": ".js",
+      "size": 1324,
+      "lineCount": 33
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/package-lock.json",
+      "position": {
+        "x": 1075,
+        "y": 20,
+        "z": 1061.5
+      },
+      "dimensions": [117.8, 40, 67.45],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 436673
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/package.json",
+      "position": {
+        "x": 1075,
+        "y": 12.5624,
+        "z": 1137
+      },
+      "dimensions": [117.8, 25.1248, 68.39999999999999],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 5868
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/tsconfig.build.json",
+      "position": {
+        "x": 1075,
+        "y": 2.5958,
+        "z": 1213
+      },
+      "dimensions": [117.8, 5.1916, 68.39999999999999],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 331
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/tsconfig.json",
+      "position": {
+        "x": 1171,
+        "y": 3.3176,
+        "z": 1099.5
+      },
+      "dimensions": [57, 6.6352, 139.65],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 732
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/tsconfig.node.json",
+      "position": {
+        "x": 1235,
+        "y": 2.4194,
+        "z": 1099.5
+      },
+      "dimensions": [57, 4.8388, 139.65],
+      "type": "file",
+      "fileExtension": ".json",
+      "size": 233
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/vite.config.ts",
+      "position": {
+        "x": 1203,
+        "y": 5.9186,
+        "z": 1213
+      },
+      "dimensions": [117.8, 11.8372, 68.39999999999999],
+      "type": "file",
+      "fileExtension": ".ts",
+      "size": 2177,
+      "lineCount": 54
+    }
+  ],
+  "districts": [
+    {
+      "path": "industry-themed-repository-composition-panels",
+      "worldBounds": {
+        "minX": 0,
+        "maxX": 1269,
+        "minZ": 0,
+        "maxZ": 1269
+      },
+      "fileCount": 20,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src",
+      "worldBounds": {
+        "minX": 4,
+        "maxX": 896,
+        "minZ": 20,
+        "maxZ": 1249
+      },
+      "fileCount": 3,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels",
+      "worldBounds": {
+        "minX": 8,
+        "maxX": 892,
+        "minZ": 40,
+        "maxZ": 1009
+      },
+      "fileCount": 11,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map",
+      "worldBounds": {
+        "minX": 12,
+        "maxX": 600,
+        "minZ": 60,
+        "maxZ": 608
+      },
+      "fileCount": 28,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/overworld-map/components",
+      "worldBounds": {
+        "minX": 16,
+        "maxX": 217,
+        "minZ": 80,
+        "maxZ": 430
+      },
+      "fileCount": 9,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/cards",
+      "worldBounds": {
+        "minX": 604,
+        "maxX": 888,
+        "minZ": 60,
+        "maxZ": 608
+      },
+      "fileCount": 9,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/cards/components",
+      "worldBounds": {
+        "minX": 608,
+        "maxX": 884,
+        "minZ": 80,
+        "maxZ": 332
+      },
+      "fileCount": 9,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/components",
+      "worldBounds": {
+        "minX": 12,
+        "maxX": 309,
+        "minZ": 612,
+        "maxZ": 989
+      },
+      "fileCount": 13,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/local-project-grid",
+      "worldBounds": {
+        "minX": 313,
+        "maxX": 540,
+        "minZ": 612,
+        "maxZ": 798
+      },
+      "fileCount": 5,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/dependency-graph",
+      "worldBounds": {
+        "minX": 313,
+        "maxX": 540,
+        "minZ": 802,
+        "maxZ": 989
+      },
+      "fileCount": 5,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/panels/file-city-3d",
+      "worldBounds": {
+        "minX": 544,
+        "maxX": 739,
+        "minZ": 612,
+        "maxZ": 786
+      },
+      "fileCount": 4,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/assets",
+      "worldBounds": {
+        "minX": 8,
+        "maxX": 300,
+        "minZ": 1013,
+        "maxZ": 1229
+      },
+      "fileCount": 0,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/assets/orchestrators",
+      "worldBounds": {
+        "minX": 12,
+        "maxX": 255,
+        "minZ": 1033,
+        "maxZ": 1209
+      },
+      "fileCount": 6,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/assets/satori-icons",
+      "worldBounds": {
+        "minX": 259,
+        "maxX": 296,
+        "minZ": 1033,
+        "maxZ": 1209
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/utils",
+      "worldBounds": {
+        "minX": 304,
+        "maxX": 511,
+        "minZ": 1013,
+        "maxZ": 1229
+      },
+      "fileCount": 5,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/types",
+      "worldBounds": {
+        "minX": 515,
+        "maxX": 680,
+        "minZ": 1013,
+        "maxZ": 1174
+      },
+      "fileCount": 3,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/services",
+      "worldBounds": {
+        "minX": 825,
+        "maxX": 892,
+        "minZ": 1013,
+        "maxZ": 1141
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/mocks",
+      "worldBounds": {
+        "minX": 684,
+        "maxX": 786,
+        "minZ": 1145,
+        "maxZ": 1229
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/src/tools",
+      "worldBounds": {
+        "minX": 790,
+        "maxX": 892,
+        "minZ": 1145,
+        "maxZ": 1229
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views",
+      "worldBounds": {
+        "minX": 900,
+        "maxX": 1265,
+        "minZ": 20,
+        "maxZ": 409
+      },
+      "fileCount": 3,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/collection-map-panel",
+      "worldBounds": {
+        "minX": 904,
+        "maxX": 1140,
+        "minZ": 40,
+        "maxZ": 389
+      },
+      "fileCount": 2,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/collection-map-panel/project-placement",
+      "worldBounds": {
+        "minX": 908,
+        "maxX": 1020,
+        "minZ": 60,
+        "maxZ": 244
+      },
+      "fileCount": 3,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/collection-map-panel/region-operations",
+      "worldBounds": {
+        "minX": 1024,
+        "maxX": 1136,
+        "minZ": 60,
+        "maxZ": 244
+      },
+      "fileCount": 3,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/collection-map-panel/repository-click",
+      "worldBounds": {
+        "minX": 1024,
+        "maxX": 1078,
+        "minZ": 248,
+        "maxZ": 369
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/collection-map-panel/collection-load",
+      "worldBounds": {
+        "minX": 1082,
+        "maxX": 1136,
+        "minZ": 248,
+        "maxZ": 369
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/data-loading",
+      "worldBounds": {
+        "minX": 1144,
+        "maxX": 1261,
+        "minZ": 40,
+        "maxZ": 177
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.principal-views/data-loading/data-change",
+      "worldBounds": {
+        "minX": 1148,
+        "maxX": 1257,
+        "minZ": 111,
+        "maxZ": 157
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/assets",
+      "worldBounds": {
+        "minX": 900,
+        "maxX": 1080,
+        "minZ": 413,
+        "maxZ": 619
+      },
+      "fileCount": 4,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.storybook",
+      "worldBounds": {
+        "minX": 1084,
+        "maxX": 1173,
+        "minZ": 413,
+        "maxZ": 619
+      },
+      "fileCount": 2,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/backlog",
+      "worldBounds": {
+        "minX": 1177,
+        "maxX": 1265,
+        "minZ": 413,
+        "maxZ": 619
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/backlog/tasks",
+      "worldBounds": {
+        "minX": 1181,
+        "maxX": 1261,
+        "minZ": 518,
+        "maxZ": 599
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/public",
+      "worldBounds": {
+        "minX": 900,
+        "maxX": 1019,
+        "minZ": 623,
+        "maxZ": 777
+      },
+      "fileCount": 2,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/.husky",
+      "worldBounds": {
+        "minX": 1023,
+        "maxX": 1080,
+        "minZ": 623,
+        "maxZ": 777
+      },
+      "fileCount": 1,
+      "type": "directory"
+    },
+    {
+      "path": "industry-themed-repository-composition-panels/docs",
+      "worldBounds": {
+        "minX": 1084,
+        "maxX": 1142,
+        "minZ": 623,
+        "maxZ": 777
+      },
+      "fileCount": 1,
+      "type": "directory"
+    }
+  ],
+  "bounds": {
+    "minX": 0,
+    "maxX": 1269,
+    "minZ": 0,
+    "maxZ": 1269
+  },
+  "metadata": {
+    "totalFiles": 161,
+    "totalDirectories": 33,
+    "rootPath": "industry-themed-repository-composition-panels"
+  }
+}
