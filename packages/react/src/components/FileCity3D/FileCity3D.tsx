@@ -996,7 +996,8 @@ function AnimatedCamera({ citySize, isFlat, focusTarget }: AnimatedCameraProps) 
   const { camera } = useThree();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
-  const isAnimatingRef = useRef(true);
+  // Start false - only block rotation during active camera animations
+  const isAnimatingRef = useRef(false);
 
   // Animated camera position and target
   const targetPos = useMemo(() => {
@@ -1026,7 +1027,18 @@ function AnimatedCamera({ citySize, isFlat, focusTarget }: AnimatedCameraProps) 
     };
   }, [focusTarget, isFlat, citySize]);
 
-  // Spring animation for camera movement
+  // Set initial camera position on mount
+  useEffect(() => {
+    camera.position.set(targetPos.x, targetPos.y, targetPos.z);
+    if (controlsRef.current) {
+      controlsRef.current.target.set(targetPos.targetX, targetPos.targetY, targetPos.targetZ);
+      controlsRef.current.update();
+    }
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Spring animation for camera movement (only for subsequent changes)
   const { camX, camY, camZ, lookX, lookY, lookZ } = useSpring({
     camX: targetPos.x,
     camY: targetPos.y,
