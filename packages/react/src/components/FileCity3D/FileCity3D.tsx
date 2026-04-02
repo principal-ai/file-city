@@ -1319,8 +1319,9 @@ function CityScene({
       return { x: centerX, z: centerZ, size };
     }
 
-    // Priority 2: highlight layers
-    if (!activeHighlights) return null;
+    // Priority 2: highlight layers (only if no focusDirectory is pending)
+    // Don't focus on highlights if we're waiting for cameraFocusDirectory to catch up
+    if (!activeHighlights || focusDirectory) return null;
 
     const highlightedBuildings = cityData.buildings.filter(building => {
       const highlight = getHighlightForPath(building.path, highlightLayers);
@@ -1352,6 +1353,7 @@ function CityScene({
     return { x: centerX, z: centerZ, size };
   }, [
     cameraFocusDirectory,
+    focusDirectory,
     activeHighlights,
     cityData.buildings,
     highlightLayers,
