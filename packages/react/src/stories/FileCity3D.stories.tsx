@@ -1,18 +1,17 @@
 import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
-import { ThemeProvider } from '@principal-ade/industry-theme';
-import { FileCity3D, type CityData, type CityBuilding, type CityDistrict } from '../components/FileCity3D';
+import {
+  FileCity3D,
+  type CityData,
+  type CityBuilding,
+  type CityDistrict,
+  type HighlightLayer,
+  type IsolationMode,
+} from '../components/FileCity3D';
 
 const meta: Meta<typeof FileCity3D> = {
   title: 'Components/FileCity3D',
   component: FileCity3D,
-  decorators: [
-    (Story) => (
-      <ThemeProvider>
-        <Story />
-      </ThemeProvider>
-    ),
-  ],
   parameters: {
     layout: 'fullscreen',
   },
@@ -40,7 +39,7 @@ function generateBuildings(
   startX: number,
   startZ: number,
   areaWidth: number,
-  areaDepth: number
+  areaDepth: number,
 ): CityBuilding[] {
   const buildings: CityBuilding[] = [];
   const allExtensions = [...CODE_EXTENSIONS, ...NON_CODE_EXTENSIONS];
@@ -56,9 +55,7 @@ function generateBuildings(
     const lineCount = isCode
       ? Math.floor(Math.exp(Math.random() * Math.log(3000 - 20) + Math.log(20)))
       : undefined;
-    const size = isCode
-      ? lineCount! * 40
-      : Math.floor(Math.random() * 200000) + 1000;
+    const size = isCode ? lineCount! * 40 : Math.floor(Math.random() * 200000) + 1000;
 
     buildings.push({
       path: `${basePath}/file${i}.${ext}`,
@@ -92,28 +89,44 @@ const sampleCityData: CityData = {
       worldBounds: { minX: -2, maxX: 42, minZ: -2, maxZ: 42 },
       fileCount: 12,
       type: 'directory',
-      label: { text: 'src', bounds: { minX: -2, maxX: 42, minZ: 42, maxZ: 46 }, position: 'bottom' },
+      label: {
+        text: 'src',
+        bounds: { minX: -2, maxX: 42, minZ: 42, maxZ: 46 },
+        position: 'bottom',
+      },
     },
     {
       path: 'src/components',
       worldBounds: { minX: 48, maxX: 82, minZ: -2, maxZ: 32 },
       fileCount: 8,
       type: 'directory',
-      label: { text: 'components', bounds: { minX: 48, maxX: 82, minZ: 32, maxZ: 36 }, position: 'bottom' },
+      label: {
+        text: 'components',
+        bounds: { minX: 48, maxX: 82, minZ: 32, maxZ: 36 },
+        position: 'bottom',
+      },
     },
     {
       path: 'src/utils',
       worldBounds: { minX: 48, maxX: 77, minZ: 38, maxZ: 67 },
       fileCount: 6,
       type: 'directory',
-      label: { text: 'utils', bounds: { minX: 48, maxX: 77, minZ: 67, maxZ: 71 }, position: 'bottom' },
+      label: {
+        text: 'utils',
+        bounds: { minX: 48, maxX: 77, minZ: 67, maxZ: 71 },
+        position: 'bottom',
+      },
     },
     {
       path: 'tests',
       worldBounds: { minX: -2, maxX: 32, minZ: 48, maxZ: 72 },
       fileCount: 5,
       type: 'directory',
-      label: { text: 'tests', bounds: { minX: -2, maxX: 32, minZ: 72, maxZ: 76 }, position: 'bottom' },
+      label: {
+        text: 'tests',
+        bounds: { minX: -2, maxX: 32, minZ: 72, maxZ: 76 },
+        position: 'bottom',
+      },
     },
   ],
   bounds: { minX: -5, maxX: 85, minZ: -5, maxZ: 80 },
@@ -164,7 +177,11 @@ function generateLargeCityData(): CityData {
     buildings,
     districts,
     bounds: { minX: -10, maxX: totalSize + 10, minZ: -10, maxZ: totalSize + 10 },
-    metadata: { totalFiles: buildings.length, totalDirectories: districts.length, rootPath: '/large-project' },
+    metadata: {
+      totalFiles: buildings.length,
+      totalDirectories: districts.length,
+      rootPath: '/large-project',
+    },
   };
 }
 
@@ -211,7 +228,11 @@ function generateMonorepoCityData(): CityData {
     buildings,
     districts,
     bounds: { minX: -10, maxX: 175, minZ: -10, maxZ: 110 },
-    metadata: { totalFiles: buildings.length, totalDirectories: districts.length, rootPath: '/monorepo' },
+    metadata: {
+      totalFiles: buildings.length,
+      totalDirectories: districts.length,
+      rootPath: '/monorepo',
+    },
   };
 }
 
@@ -345,7 +366,7 @@ export const WithClickHandler: Story = {
   args: {
     cityData: sampleCityData,
     height: '100vh',
-    onBuildingClick: (building) => {
+    onBuildingClick: building => {
       console.log('Clicked building:', building.path);
       alert(`Clicked: ${building.path}`);
     },
@@ -477,4 +498,468 @@ export const LinearHeightScaling: Story = {
     heightScaling: 'linear',
     linearScale: 0.5,
   },
+};
+
+// Real repository data from JSON files
+import authServerCityData from '../../../../assets/auth-server-city-data.json';
+import electronAppCityData from '../../../../assets/electron-app-city-data.json';
+import thisRepoCityData from '../../../../assets/this-repo-city-data.json';
+
+// Tour step definitions for auth-server
+interface TourStep {
+  id: string;
+  title: string;
+  description: string;
+  highlightLayers: HighlightLayer[];
+  isolationMode: IsolationMode;
+}
+
+const authServerTourSteps: TourStep[] = [
+  {
+    id: 'overview',
+    title: 'Welcome to Auth Server',
+    description:
+      "This is the authentication server for Principal ADE. Let's explore its architecture.",
+    highlightLayers: [],
+    isolationMode: 'none' as const,
+  },
+  {
+    id: 'workos-auth',
+    title: 'WorkOS Authentication',
+    description:
+      'The core authentication flow using WorkOS. Handles OAuth callbacks, token exchange, and verification.',
+    highlightLayers: [
+      {
+        id: 'workos',
+        name: 'WorkOS Auth',
+        enabled: true,
+        color: '#22c55e',
+        items: [{ path: 'auth-server/src/app/api/auth/workos', type: 'directory' as const }],
+      },
+    ],
+    isolationMode: 'transparent' as const,
+  },
+  {
+    id: 'browser-cli-tokens',
+    title: 'Token Endpoints',
+    description: 'Separate token endpoints for browser clients and CLI tools.',
+    highlightLayers: [
+      {
+        id: 'browser',
+        name: 'Browser Tokens',
+        enabled: true,
+        color: '#3b82f6',
+        items: [{ path: 'auth-server/src/app/api/auth/browser', type: 'directory' as const }],
+      },
+      {
+        id: 'cli',
+        name: 'CLI Tokens',
+        enabled: true,
+        color: '#f59e0b',
+        items: [{ path: 'auth-server/src/app/api/auth/cli', type: 'directory' as const }],
+      },
+    ],
+    isolationMode: 'transparent' as const,
+  },
+  {
+    id: 'lib-utilities',
+    title: 'Core Libraries',
+    description: 'Shared utilities including telemetry, token storage, and session management.',
+    highlightLayers: [
+      {
+        id: 'lib',
+        name: 'Libraries',
+        enabled: true,
+        color: '#8b5cf6',
+        items: [{ path: 'auth-server/src/lib', type: 'directory' as const }],
+      },
+    ],
+    isolationMode: 'collapse' as const,
+  },
+  {
+    id: 'api-testing',
+    title: 'API Testing with Bruno',
+    description: 'Bruno collection for testing all authentication endpoints.',
+    highlightLayers: [
+      {
+        id: 'bruno',
+        name: 'Bruno Tests',
+        enabled: true,
+        color: '#ef4444',
+        items: [{ path: 'auth-server/bruno', type: 'directory' as const }],
+      },
+    ],
+    isolationMode: 'hide' as const,
+  },
+  {
+    id: 'architecture-docs',
+    title: 'Architecture Documentation',
+    description: 'OTEL canvas files and workflow definitions documenting the auth flows.',
+    highlightLayers: [
+      {
+        id: 'views',
+        name: 'Principal Views',
+        enabled: true,
+        color: '#ec4899',
+        items: [{ path: 'auth-server/.principal-views', type: 'directory' as const }],
+      },
+    ],
+    isolationMode: 'transparent' as const,
+  },
+];
+
+/**
+ * Auth Server - Real repository data
+ */
+export const AuthServer: Story = {
+  args: {
+    cityData: authServerCityData as CityData,
+    height: '100vh',
+    heightScaling: 'linear',
+    linearScale: 0.5,
+    animation: {
+      startFlat: true,
+      autoStartDelay: 800,
+      staggerDelay: 15,
+      tension: 120,
+      friction: 14,
+    },
+  },
+};
+
+/**
+ * Electron App - Real repository data (larger)
+ */
+export const ElectronApp: Story = {
+  args: {
+    cityData: electronAppCityData as CityData,
+    height: '100vh',
+    heightScaling: 'linear',
+    linearScale: 0.5,
+    animation: {
+      startFlat: true,
+      autoStartDelay: 600,
+      staggerDelay: 5,
+      tension: 150,
+      friction: 16,
+    },
+  },
+};
+
+/**
+ * This Repo - industry-themed-repository-composition-panels
+ */
+export const ThisRepo: Story = {
+  args: {
+    cityData: thisRepoCityData as CityData,
+    height: '100vh',
+    heightScaling: 'linear',
+    linearScale: 0.5,
+    animation: {
+      startFlat: true,
+      autoStartDelay: 700,
+      staggerDelay: 10,
+      tension: 130,
+      friction: 14,
+    },
+  },
+};
+
+/**
+ * Auth Server Tour Simulation - Demonstrates how tours work in 3D
+ */
+const AuthServerTourTemplate: React.FC = () => {
+  const [currentStep, setCurrentStep] = React.useState(0);
+  const step = authServerTourSteps[currentStep];
+
+  const goToStep = (index: number) => {
+    if (index >= 0 && index < authServerTourSteps.length) {
+      setCurrentStep(index);
+    }
+  };
+
+  return (
+    <div
+      style={{ height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}
+    >
+      {/* 3D City */}
+      <FileCity3D
+        cityData={authServerCityData as CityData}
+        height="100%"
+        heightScaling="linear"
+        linearScale={0.5}
+        highlightLayers={step.highlightLayers}
+        isolationMode={step.isolationMode}
+        dimOpacity={0.12}
+        animation={{
+          startFlat: true,
+          autoStartDelay: 600,
+          staggerDelay: 8,
+          tension: 140,
+          friction: 14,
+        }}
+        showControls={true}
+      />
+
+      {/* Tour controls - bottom bar */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 100,
+          background: 'rgba(15, 23, 42, 0.95)',
+          borderTop: '1px solid #334155',
+          padding: '16px 24px',
+          color: '#e2e8f0',
+          fontFamily: 'system-ui, sans-serif',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 24,
+        }}
+      >
+        {/* Previous button */}
+        <button
+          onClick={() => goToStep(currentStep - 1)}
+          disabled={currentStep === 0}
+          style={{
+            padding: '10px 20px',
+            background: currentStep === 0 ? '#1e293b' : '#334155',
+            border: '1px solid #475569',
+            borderRadius: 6,
+            color: currentStep === 0 ? '#475569' : '#e2e8f0',
+            cursor: currentStep === 0 ? 'not-allowed' : 'pointer',
+            fontSize: 14,
+            fontWeight: 500,
+          }}
+        >
+          ← Previous
+        </button>
+
+        {/* Step content - center */}
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          {/* Step indicators */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {authServerTourSteps.map((s, i) => (
+              <button
+                key={s.id}
+                onClick={() => goToStep(i)}
+                style={{
+                  width: i === currentStep ? 12 : 10,
+                  height: i === currentStep ? 12 : 10,
+                  borderRadius: '50%',
+                  border: i === currentStep ? '2px solid #3b82f6' : 'none',
+                  background:
+                    i === currentStep ? '#3b82f6' : i < currentStep ? '#22c55e' : '#475569',
+                  cursor: 'pointer',
+                  padding: 0,
+                  transition: 'all 0.2s',
+                }}
+                title={s.title}
+              />
+            ))}
+          </div>
+
+          {/* Step info */}
+          <div style={{ textAlign: 'center' }}>
+            <span style={{ fontSize: 11, color: '#64748b' }}>
+              Step {currentStep + 1} of {authServerTourSteps.length}
+            </span>
+            <span style={{ margin: '0 8px', color: '#334155' }}>•</span>
+            <span style={{ fontSize: 16, fontWeight: 600 }}>{step.title}</span>
+          </div>
+
+          {/* Description */}
+          <p
+            style={{
+              margin: 0,
+              fontSize: 13,
+              color: '#94a3b8',
+              textAlign: 'center',
+              maxWidth: 600,
+            }}
+          >
+            {step.description}
+          </p>
+
+          {/* Isolation mode indicator */}
+          <div style={{ fontSize: 11, color: '#64748b' }}>
+            Isolation:{' '}
+            <code
+              style={{
+                color: '#94a3b8',
+                background: '#1e293b',
+                padding: '2px 6px',
+                borderRadius: 4,
+              }}
+            >
+              {step.isolationMode}
+            </code>
+            {step.highlightLayers.length > 0 && (
+              <span style={{ marginLeft: 8 }}>
+                • {step.highlightLayers.length} layer{step.highlightLayers.length > 1 ? 's' : ''}{' '}
+                active
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Next button */}
+        <button
+          onClick={() => goToStep(currentStep + 1)}
+          disabled={currentStep === authServerTourSteps.length - 1}
+          style={{
+            padding: '10px 20px',
+            background: currentStep === authServerTourSteps.length - 1 ? '#1e293b' : '#3b82f6',
+            border: '1px solid transparent',
+            borderRadius: 6,
+            color: currentStep === authServerTourSteps.length - 1 ? '#475569' : '#ffffff',
+            cursor: currentStep === authServerTourSteps.length - 1 ? 'not-allowed' : 'pointer',
+            fontSize: 14,
+            fontWeight: 500,
+          }}
+        >
+          Next →
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export const AuthServerTour: Story = {
+  render: () => <AuthServerTourTemplate />,
+};
+
+/**
+ * Directory Selection - Click directories to focus and collapse others
+ */
+const DirectorySelectionTemplate: React.FC = () => {
+  const [focusDirectory, setFocusDirectory] = React.useState<string | null>(null);
+
+  // Extract unique top-level directories from the auth server data
+  const directories = React.useMemo(() => {
+    const dirSet = new Set<string>();
+    (authServerCityData as CityData).buildings.forEach(building => {
+      const parts = building.path.split('/');
+      if (parts.length >= 2) {
+        // Get first two levels for more interesting navigation
+        dirSet.add(parts.slice(0, 2).join('/'));
+      }
+    });
+    return Array.from(dirSet).sort();
+  }, []);
+
+  return (
+    <div
+      style={{ height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}
+    >
+      {/* 3D City */}
+      <FileCity3D
+        cityData={authServerCityData as CityData}
+        height="100%"
+        heightScaling="linear"
+        linearScale={0.5}
+        focusDirectory={focusDirectory}
+        animation={{
+          startFlat: true,
+          autoStartDelay: 600,
+          staggerDelay: 8,
+          tension: 140,
+          friction: 14,
+        }}
+        showControls={true}
+        onBuildingClick={building => {
+          // Extract directory from building path
+          const parts = building.path.split('/');
+          if (parts.length >= 2) {
+            const dir = parts.slice(0, 2).join('/');
+            setFocusDirectory(prev => (prev === dir ? null : dir));
+          }
+        }}
+      />
+
+      {/* Directory selector - bottom bar */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 100,
+          background: 'rgba(15, 23, 42, 0.95)',
+          borderTop: '1px solid #334155',
+          padding: '16px 24px',
+          color: '#e2e8f0',
+          fontFamily: 'system-ui, sans-serif',
+        }}
+      >
+        <div style={{ marginBottom: 12, fontSize: 12, color: '#64748b' }}>
+          Click a directory to focus (collapse others). Click again or "Show All" to reset.
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <button
+            onClick={() => setFocusDirectory(null)}
+            style={{
+              padding: '8px 16px',
+              background: focusDirectory === null ? '#3b82f6' : '#334155',
+              border: '1px solid #475569',
+              borderRadius: 6,
+              color: focusDirectory === null ? '#ffffff' : '#e2e8f0',
+              cursor: 'pointer',
+              fontSize: 13,
+              fontWeight: 500,
+            }}
+          >
+            Show All
+          </button>
+          {directories.map(dir => (
+            <button
+              key={dir}
+              onClick={() => setFocusDirectory(prev => (prev === dir ? null : dir))}
+              style={{
+                padding: '8px 16px',
+                background: focusDirectory === dir ? '#3b82f6' : '#334155',
+                border: '1px solid #475569',
+                borderRadius: 6,
+                color: focusDirectory === dir ? '#ffffff' : '#e2e8f0',
+                cursor: 'pointer',
+                fontSize: 13,
+                fontWeight: 500,
+              }}
+            >
+              {dir.split('/').pop()}
+            </button>
+          ))}
+        </div>
+        {focusDirectory && (
+          <div style={{ marginTop: 12, fontSize: 14 }}>
+            Focused:{' '}
+            <code
+              style={{
+                color: '#3b82f6',
+                background: '#1e293b',
+                padding: '4px 8px',
+                borderRadius: 4,
+              }}
+            >
+              {focusDirectory}
+            </code>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export const DirectorySelection: Story = {
+  render: () => <DirectorySelectionTemplate />,
 };
