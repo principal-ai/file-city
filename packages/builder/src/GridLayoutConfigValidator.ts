@@ -1,4 +1,4 @@
-import { CodebaseView } from '@principal-ai/alexandria-core-library';
+import { CodebaseView } from './types/codebaseView.js';
 
 import { getUIMetadata } from './types/ui-metadata.js';
 

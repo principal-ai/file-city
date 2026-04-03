@@ -2,7 +2,7 @@ import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { CityViewWithReactFlow } from '../components/CityViewWithReactFlow';
 import { FileTree, FileInfo, DirectoryInfo } from '@principal-ai/repository-abstraction';
-import { CodebaseView } from '@principal-ai/alexandria-core-library';
+import type { CodebaseView } from '@principal-ai/file-city-builder';
 
 const meta = {
   title: 'Components/CityViewWithReactFlow',

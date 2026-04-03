@@ -22,12 +22,10 @@
     "three": "^0.175.0"
   },
   "peerDependencies": {
-    "@principal-ai/alexandria-core-library": ">=0.1.36",
     "@principal-ai/file-city-builder": ">=0.4.5",
     "react": "^19.0.0"
   },
   "devDependencies": {
-    "@principal-ai/alexandria-core-library": "^0.3.2",
     "@principal-ai/file-city-builder": "^0.4.5",
     "@storybook/addon-docs": "^10.1.2",
     "@storybook/addon-links": "^10.1.2",

@@ -19,7 +19,6 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@principal-ai/alexandria-core-library": "^0.1.36",
     "@principal-ai/repository-abstraction": "^0.2.4",
     "d3-hierarchy": "^3.1.2",
     "minimatch": "^10.0.3",

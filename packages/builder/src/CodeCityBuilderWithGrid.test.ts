@@ -1,7 +1,7 @@
 import { describe, it, expect } from '@jest/globals';
 import { CodeCityBuilderWithGrid } from './CodeCityBuilderWithGrid';
 import { FileTree, DirectoryInfo, FileInfo } from '@principal-ai/repository-abstraction';
-import { CodebaseView } from '@principal-ai/alexandria-core-library';
+import { CodebaseView } from './types/codebaseView';
 
 describe('CodeCityBuilderWithGrid', () => {
   const createMockFileTree = (): FileTree => ({

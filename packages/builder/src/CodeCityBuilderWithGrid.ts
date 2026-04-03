@@ -3,7 +3,7 @@ import {
   FileInfo,
   DirectoryInfo,
 } from '@principal-ai/repository-abstraction';
-import { CodebaseView } from '@principal-ai/alexandria-core-library';
+import { CodebaseView } from './types/codebaseView.js';
 import { hierarchy, treemap, treemapSquarify } from 'd3-hierarchy';
 import type { HierarchyRectangularNode } from 'd3-hierarchy';
 

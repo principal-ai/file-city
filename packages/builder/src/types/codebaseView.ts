@@ -1,0 +1,208 @@
+/**
+ * CodebaseView types for file-city visualization
+ *
+ * These types define the grid-based spatial layout configuration for visualizing codebases.
+ * Originally from @principal-ai/alexandria-core-library, copied here to remove the dependency.
+ */
+
+// ============================================================================
+// CodebaseView Types
+// ============================================================================
+
+/**
+ * Links between codebase views.
+ * Key is the target view ID, value is a descriptive label for the link.
+ */
+export type CodebaseViewLinks = Record<string, string>;
+
+/**
+ * Base type for all codebase view reference groups.
+ * Contains common properties shared by all reference group types.
+ */
+export interface CodebaseViewCell {
+  /**
+   * Position in the grid as [row, column].
+   * Zero-indexed coordinates.
+   */
+  coordinates: [number, number];
+
+  /**
+   * Priority for resolving conflicts when files match multiple reference groups.
+   * Higher values take precedence. Default: 0
+   */
+  priority?: number;
+
+  /**
+   * Links to other views from this cell.
+   * Enables navigation between related views.
+   */
+  links?: CodebaseViewLinks;
+
+  /**
+   * Official metadata with strict types for common visualization needs
+   */
+  metadata?: {
+    /** UI configuration for this cell */
+    ui?: {
+      /** Color for highlighting this cell */
+      color?: string;
+    };
+  };
+
+  /** Experimental metadata for this cell */
+  experimentalMetadata?: Record<string, unknown>;
+}
+
+/**
+ * A cell that contains an explicit list of files.
+ * Each cell represents a logical grouping of related files in the codebase.
+ */
+export interface CodebaseViewFileCell extends CodebaseViewCell {
+  /**
+   * List of file paths (relative to repository root).
+   * Examples: 'src/index.ts', 'README.md', 'package.json'
+   * No glob patterns or directories - just explicit file paths.
+   */
+  files: string[];
+}
+
+/**
+ * Scope configuration for filtering the file tree before grid layout.
+ * Allows focusing on specific parts of the repository.
+ */
+export interface CodebaseViewScope {
+  /**
+   * Base path within the repository to scope the view to.
+   * Relative to the repository root (e.g., 'src/frontend', not '/src/frontend').
+   */
+  basePath?: string;
+
+  /**
+   * Patterns for files to include.
+   * Only files matching these patterns will be considered.
+   */
+  includePatterns?: string[];
+
+  /**
+   * Patterns for files to exclude.
+   * Files matching these patterns will be filtered out.
+   */
+  excludePatterns?: string[];
+}
+
+/**
+ * Complete configuration for a grid-based spatial layout of a codebase.
+ */
+export interface CodebaseView {
+  /**
+   * Unique identifier for this view.
+   * Used for referencing and storage.
+   */
+  id: string;
+
+  /**
+   * Version of the configuration format.
+   * Helps with migration and compatibility.
+   */
+  version: string;
+
+  /**
+   * Human-readable name for the view.
+   * Required for all views to ensure proper display.
+   */
+  name: string;
+
+  /**
+   * Description of what this view represents.
+   * Helps users understand the organizational principle.
+   */
+  description: string;
+
+  /**
+   * Number of rows in the grid.
+   * If not specified, computed from maximum row coordinate in referenceGroups.
+   * Recommended: 1-6 for optimal visualization.
+   */
+  rows?: number;
+
+  /**
+   * Number of columns in the grid.
+   * If not specified, computed from maximum column coordinate in referenceGroups.
+   * Recommended: 1-6 for optimal visualization.
+   */
+  cols?: number;
+
+  /**
+   * Reference group configurations mapped by group name/identifier.
+   * Each entry defines what files belong in that reference group.
+   */
+  referenceGroups: Record<string, CodebaseViewFileCell>;
+
+  /**
+   * Links to other views from this view.
+   * Enables navigation between related views at the view level.
+   */
+  links?: CodebaseViewLinks;
+
+  /**
+   * Path to markdown documentation file.
+   * Relative to repository root.
+   */
+  overviewPath: string;
+
+  /**
+   * Category for grouping and organizing views in UI.
+   * Common values: 'guide', 'reference', 'tutorial', 'explanation', 'other'
+   * Users can define custom categories as needed.
+   */
+  category: string;
+
+  /**
+   * Display order within the category.
+   * Lower numbers appear first. Automatically assigned if not provided.
+   */
+  displayOrder: number;
+
+  /**
+   * Optional scope filtering before grid layout.
+   */
+  scope?: CodebaseViewScope;
+
+  /**
+   * Creation/modification timestamp.
+   */
+  timestamp?: string;
+
+  /**
+   * Official metadata with strict types for common visualization needs
+   */
+  metadata?: {
+    /** How this view was created - used for cleanup and management */
+    generationType?: "user" | "session";
+
+    /** UI configuration for visualization/rendering */
+    ui?: {
+      /** Whether grid layout is enabled */
+      enabled: boolean;
+      /** Number of rows in the grid */
+      rows?: number;
+      /** Number of columns in the grid */
+      cols?: number;
+      /** Padding between reference groups in pixels */
+      cellPadding?: number;
+      /** Whether to show labels for grid reference groups */
+      showCellLabels?: boolean;
+      /** Position of reference group labels relative to the reference group */
+      cellLabelPosition?: "none" | "top" | "bottom";
+      /** Height of cell labels as percentage of cell height (0-1) */
+      cellLabelHeightPercent?: number;
+    };
+  };
+
+  /**
+   * Experimental metadata for extensions and future features.
+   * Use this for testing new features before they become official.
+   * No type guarantees - contents may change.
+   */
+  experimentalMetadata?: Record<string, unknown>;
+}

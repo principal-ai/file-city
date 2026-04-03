@@ -1,7 +1,7 @@
 import { mock, describe, it, expect, beforeEach } from 'bun:test';
 import { FileTree } from '@principal-ai/repository-abstraction';
 import { CityData } from './types/cityData';
-import { CodebaseView } from '@principal-ai/alexandria-core-library';
+import { CodebaseView } from './types/codebaseView';
 
 // Mock function to return predictable city data
 const mockBuildCityFromFileSystem = (

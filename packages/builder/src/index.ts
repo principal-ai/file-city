@@ -28,6 +28,15 @@ export type {
   DirectoryRenderMode,
 } from './types/cityData.js';
 
+// CodebaseView types (for grid-based layouts)
+export type {
+  CodebaseView,
+  CodebaseViewCell,
+  CodebaseViewFileCell,
+  CodebaseViewScope,
+  CodebaseViewLinks,
+} from './types/codebaseView.js';
+
 // Re-export FileTree type from repository-abstraction for convenience
 export type { FileTree } from '@principal-ai/repository-abstraction';
 
