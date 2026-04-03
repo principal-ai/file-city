@@ -33,7 +33,7 @@
     "typescript": "^5.0.4"
   },
   "publishConfig": {
-    "access": "restricted",
+    "access": "public",
     "registry": "https://registry.npmjs.org/"
   }
 }
