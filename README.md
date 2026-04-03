@@ -2,7 +2,7 @@
 
 Visualize your codebase as a city. Files become buildings, directories become districts.
 
-https://github.com/principal-ai/file-city/raw/main/demo.mp4
+<video src="https://github.com/principal-ai/file-city/raw/main/demo.mp4" controls="controls" style="max-width: 100%;"></video>
 
 <p align="center">
   <img src="./city.png" alt="File City 2D visualization" width="400" />
