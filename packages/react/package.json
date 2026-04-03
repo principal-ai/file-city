@@ -50,6 +50,11 @@
     "architecture"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/principal-ai/file-city.git",
+    "directory": "packages/react"
+  },
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"

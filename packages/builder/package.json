@@ -32,6 +32,11 @@
     "ts-jest": "^29.4.1",
     "typescript": "^5.0.4"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/principal-ai/file-city.git",
+    "directory": "packages/builder"
+  },
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
