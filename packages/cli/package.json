@@ -1,6 +1,6 @@
 {
   "name": "@principal-ai/file-city-cli",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "CLI tool for File City tours - validation, creation, and linting",
   "type": "module",
   "main": "./dist/index.js",
