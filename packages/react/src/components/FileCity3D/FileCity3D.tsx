@@ -491,15 +491,18 @@ function InstancedBuildings({
     buildings.forEach((building, index) => {
       let shouldCollapse = false;
 
-      // Priority 1: focusDirectory - collapse buildings outside
-      if (focusDirectory) {
-        const isInFocus = isPathInDirectory(building.path, focusDirectory);
-        shouldCollapse = !isInFocus;
-      }
-      // Priority 2: highlightLayers with collapse isolation mode
-      else if (hasActiveHighlightLayers && isolationMode === 'collapse') {
-        const highlight = getHighlightForPath(building.path, highlightLayers);
-        shouldCollapse = highlight === null;
+      const isInFocusDirectory = focusDirectory
+        ? isPathInDirectory(building.path, focusDirectory)
+        : true; // No focusDirectory means all are "in focus"
+
+      const isHighlighted = hasActiveHighlightLayers
+        ? getHighlightForPath(building.path, highlightLayers) !== null
+        : true; // No highlights means all are "highlighted"
+
+      // Collapse if outside BOTH focusDirectory AND highlightLayers
+      // (only when collapse mode is active)
+      if (focusDirectory || (hasActiveHighlightLayers && isolationMode === 'collapse')) {
+        shouldCollapse = !isInFocusDirectory && !isHighlighted;
       }
 
       targetMultipliersRef.current![index] = shouldCollapse ? 0.05 : 1;
@@ -996,13 +999,13 @@ function AnimatedCamera({ citySize, isFlat, focusTarget }: AnimatedCameraProps) 
   const { camera } = useThree();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
-  // Start false - only block rotation during active camera animations
   const isAnimatingRef = useRef(false);
+  const hasAppliedInitial = useRef(false);
+  const frameCount = useRef(0);
 
-  // Animated camera position and target
+  // Compute target camera position
   const targetPos = useMemo(() => {
     if (focusTarget) {
-      // Position camera to look at focus target
       const distance = Math.max(focusTarget.size * 2, 50);
       const height = Math.max(focusTarget.size * 1.5, 40);
       return {
@@ -1014,9 +1017,9 @@ function AnimatedCamera({ citySize, isFlat, focusTarget }: AnimatedCameraProps) 
         targetZ: focusTarget.z,
       };
     }
-    // Default: overview of entire city
-    const targetHeight = isFlat ? citySize * 1.5 : citySize * 1.1;
-    const targetZ = isFlat ? 0 : citySize * 1.3;
+    // Default overview
+    const targetHeight = citySize * 1.1;
+    const targetZ = citySize * 1.3;
     return {
       x: 0,
       y: targetHeight,
@@ -1025,21 +1028,10 @@ function AnimatedCamera({ citySize, isFlat, focusTarget }: AnimatedCameraProps) 
       targetY: 0,
       targetZ: 0,
     };
-  }, [focusTarget, isFlat, citySize]);
+  }, [focusTarget, citySize]);
 
-  // Set initial camera position on mount
-  useEffect(() => {
-    camera.position.set(targetPos.x, targetPos.y, targetPos.z);
-    if (controlsRef.current) {
-      controlsRef.current.target.set(targetPos.targetX, targetPos.targetY, targetPos.targetZ);
-      controlsRef.current.update();
-    }
-    // Only run on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Spring animation for camera movement (only for subsequent changes)
-  const { camX, camY, camZ, lookX, lookY, lookZ } = useSpring({
+  // Spring animation for camera movement
+  const [{ camX, camY, camZ, lookX, lookY, lookZ }, api] = useSpring(() => ({
     camX: targetPos.x,
     camY: targetPos.y,
     camZ: targetPos.z,
@@ -1053,36 +1045,75 @@ function AnimatedCamera({ citySize, isFlat, focusTarget }: AnimatedCameraProps) 
     onRest: () => {
       isAnimatingRef.current = false;
     },
-  });
+  }));
 
-  // Update camera each frame only while spring is animating
-  // Once animation settles, let OrbitControls handle user interaction
+  // When targetPos changes after initial, animate to new position
+  useEffect(() => {
+    // Skip the first render - we handle that directly in useFrame
+    if (!hasAppliedInitial.current) return;
+
+    api.start({
+      camX: targetPos.x,
+      camY: targetPos.y,
+      camZ: targetPos.z,
+      lookX: targetPos.targetX,
+      lookY: targetPos.targetY,
+      lookZ: targetPos.targetZ,
+      onRest: () => {
+        isAnimatingRef.current = false;
+      },
+    });
+  }, [targetPos, api]);
+
+  // Update camera each frame
   useFrame(() => {
-    if (!controlsRef.current || !isAnimatingRef.current) return;
+    frameCount.current++;
 
-    camera.position.set(camX.get(), camY.get(), camZ.get());
-    controlsRef.current.target.set(lookX.get(), lookY.get(), lookZ.get());
-    controlsRef.current.update();
+    // Skip first 2 frames to ensure OrbitControls is fully initialized
+    if (frameCount.current < 3) return;
+    if (!controlsRef.current) return;
+
+    // Set initial position: apply camera position directly (no spring animation)
+    if (!hasAppliedInitial.current) {
+      camera.position.set(targetPos.x, targetPos.y, targetPos.z);
+      controlsRef.current.target.set(targetPos.targetX, targetPos.targetY, targetPos.targetZ);
+      controlsRef.current.update();
+
+      // Sync spring to this position so future animations start from here
+      api.set({
+        camX: targetPos.x,
+        camY: targetPos.y,
+        camZ: targetPos.z,
+        lookX: targetPos.targetX,
+        lookY: targetPos.targetY,
+        lookZ: targetPos.targetZ,
+      });
+
+      hasAppliedInitial.current = true;
+      return;
+    }
+
+    // Subsequent frames: only update during animations
+    if (isAnimatingRef.current) {
+      camera.position.set(camX.get(), camY.get(), camZ.get());
+      controlsRef.current.target.set(lookX.get(), lookY.get(), lookZ.get());
+      controlsRef.current.update();
+    }
   });
 
   const resetToInitial = useCallback(() => {
-    const targetHeight = isFlat ? citySize * 1.5 : citySize * 1.1;
-    const targetZ = isFlat ? 0 : citySize * 1.3;
+    const targetHeight = citySize * 1.1;
+    const targetZ = citySize * 1.3;
 
-    camera.position.set(0, targetHeight, targetZ);
-    camera.lookAt(0, 0, 0);
-
-    if (controlsRef.current) {
-      controlsRef.current.target.set(0, 0, 0);
-      controlsRef.current.update();
-    }
-  }, [isFlat, citySize, camera]);
-
-  useEffect(() => {
-    if (!focusTarget) {
-      resetToInitial();
-    }
-  }, [resetToInitial, focusTarget]);
+    api.start({
+      camX: 0,
+      camY: targetHeight,
+      camZ: targetZ,
+      lookX: 0,
+      lookY: 0,
+      lookZ: 0,
+    });
+  }, [citySize, api]);
 
   useEffect(() => {
     cameraResetFn = resetToInitial;
