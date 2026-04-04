@@ -10,8 +10,8 @@
 import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import { Canvas, useFrame, ThreeEvent, useThree } from '@react-three/fiber';
 
-import { animated, useSpring, config } from '@react-spring/three';
-import { OrbitControls, PerspectiveCamera, Text, RoundedBox } from '@react-three/drei';
+import { useSpring } from '@react-spring/three';
+import { OrbitControls, PerspectiveCamera, Text } from '@react-three/drei';
 import { getFileConfig } from '@principal-ai/file-city-builder';
 import type {
   CityData,
@@ -91,54 +91,6 @@ const DEFAULT_ANIMATION: AnimationConfig = {
   tension: 120,
   friction: 14,
 };
-
-// Code file extensions - height based on line count
-const CODE_EXTENSIONS = new Set([
-  'ts',
-  'tsx',
-  'js',
-  'jsx',
-  'mjs',
-  'cjs',
-  'py',
-  'pyw',
-  'rs',
-  'go',
-  'java',
-  'kt',
-  'scala',
-  'c',
-  'cpp',
-  'cc',
-  'cxx',
-  'h',
-  'hpp',
-  'cs',
-  'rb',
-  'php',
-  'swift',
-  'vue',
-  'svelte',
-  'lua',
-  'sh',
-  'bash',
-  'zsh',
-  'sql',
-  'r',
-  'dart',
-  'elm',
-  'ex',
-  'exs',
-  'clj',
-  'cljs',
-  'hs',
-  'ml',
-  'mli',
-]);
-
-function isCodeFile(extension: string): boolean {
-  return CODE_EXTENSIONS.has(extension.toLowerCase());
-}
 
 /**
  * Calculate building height based on file metrics.
@@ -301,12 +253,6 @@ function hasActiveHighlights(layers: HighlightLayer[]): boolean {
   return layers.some(layer => layer.enabled && layer.items.length > 0);
 }
 
-// Animated RoundedBox wrapper
-const AnimatedRoundedBox = animated(RoundedBox);
-
-// Animated meshStandardMaterial for opacity transitions
-const AnimatedMeshStandardMaterial = animated('meshStandardMaterial');
-
 // ============================================================================
 // Building Edges - Batched edge rendering for performance
 // ============================================================================
@@ -465,13 +411,16 @@ function InstancedBuildings({
   // Track animated height multipliers for each building (for collapse animation)
   const heightMultipliersRef = useRef<Float32Array | null>(null);
   const targetMultipliersRef = useRef<Float32Array | null>(null);
+  // Track dim state for buildings in focus but not highlighted (0 = dimmed, 1 = full)
+  const dimMultipliersRef = useRef<Float32Array | null>(null);
+  const targetDimRef = useRef<Float32Array | null>(null);
 
   // Check if highlight layers have any active items
   const hasActiveHighlightLayers = useMemo(() => {
     return highlightLayers.some(layer => layer.enabled && layer.items.length > 0);
   }, [highlightLayers]);
 
-  // Initialize height multiplier arrays
+  // Initialize height and dim multiplier arrays
   useEffect(() => {
     if (buildings.length > 0) {
       if (
@@ -480,16 +429,19 @@ function InstancedBuildings({
       ) {
         heightMultipliersRef.current = new Float32Array(buildings.length).fill(1);
         targetMultipliersRef.current = new Float32Array(buildings.length).fill(1);
+        dimMultipliersRef.current = new Float32Array(buildings.length).fill(1);
+        targetDimRef.current = new Float32Array(buildings.length).fill(1);
       }
     }
   }, [buildings.length]);
 
   // Update target multipliers when focusDirectory or highlightLayers change
   useEffect(() => {
-    if (!targetMultipliersRef.current) return;
+    if (!targetMultipliersRef.current || !targetDimRef.current) return;
 
     buildings.forEach((building, index) => {
       let shouldCollapse = false;
+      let shouldDim = false;
 
       const isInFocusDirectory = focusDirectory
         ? isPathInDirectory(building.path, focusDirectory)
@@ -499,13 +451,31 @@ function InstancedBuildings({
         ? getHighlightForPath(building.path, highlightLayers) !== null
         : true; // No highlights means all are "highlighted"
 
-      // Collapse if outside BOTH focusDirectory AND highlightLayers
-      // (only when collapse mode is active)
-      if (focusDirectory || (hasActiveHighlightLayers && isolationMode === 'collapse')) {
-        shouldCollapse = !isInFocusDirectory && !isHighlighted;
+      // Determine collapse and dim behavior based on what's active:
+      // - focusDirectory only: collapse if outside focus
+      // - highlightLayers only (with collapse mode): collapse if not highlighted
+      // - both: collapse if outside focus, dim if in focus but not highlighted
+      if (focusDirectory && hasActiveHighlightLayers && isolationMode === 'collapse') {
+        // Both active: collapse if outside focus, dim if in focus but not highlighted
+        shouldCollapse = !isInFocusDirectory;
+        shouldDim = isInFocusDirectory && !isHighlighted;
+      } else if (focusDirectory) {
+        // Focus only: collapse if outside focus directory
+        shouldCollapse = !isInFocusDirectory;
+      } else if (hasActiveHighlightLayers && isolationMode === 'collapse') {
+        // Highlight only with collapse: collapse if not highlighted
+        shouldCollapse = !isHighlighted;
       }
 
-      targetMultipliersRef.current![index] = shouldCollapse ? 0.05 : 1;
+      // Height: 1.0 = full, 0.05 = flat (collapsed or dimmed)
+      if (shouldCollapse || shouldDim) {
+        targetMultipliersRef.current![index] = 0.05;
+      } else {
+        targetMultipliersRef.current![index] = 1;
+      }
+      // Dim ref controls graying: 0 = gray out, 1 = keep color
+      // Collapsed buildings go gray, dimmed buildings keep their color
+      targetDimRef.current![index] = shouldCollapse ? 0 : 1;
     });
   }, [focusDirectory, buildings, highlightLayers, isolationMode, hasActiveHighlightLayers]);
 
@@ -608,6 +578,12 @@ function InstancedBuildings({
         currentMultiplier + (targetMultiplier - currentMultiplier) * collapseSpeed;
       heightMultipliersRef.current![instanceIndex] = newMultiplier;
 
+      // Animate dim multiplier towards target
+      const currentDim = dimMultipliersRef.current![instanceIndex];
+      const targetDim = targetDimRef.current![instanceIndex];
+      const newDim = currentDim + (targetDim - currentDim) * collapseSpeed;
+      dimMultipliersRef.current![instanceIndex] = newDim;
+
       // Calculate grow animation progress
       const elapsed = currentTime - animStartTime - staggerDelayMs;
       let animProgress = growProgress;
@@ -634,16 +610,18 @@ function InstancedBuildings({
 
       meshRef.current!.setMatrixAt(instanceIndex, tempObject.matrix);
 
-      // Desaturate collapsed buildings
+      // Apply color effects
       tempColor.set(data.color);
-      if (newMultiplier < 0.5) {
-        // Lerp towards gray based on collapse amount
-        const grayAmount = 1 - newMultiplier * 2; // 0 at multiplier=0.5, 1 at multiplier=0
+
+      // Gray out collapsed buildings (newDim < 0.5 means should be gray)
+      if (newDim < 0.5) {
+        const grayAmount = 1 - newDim * 2; // 0 at dim=0.5, 1 at dim=0
         const gray = 0.3;
         tempColor.r = tempColor.r * (1 - grayAmount) + gray * grayAmount;
         tempColor.g = tempColor.g * (1 - grayAmount) + gray * grayAmount;
         tempColor.b = tempColor.b * (1 - grayAmount) + gray * grayAmount;
       }
+
       if (isSelected) {
         tempColor.multiplyScalar(1.4);
       } else if (isHovered) {
@@ -937,9 +915,10 @@ interface DistrictFloorProps {
   district: CityDistrict;
   centerOffset: { x: number; z: number };
   opacity: number;
+  highlightColor?: string | null;
 }
 
-function DistrictFloor({ district, centerOffset, opacity }: DistrictFloorProps) {
+function DistrictFloor({ district, centerOffset, highlightColor }: DistrictFloorProps) {
   const { worldBounds } = district;
   const width = worldBounds.maxX - worldBounds.minX;
   const depth = worldBounds.maxZ - worldBounds.minZ;
@@ -951,19 +930,32 @@ function DistrictFloor({ district, centerOffset, opacity }: DistrictFloorProps) 
   const pathDepth = district.path.split('/').length;
   const floorY = -5 - pathDepth * 0.1;
 
+  const borderColor = highlightColor || '#475569';
+  const lineWidth = highlightColor ? 3 : 1;
+  const labelColor = highlightColor || '#cbd5e1';
+
   return (
     <group position={[centerX, 0, centerZ]}>
+      {/* Border outline */}
       <lineSegments rotation={[-Math.PI / 2, 0, 0]} position={[0, floorY, 0]} renderOrder={-1}>
         <edgesGeometry args={[new THREE.PlaneGeometry(width, depth)]} attach="geometry" />
-        <lineBasicMaterial color="#475569" depthWrite={false} />
+        <lineBasicMaterial color={borderColor} linewidth={lineWidth} depthWrite={false} />
       </lineSegments>
+
+      {/* Highlighted floor fill when focused */}
+      {highlightColor && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, floorY - 0.1, 0]} renderOrder={-2}>
+          <planeGeometry args={[width, depth]} />
+          <meshBasicMaterial color={highlightColor} transparent opacity={0.15} depthWrite={false} />
+        </mesh>
+      )}
 
       {district.label && (
         <Text
           position={[0, 1.5, depth / 2 + 2]}
           rotation={[-Math.PI / 6, 0, 0]}
           fontSize={Math.min(3, width / 6)}
-          color="#cbd5e1"
+          color={labelColor}
           anchorX="center"
           anchorY="middle"
           outlineWidth={0.1}
@@ -987,23 +979,135 @@ interface AnimatedCameraProps {
   citySize: number;
   isFlat: boolean;
   focusTarget?: FocusTarget | null;
+  maxBuildingHeight?: number;
 }
 
-let cameraResetFn: (() => void) | null = null;
+// Camera rotation options
+export interface RotateOptions {
+  /** Animation duration in milliseconds. Default uses spring physics (~800ms feel). */
+  duration?: number;
+}
+
+// Camera control API - populated by AnimatedCamera
+interface CameraApi {
+  reset: () => void;
+  moveTo: (x: number, z: number, size?: number) => void;
+  setTarget: (x: number, y: number, z: number, options?: RotateOptions) => void;
+  rotateTo: (angleOrDirection: number | 'north' | 'south' | 'east' | 'west', options?: RotateOptions) => void;
+  rotateBy: (degrees: number, options?: RotateOptions) => void;
+  tiltTo: (angle: number | 'top' | 'level' | 'high' | 'low', options?: RotateOptions) => void;
+  tiltBy: (degrees: number, options?: RotateOptions) => void;
+  getCurrentPosition: () => { x: number; y: number; z: number } | null;
+  getCurrentTarget: () => { x: number; y: number; z: number } | null;
+  getCurrentAngle: () => number | null;
+  getCurrentTilt: () => number | null;
+}
+
+let cameraApi: CameraApi | null = null;
 
 export function resetCamera() {
-  cameraResetFn?.();
+  cameraApi?.reset();
 }
 
-function AnimatedCamera({ citySize, isFlat, focusTarget }: AnimatedCameraProps) {
+export function moveCameraTo(x: number, z: number, size?: number) {
+  cameraApi?.moveTo(x, z, size);
+}
+
+/**
+ * Set the camera's look-at target (center point for orbiting).
+ * Camera maintains its current distance and angles relative to the new target.
+ * @param x - Target X coordinate
+ * @param y - Target Y coordinate (usually 0 for ground level)
+ * @param z - Target Z coordinate
+ * @param options - Optional settings including duration in ms
+ */
+export function setCameraTarget(x: number, y: number, z: number, options?: RotateOptions) {
+  cameraApi?.setTarget(x, y, z, options);
+}
+
+/**
+ * Get the current camera target (look-at point).
+ */
+export function getCameraTarget() {
+  return cameraApi?.getCurrentTarget() ?? null;
+}
+
+/**
+ * Rotate the camera to view the city from a specific angle or cardinal direction.
+ * Uses the shortest path (e.g., 350° to 10° goes through 0°, not 180°).
+ * @param angleOrDirection - Angle in degrees (0 = south, 90 = west, 180 = north, 270 = east)
+ *                           or a cardinal direction string ('north', 'south', 'east', 'west')
+ * @param options - Optional settings including duration in ms
+ */
+export function rotateCameraTo(
+  angleOrDirection: number | 'north' | 'south' | 'east' | 'west',
+  options?: RotateOptions
+) {
+  cameraApi?.rotateTo(angleOrDirection, options);
+}
+
+/**
+ * Rotate the camera by a relative amount.
+ * @param degrees - Degrees to rotate. Positive = clockwise, negative = counter-clockwise.
+ * @param options - Optional settings including duration in ms
+ */
+export function rotateCameraBy(degrees: number, options?: RotateOptions) {
+  cameraApi?.rotateBy(degrees, options);
+}
+
+/**
+ * Tilt the camera to a specific vertical angle or preset.
+ * @param angle - Angle in degrees (0 = top-down, 90 = level/horizontal)
+ *                or a preset: 'top' (15°), 'high' (35°), 'low' (60°), 'level' (80°)
+ * @param options - Optional settings including duration in ms
+ */
+export function tiltCameraTo(
+  angle: number | 'top' | 'level' | 'high' | 'low',
+  options?: RotateOptions
+) {
+  cameraApi?.tiltTo(angle, options);
+}
+
+/**
+ * Tilt the camera by a relative amount.
+ * @param degrees - Degrees to tilt. Positive = tilt down (towards top-down), negative = tilt up (towards level).
+ * @param options - Optional settings including duration in ms
+ */
+export function tiltCameraBy(degrees: number, options?: RotateOptions) {
+  cameraApi?.tiltBy(degrees, options);
+}
+
+export function getCameraPosition() {
+  return cameraApi?.getCurrentPosition() ?? null;
+}
+
+/**
+ * Get the current camera angle in degrees (0-360).
+ * 0 = south, 90 = west, 180 = north, 270 = east
+ */
+export function getCameraAngle() {
+  return cameraApi?.getCurrentAngle() ?? null;
+}
+
+/**
+ * Get the current camera tilt in degrees (0-90).
+ * 0 = top-down view, 90 = level/horizontal view
+ */
+export function getCameraTilt() {
+  return cameraApi?.getCurrentTilt() ?? null;
+}
+
+function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }: AnimatedCameraProps) {
   const { camera } = useThree();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
   const isAnimatingRef = useRef(false);
+  const isOrbitingRef = useRef(false);
   const hasAppliedInitial = useRef(false);
   const frameCount = useRef(0);
 
   // Compute target camera position
+  // When flat, use a more top-down view; when grown, use an angled view
   const targetPos = useMemo(() => {
     if (focusTarget) {
       const distance = Math.max(focusTarget.size * 2, 50);
@@ -1017,9 +1121,15 @@ function AnimatedCamera({ citySize, isFlat, focusTarget }: AnimatedCameraProps) 
         targetZ: focusTarget.z,
       };
     }
-    // Default overview
-    const targetHeight = citySize * 1.1;
-    const targetZ = citySize * 1.3;
+    // Default overview - adjust angle based on flat/grown state
+    // Flat: directly overhead (90 degrees, looking straight down)
+    // Grown: angled view to see building heights (optionally based on max building height)
+    const baseHeight = citySize * 1.1;
+    const buildingAwareHeight = maxBuildingHeight > 0
+      ? Math.max(baseHeight, maxBuildingHeight * 2.5)
+      : baseHeight;
+    const targetHeight = isFlat ? citySize * 2.0 : buildingAwareHeight;
+    const targetZ = isFlat ? 0.001 : citySize * 1.3; // Near-zero for top-down (tiny offset to avoid gimbal lock)
     return {
       x: 0,
       y: targetHeight,
@@ -1028,7 +1138,7 @@ function AnimatedCamera({ citySize, isFlat, focusTarget }: AnimatedCameraProps) 
       targetY: 0,
       targetZ: 0,
     };
-  }, [focusTarget, citySize]);
+  }, [focusTarget, citySize, isFlat, maxBuildingHeight]);
 
   // Spring animation for camera movement
   const [{ camX, camY, camZ, lookX, lookY, lookZ }, api] = useSpring(() => ({
@@ -1046,6 +1156,48 @@ function AnimatedCamera({ citySize, isFlat, focusTarget }: AnimatedCameraProps) 
       isAnimatingRef.current = false;
     },
   }));
+
+  // Separate spring for orbit angle animation (animates along horizontal arc)
+  const [{ orbitAngle }, orbitApi] = useSpring(() => ({
+    orbitAngle: 0,
+    config: { tension: 80, friction: 18 },
+    onStart: () => {
+      isOrbitingRef.current = true;
+    },
+    onRest: () => {
+      isOrbitingRef.current = false;
+    },
+  }));
+
+  // Separate spring for tilt angle animation (animates along vertical arc)
+  const isTiltingRef = useRef(false);
+  const [{ tiltAngle }, tiltApi] = useSpring(() => ({
+    tiltAngle: 0,
+    config: { tension: 80, friction: 18 },
+    onStart: () => {
+      isTiltingRef.current = true;
+    },
+    onRest: () => {
+      isTiltingRef.current = false;
+    },
+  }));
+
+  // Track orbit parameters during horizontal rotation
+  const orbitParamsRef = useRef<{
+    centerX: number;
+    centerZ: number;
+    distance: number;
+    height: number;
+  } | null>(null);
+
+  // Track tilt parameters during vertical rotation
+  const tiltParamsRef = useRef<{
+    centerX: number;
+    centerY: number;
+    centerZ: number;
+    distance: number;
+    azimuthAngle: number; // horizontal angle to maintain
+  } | null>(null);
 
   // When targetPos changes after initial, animate to new position
   useEffect(() => {
@@ -1093,8 +1245,62 @@ function AnimatedCamera({ citySize, isFlat, focusTarget }: AnimatedCameraProps) 
       return;
     }
 
-    // Subsequent frames: only update during animations
-    if (isAnimatingRef.current) {
+    // Handle orbit animation (horizontal rotation along arc)
+    if (isOrbitingRef.current && orbitParamsRef.current) {
+      const { centerX, centerZ, distance, height } = orbitParamsRef.current;
+      const currentAngle = orbitAngle.get();
+      const radians = (currentAngle * Math.PI) / 180;
+
+      const newX = centerX + Math.sin(radians) * distance;
+      const newZ = centerZ + Math.cos(radians) * distance;
+
+      camera.position.set(newX, height, newZ);
+      controlsRef.current.target.set(centerX, 0, centerZ);
+      controlsRef.current.update();
+
+      // Sync position spring to current orbit position
+      api.set({
+        camX: newX,
+        camY: height,
+        camZ: newZ,
+        lookX: centerX,
+        lookY: 0,
+        lookZ: centerZ,
+      });
+    }
+    // Handle tilt animation (vertical rotation along arc)
+    else if (isTiltingRef.current && tiltParamsRef.current) {
+      const { centerX, centerY, centerZ, distance, azimuthAngle } = tiltParamsRef.current;
+      const currentTilt = tiltAngle.get();
+
+      // Convert tilt angle to polar angle (0° tilt = looking down, 90° tilt = level)
+      // Clamp to avoid extreme angles
+      const clampedTilt = Math.max(5, Math.min(85, currentTilt));
+      const polarRadians = (clampedTilt * Math.PI) / 180;
+      const azimuthRadians = (azimuthAngle * Math.PI) / 180;
+
+      // Spherical to Cartesian conversion
+      // polarRadians: 0 = top, PI/2 = level
+      const newX = centerX + distance * Math.sin(polarRadians) * Math.sin(azimuthRadians);
+      const newY = centerY + distance * Math.cos(polarRadians);
+      const newZ = centerZ + distance * Math.sin(polarRadians) * Math.cos(azimuthRadians);
+
+      camera.position.set(newX, newY, newZ);
+      controlsRef.current.target.set(centerX, centerY, centerZ);
+      controlsRef.current.update();
+
+      // Sync position spring to current tilt position
+      api.set({
+        camX: newX,
+        camY: newY,
+        camZ: newZ,
+        lookX: centerX,
+        lookY: centerY,
+        lookZ: centerZ,
+      });
+    }
+    // Handle position animation
+    else if (isAnimatingRef.current) {
       camera.position.set(camX.get(), camY.get(), camZ.get());
       controlsRef.current.target.set(lookX.get(), lookY.get(), lookZ.get());
       controlsRef.current.update();
@@ -1115,12 +1321,268 @@ function AnimatedCamera({ citySize, isFlat, focusTarget }: AnimatedCameraProps) 
     });
   }, [citySize, api]);
 
-  useEffect(() => {
-    cameraResetFn = resetToInitial;
-    return () => {
-      cameraResetFn = null;
+  const moveTo = useCallback((x: number, z: number, size?: number) => {
+    const effectiveSize = size ?? citySize * 0.3;
+    const distance = Math.max(effectiveSize * 2, 50);
+    const height = Math.max(effectiveSize * 1.5, 40);
+
+    api.start({
+      camX: x,
+      camY: height,
+      camZ: z + distance,
+      lookX: x,
+      lookY: 0,
+      lookZ: z,
+    });
+  }, [citySize, api]);
+
+  // Set camera target (look-at point), maintaining current distance and angles
+  const setTarget = useCallback((x: number, y: number, z: number, options?: RotateOptions) => {
+    // Get current offset from target
+    const currentTargetX = controlsRef.current?.target.x ?? 0;
+    const currentTargetY = controlsRef.current?.target.y ?? 0;
+    const currentTargetZ = controlsRef.current?.target.z ?? 0;
+
+    const offsetX = camera.position.x - currentTargetX;
+    const offsetY = camera.position.y - currentTargetY;
+    const offsetZ = camera.position.z - currentTargetZ;
+
+    // New camera position maintains same offset from new target
+    const newCamX = x + offsetX;
+    const newCamY = y + offsetY;
+    const newCamZ = z + offsetZ;
+
+    // Build animation config
+    const animConfig = options?.duration
+      ? { duration: options.duration, easing: (t: number) => t }
+      : { tension: 60, friction: 20 };
+
+    api.start({
+      camX: newCamX,
+      camY: newCamY,
+      camZ: newCamZ,
+      lookX: x,
+      lookY: y,
+      lookZ: z,
+      config: animConfig,
+    });
+  }, [camera, api]);
+
+  // Convert cardinal direction to angle in degrees
+  const directionToAngle = (dir: 'north' | 'south' | 'east' | 'west'): number => {
+    switch (dir) {
+      case 'north': return 180;
+      case 'south': return 0;
+      case 'east': return 270;
+      case 'west': return 90;
+    }
+  };
+
+  // Get current angle (helper)
+  const computeCurrentAngle = useCallback(() => {
+    const targetX = controlsRef.current?.target.x ?? 0;
+    const targetZ = controlsRef.current?.target.z ?? 0;
+    const dx = camera.position.x - targetX;
+    const dz = camera.position.z - targetZ;
+    let angle = Math.atan2(dx, dz) * (180 / Math.PI);
+    if (angle < 0) angle += 360;
+    return angle;
+  }, [camera]);
+
+  // Rotate to absolute angle using shortest path
+  const rotateTo = useCallback((
+    angleOrDirection: number | 'north' | 'south' | 'east' | 'west',
+    options?: RotateOptions
+  ) => {
+    const targetAngle = typeof angleOrDirection === 'number'
+      ? angleOrDirection
+      : directionToAngle(angleOrDirection);
+
+    // Get current state
+    const centerX = controlsRef.current?.target.x ?? 0;
+    const centerZ = controlsRef.current?.target.z ?? 0;
+    const currentAngle = computeCurrentAngle();
+    const distance = Math.sqrt(
+      Math.pow(camera.position.x - centerX, 2) +
+      Math.pow(camera.position.z - centerZ, 2)
+    );
+    const height = camera.position.y;
+
+    // Store orbit parameters
+    orbitParamsRef.current = { centerX, centerZ, distance, height };
+
+    // Calculate shortest path
+    let delta = targetAngle - currentAngle;
+    // Normalize to -180 to 180
+    while (delta > 180) delta -= 360;
+    while (delta < -180) delta += 360;
+
+    // Build animation config
+    const animConfig = options?.duration
+      ? { duration: options.duration }
+      : { tension: 80, friction: 18 };
+
+    // Animate from current angle to target using shortest path
+    orbitApi.set({ orbitAngle: currentAngle });
+    orbitApi.start({ orbitAngle: currentAngle + delta, config: animConfig });
+  }, [camera, computeCurrentAngle, orbitApi]);
+
+  // Rotate by relative degrees (positive = clockwise, negative = counter-clockwise)
+  const rotateBy = useCallback((degrees: number, options?: RotateOptions) => {
+    // Get current state
+    const centerX = controlsRef.current?.target.x ?? 0;
+    const centerZ = controlsRef.current?.target.z ?? 0;
+    const currentAngle = computeCurrentAngle();
+    const distance = Math.sqrt(
+      Math.pow(camera.position.x - centerX, 2) +
+      Math.pow(camera.position.z - centerZ, 2)
+    );
+    const height = camera.position.y;
+
+    // Store orbit parameters
+    orbitParamsRef.current = { centerX, centerZ, distance, height };
+
+    // Build animation config
+    const animConfig = options?.duration
+      ? { duration: options.duration }
+      : { tension: 80, friction: 18 };
+
+    // Animate from current angle by the specified degrees
+    orbitApi.set({ orbitAngle: currentAngle });
+    orbitApi.start({ orbitAngle: currentAngle + degrees, config: animConfig });
+  }, [camera, computeCurrentAngle, orbitApi]);
+
+  // Convert tilt preset to angle
+  const tiltPresetToAngle = (preset: 'top' | 'level' | 'high' | 'low'): number => {
+    switch (preset) {
+      case 'top': return 15;    // Near top-down
+      case 'high': return 35;   // High angle
+      case 'low': return 60;    // Low angle
+      case 'level': return 80;  // Near horizontal
+    }
+  };
+
+  // Compute current tilt angle (polar angle in degrees)
+  const computeCurrentTilt = useCallback(() => {
+    const centerX = controlsRef.current?.target.x ?? 0;
+    const centerY = controlsRef.current?.target.y ?? 0;
+    const centerZ = controlsRef.current?.target.z ?? 0;
+
+    const dx = camera.position.x - centerX;
+    const dy = camera.position.y - centerY;
+    const dz = camera.position.z - centerZ;
+    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+    if (distance === 0) return 45; // Default
+
+    // Polar angle: arccos(dy / distance)
+    const polarRadians = Math.acos(dy / distance);
+    return (polarRadians * 180) / Math.PI;
+  }, [camera]);
+
+  // Tilt to absolute angle or preset
+  const tiltTo = useCallback((
+    angleOrPreset: number | 'top' | 'level' | 'high' | 'low',
+    options?: RotateOptions
+  ) => {
+    const targetTilt = typeof angleOrPreset === 'number'
+      ? angleOrPreset
+      : tiltPresetToAngle(angleOrPreset);
+
+    // Get current state
+    const centerX = controlsRef.current?.target.x ?? 0;
+    const centerY = controlsRef.current?.target.y ?? 0;
+    const centerZ = controlsRef.current?.target.z ?? 0;
+
+    const dx = camera.position.x - centerX;
+    const dy = camera.position.y - centerY;
+    const dz = camera.position.z - centerZ;
+    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    const currentTilt = computeCurrentTilt();
+    const azimuthAngle = computeCurrentAngle();
+
+    // Store tilt parameters
+    tiltParamsRef.current = { centerX, centerY, centerZ, distance, azimuthAngle };
+
+    // Build animation config
+    const animConfig = options?.duration
+      ? { duration: options.duration }
+      : { tension: 80, friction: 18 };
+
+    // Animate from current tilt to target
+    tiltApi.set({ tiltAngle: currentTilt });
+    tiltApi.start({ tiltAngle: targetTilt, config: animConfig });
+  }, [camera, computeCurrentTilt, computeCurrentAngle, tiltApi]);
+
+  // Tilt by relative degrees (positive = down towards top-down, negative = up towards level)
+  const tiltBy = useCallback((degrees: number, options?: RotateOptions) => {
+    // Get current state
+    const centerX = controlsRef.current?.target.x ?? 0;
+    const centerY = controlsRef.current?.target.y ?? 0;
+    const centerZ = controlsRef.current?.target.z ?? 0;
+
+    const dx = camera.position.x - centerX;
+    const dy = camera.position.y - centerY;
+    const dz = camera.position.z - centerZ;
+    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    const currentTilt = computeCurrentTilt();
+    const azimuthAngle = computeCurrentAngle();
+
+    // Store tilt parameters
+    tiltParamsRef.current = { centerX, centerY, centerZ, distance, azimuthAngle };
+
+    // Build animation config
+    const animConfig = options?.duration
+      ? { duration: options.duration }
+      : { tension: 80, friction: 18 };
+
+    // Animate from current tilt by the specified degrees
+    tiltApi.set({ tiltAngle: currentTilt });
+    tiltApi.start({ tiltAngle: currentTilt + degrees, config: animConfig });
+  }, [camera, computeCurrentTilt, computeCurrentAngle, tiltApi]);
+
+  const getCurrentPosition = useCallback(() => {
+    return {
+      x: camera.position.x,
+      y: camera.position.y,
+      z: camera.position.z,
     };
-  }, [resetToInitial]);
+  }, [camera]);
+
+  const getCurrentTarget = useCallback(() => {
+    return {
+      x: controlsRef.current?.target.x ?? 0,
+      y: controlsRef.current?.target.y ?? 0,
+      z: controlsRef.current?.target.z ?? 0,
+    };
+  }, []);
+
+  const getCurrentAngle = useCallback(() => {
+    return computeCurrentAngle();
+  }, [computeCurrentAngle]);
+
+  const getCurrentTilt = useCallback(() => {
+    return computeCurrentTilt();
+  }, [computeCurrentTilt]);
+
+  useEffect(() => {
+    cameraApi = {
+      reset: resetToInitial,
+      moveTo,
+      setTarget,
+      rotateTo,
+      rotateBy,
+      tiltTo,
+      tiltBy,
+      getCurrentPosition,
+      getCurrentTarget,
+      getCurrentAngle,
+      getCurrentTilt,
+    };
+    return () => {
+      cameraApi = null;
+    };
+  }, [resetToInitial, moveTo, setTarget, rotateTo, rotateBy, tiltTo, tiltBy, getCurrentPosition, getCurrentTarget, getCurrentAngle, getCurrentTilt]);
 
   return (
     <>
@@ -1147,9 +1609,6 @@ function InfoPanel({ building }: InfoPanelProps) {
 
   const fileName = building.path.split('/').pop();
   const dirPath = building.path.split('/').slice(0, -1).join('/');
-  const rawExt = building.fileExtension || building.path.split('.').pop() || '';
-  const ext = rawExt.replace(/^\./, '');
-  const isCode = isCodeFile(ext);
 
   return (
     <div
@@ -1243,6 +1702,8 @@ interface CitySceneProps {
   heightScaling: HeightScaling;
   linearScale: number;
   focusDirectory: string | null;
+  focusColor?: string | null;
+  adaptCameraToBuildings?: boolean;
 }
 
 function CityScene({
@@ -1258,6 +1719,8 @@ function CityScene({
   heightScaling,
   linearScale,
   focusDirectory,
+  focusColor,
+  adaptCameraToBuildings = false,
 }: CitySceneProps) {
   const centerOffset = useMemo(
     () => ({
@@ -1272,6 +1735,12 @@ function CityScene({
     cityData.bounds.maxZ - cityData.bounds.minZ,
   );
 
+  // Calculate max building height for camera positioning (when adaptCameraToBuildings is true)
+  const maxBuildingHeight = useMemo(() => {
+    if (!adaptCameraToBuildings) return 0;
+    return Math.max(...cityData.buildings.map(b => b.dimensions[1]), 0);
+  }, [adaptCameraToBuildings, cityData.buildings]);
+
   const activeHighlights = useMemo(() => hasActiveHighlights(highlightLayers), [highlightLayers]);
 
   // Helper to check if a path is inside a directory
@@ -1285,10 +1754,12 @@ function CityScene({
   // Phase 2: Buildings collapse/expand
   // Phase 3: Camera zooms into new directory
   //
-  // We track two separate states:
+  // We track three separate states for smooth transitions:
   // - buildingFocusDirectory: controls which buildings are collapsed (passed to InstancedBuildings)
+  // - buildingFocusColor: the color for the focused district (synced with buildingFocusDirectory)
   // - cameraFocusDirectory: controls camera position (used for focusTarget calculation)
   const [buildingFocusDirectory, setBuildingFocusDirectory] = useState<string | null>(null);
+  const [buildingFocusColor, setBuildingFocusColor] = useState<string | null>(null);
   const [cameraFocusDirectory, setCameraFocusDirectory] = useState<string | null>(null);
   const prevFocusDirectoryRef = useRef<string | null>(null);
   const animationTimersRef = useRef<NodeJS.Timeout[]>([]);
@@ -1306,25 +1777,60 @@ function CityScene({
 
     // Case 1: Going from overview to a directory (null -> dir)
     if (prevFocus === null && focusDirectory !== null) {
-      // Phase 1: Collapse buildings immediately
+      // Check if camera is already focused on this area via highlight layers
+      const highlightMatchesFocus = highlightLayers.some(
+        layer => layer.enabled && layer.items.some(
+          item => item.type === 'directory' && (
+            item.path === focusDirectory ||
+            focusDirectory.startsWith(item.path + '/')
+          )
+        )
+      );
+
+      // Phase 1: Collapse buildings immediately with the new color
       setBuildingFocusDirectory(focusDirectory);
-      // Phase 2: After collapse settles, zoom camera in
-      const timer = setTimeout(() => {
+      setBuildingFocusColor(focusColor ?? null);
+
+      if (highlightMatchesFocus) {
+        // Camera is already there, set immediately
         setCameraFocusDirectory(focusDirectory);
-      }, 600);
-      animationTimersRef.current.push(timer);
+      } else {
+        // Phase 2: After collapse settles, zoom camera in
+        const timer = setTimeout(() => {
+          setCameraFocusDirectory(focusDirectory);
+        }, 600);
+        animationTimersRef.current.push(timer);
+      }
       return;
     }
 
     // Case 2: Going from a directory to overview (dir -> null)
     if (prevFocus !== null && focusDirectory === null) {
-      // Phase 1: Zoom camera out first
-      setCameraFocusDirectory(null);
-      // Phase 2: After zoom-out settles, expand buildings
-      const timer = setTimeout(() => {
+      // Check if highlight layers will keep camera focused on same area
+      const highlightMatchesPrevFocus = highlightLayers.some(
+        layer => layer.enabled && layer.items.some(
+          item => item.type === 'directory' && (
+            item.path === prevFocus ||
+            prevFocus.startsWith(item.path + '/')
+          )
+        )
+      );
+
+      if (highlightMatchesPrevFocus) {
+        // Camera will stay focused via highlights, just clear focus state
+        setCameraFocusDirectory(null);
         setBuildingFocusDirectory(null);
-      }, 500);
-      animationTimersRef.current.push(timer);
+        setBuildingFocusColor(null);
+      } else {
+        // Phase 1: Zoom camera out first
+        setCameraFocusDirectory(null);
+        // Phase 2: After zoom-out settles, expand buildings and clear color
+        const timer = setTimeout(() => {
+          setBuildingFocusDirectory(null);
+          setBuildingFocusColor(null);
+        }, 500);
+        animationTimersRef.current.push(timer);
+      }
       return;
     }
 
@@ -1332,9 +1838,10 @@ function CityScene({
     if (prevFocus !== null && focusDirectory !== null) {
       // Phase 1: Zoom camera out
       setCameraFocusDirectory(null);
-      // Phase 2: After zoom-out, collapse/expand buildings
+      // Phase 2: After zoom-out, collapse/expand buildings with new color
       const timer1 = setTimeout(() => {
         setBuildingFocusDirectory(focusDirectory);
+        setBuildingFocusColor(focusColor ?? null);
       }, 500);
       // Phase 3: After collapse settles, zoom camera into new directory
       const timer2 = setTimeout(() => {
@@ -1465,7 +1972,7 @@ function CityScene({
 
   return (
     <>
-      <AnimatedCamera citySize={citySize} isFlat={growProgress === 0} focusTarget={focusTarget} />
+      <AnimatedCamera citySize={citySize} isFlat={growProgress === 0} focusTarget={focusTarget} maxBuildingHeight={maxBuildingHeight} />
 
       <ambientLight intensity={1.2} />
       <hemisphereLight args={['#ddeeff', '#667788', 0.8]} position={[0, citySize, 0]} />
@@ -1481,14 +1988,39 @@ function CityScene({
       />
       <directionalLight position={[citySize * 0.3, citySize, citySize]} intensity={0.6} />
 
-      {cityData.districts.map(district => (
-        <DistrictFloor
-          key={district.path}
-          district={district}
-          centerOffset={centerOffset}
-          opacity={1}
-        />
-      ))}
+      {cityData.districts.map(district => {
+        // Check if district matches focusDirectory
+        const isFocused = buildingFocusDirectory
+          ? district.path === buildingFocusDirectory
+          : false;
+
+        // Check if district matches any highlight layer
+        let highlightLayerColor: string | null = null;
+        for (const layer of highlightLayers) {
+          if (!layer.enabled) continue;
+          for (const item of layer.items) {
+            if (item.type === 'directory' && item.path === district.path) {
+              highlightLayerColor = layer.color;
+              break;
+            }
+          }
+          if (highlightLayerColor) break;
+        }
+
+        // Use buildingFocusColor (synced with animation) instead of focusColor prop
+        // Focus color takes priority, then highlight layer color
+        const districtColor = (isFocused && buildingFocusColor) ? buildingFocusColor : highlightLayerColor;
+
+        return (
+          <DistrictFloor
+            key={district.path}
+            district={district}
+            centerOffset={centerOffset}
+            opacity={1}
+            highlightColor={districtColor}
+          />
+        );
+      })}
 
       <InstancedBuildings
         buildings={cityData.buildings}
@@ -1567,6 +2099,8 @@ export interface FileCity3DProps {
   linearScale?: number;
   /** Directory path to focus on - buildings outside will collapse */
   focusDirectory?: string | null;
+  /** Color to highlight the focused directory (hex color, e.g. "#3b82f6") */
+  focusColor?: string | null;
   /** Callback when user clicks on a district to navigate */
   onDirectorySelect?: (directory: string | null) => void;
   /** Background color for the canvas container */
@@ -1575,6 +2109,8 @@ export interface FileCity3DProps {
   textColor?: string;
   /** Currently selected building (controlled by host) */
   selectedBuilding?: CityBuilding | null;
+  /** When true, camera height adjusts based on tallest building when grown */
+  adaptCameraToBuildings?: boolean;
 }
 
 /**
@@ -1596,17 +2132,19 @@ export function FileCity3D({
   showControls = true,
   highlightLayers = [],
   isolationMode = 'transparent',
-  dimOpacity = 0.15,
+  dimOpacity: _dimOpacity = 0.15,
   isLoading = false,
   loadingMessage = 'Loading file city...',
   emptyMessage = 'No file tree data available',
   heightScaling = 'logarithmic',
   linearScale = 0.05,
   focusDirectory = null,
-  onDirectorySelect,
+  focusColor = null,
+  onDirectorySelect: _onDirectorySelect,
   backgroundColor = '#0f172a',
   textColor = '#94a3b8',
   selectedBuilding = null,
+  adaptCameraToBuildings = false,
 }: FileCity3DProps) {
   const [hoveredBuilding, setHoveredBuilding] = useState<CityBuilding | null>(null);
   const [internalIsGrown, setInternalIsGrown] = useState(false);
@@ -1628,6 +2166,7 @@ export function FileCity3D({
     } else if (!animationConfig.startFlat) {
       setIsGrown(true);
     }
+    return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [animationConfig.startFlat, animationConfig.autoStartDelay]);
 
@@ -1720,6 +2259,8 @@ export function FileCity3D({
           heightScaling={heightScaling}
           linearScale={linearScale}
           focusDirectory={focusDirectory}
+          focusColor={focusColor}
+          adaptCameraToBuildings={adaptCameraToBuildings}
         />
       </Canvas>
       <InfoPanel building={selectedBuilding || hoveredBuilding} />

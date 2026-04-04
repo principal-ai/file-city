@@ -2,6 +2,16 @@ import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import {
   FileCity3D,
+  resetCamera,
+  rotateCameraTo,
+  rotateCameraBy,
+  tiltCameraTo,
+  tiltCameraBy,
+  moveCameraTo,
+  setCameraTarget,
+  getCameraTarget,
+  getCameraAngle,
+  getCameraTilt,
   type CityData,
   type CityBuilding,
   type CityDistrict,
@@ -130,7 +140,7 @@ const sampleCityData: CityData = {
     },
   ],
   bounds: { minX: -5, maxX: 85, minZ: -5, maxZ: 80 },
-  metadata: { totalFiles: 31, totalDirectories: 4, rootPath: '/project' },
+  metadata: { totalFiles: 31, totalDirectories: 4, rootPath: '/project', analyzedAt: new Date() },
 };
 
 // Large city for stress testing
@@ -181,6 +191,7 @@ function generateLargeCityData(): CityData {
       totalFiles: buildings.length,
       totalDirectories: districts.length,
       rootPath: '/large-project',
+      analyzedAt: new Date(),
     },
   };
 }
@@ -232,6 +243,7 @@ function generateMonorepoCityData(): CityData {
       totalFiles: buildings.length,
       totalDirectories: districts.length,
       rootPath: '/monorepo',
+      analyzedAt: new Date(),
     },
   };
 }
@@ -925,7 +937,7 @@ const DirectorySelectionTemplate: React.FC = () => {
         }}
       >
         <div style={{ marginBottom: 12, fontSize: 12, color: '#64748b' }}>
-          Click a directory to focus (collapse others). Click again or "Show All" to reset.
+          Click a directory to focus (collapse others). Click again or &quot;Show All&quot; to reset.
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           <button
@@ -984,4 +996,1139 @@ const DirectorySelectionTemplate: React.FC = () => {
 
 export const DirectorySelection: Story = {
   render: () => <DirectorySelectionTemplate />,
+};
+
+/**
+ * Tour Scenario Tester - Test all combinations of focusDirectory and highlightLayers
+ *
+ * This story allows testing the animation system across all documented scenarios:
+ * - Baseline (no focus, no highlights)
+ * - Focus only
+ * - Highlight only
+ * - Focus + Highlight combinations
+ * - Transitions between states
+ *
+ * See docs/TOUR_TEST_SCENARIOS.md for full documentation.
+ */
+interface TestScenario {
+  id: string;
+  name: string;
+  description: string;
+  focusDirectory: string | null;
+  focusColor?: string | null;
+  highlightLayers: HighlightLayer[];
+  isolationMode: IsolationMode;
+}
+
+const testScenarios: TestScenario[] = [
+  // Base scenarios
+  {
+    id: 'S1-baseline',
+    name: 'S1: Baseline',
+    description: 'Full city view, no focus, no highlights',
+    focusDirectory: null,
+    highlightLayers: [],
+    isolationMode: 'none',
+  },
+  {
+    id: 'S2-focus-only',
+    name: 'S2: Focus Only (src)',
+    description: 'Camera zooms to src, others collapse, focused area highlighted',
+    focusDirectory: 'auth-server/src',
+    focusColor: '#3b82f6',
+    highlightLayers: [],
+    isolationMode: 'collapse',
+  },
+  {
+    id: 'S2b-focus-only-tests',
+    name: 'S2b: Focus Only (bruno)',
+    description: 'Camera zooms to bruno directory, highlighted in green',
+    focusDirectory: 'auth-server/bruno',
+    focusColor: '#22c55e',
+    highlightLayers: [],
+    isolationMode: 'collapse',
+  },
+  {
+    id: 'S3-highlight-only',
+    name: 'S3: Highlight Only',
+    description: 'Full view with highlight layer, non-highlighted collapse',
+    focusDirectory: null,
+    highlightLayers: [
+      {
+        id: 'api-layer',
+        name: 'API Routes',
+        enabled: true,
+        color: '#22c55e',
+        items: [{ path: 'auth-server/src/app/api', type: 'directory' as const }],
+      },
+    ],
+    isolationMode: 'collapse',
+  },
+  {
+    id: 'S4-focus-highlight-same',
+    name: 'S4: Focus + Highlight (same directory)',
+    description: 'Focus and highlight on same directory',
+    focusDirectory: 'auth-server/src/app/api',
+    highlightLayers: [
+      {
+        id: 'api-layer',
+        name: 'API Routes',
+        enabled: true,
+        color: '#3b82f6',
+        items: [{ path: 'auth-server/src/app/api', type: 'directory' as const }],
+      },
+    ],
+    isolationMode: 'collapse',
+  },
+  {
+    id: 'S5-focus-highlight-subset',
+    name: 'S5: Focus + Highlight (subset)',
+    description: 'Focus on src, highlight only components subset',
+    focusDirectory: 'auth-server/src',
+    highlightLayers: [
+      {
+        id: 'lib-layer',
+        name: 'Libraries',
+        enabled: true,
+        color: '#8b5cf6',
+        items: [{ path: 'auth-server/src/lib', type: 'directory' as const }],
+      },
+    ],
+    isolationMode: 'collapse',
+  },
+  {
+    id: 'S6-multiple-highlights-focus',
+    name: 'S6: Multiple Highlights (with focus)',
+    description: 'Two highlight layers within focused area',
+    focusDirectory: 'auth-server/src',
+    highlightLayers: [
+      {
+        id: 'api-layer',
+        name: 'API Routes',
+        enabled: true,
+        color: '#22c55e',
+        items: [{ path: 'auth-server/src/app/api', type: 'directory' as const }],
+      },
+      {
+        id: 'lib-layer',
+        name: 'Libraries',
+        enabled: true,
+        color: '#f59e0b',
+        items: [{ path: 'auth-server/src/lib', type: 'directory' as const }],
+      },
+    ],
+    isolationMode: 'collapse',
+  },
+  {
+    id: 'S7-multiple-highlights-no-focus',
+    name: 'S7: Multiple Highlights (no focus)',
+    description: 'Two highlight layers, non-highlighted collapse',
+    focusDirectory: null,
+    highlightLayers: [
+      {
+        id: 'api-layer',
+        name: 'API Routes',
+        enabled: true,
+        color: '#3b82f6',
+        items: [{ path: 'auth-server/src/app/api', type: 'directory' as const }],
+      },
+      {
+        id: 'bruno-layer',
+        name: 'Bruno Tests',
+        enabled: true,
+        color: '#ef4444',
+        items: [{ path: 'auth-server/bruno', type: 'directory' as const }],
+      },
+    ],
+    isolationMode: 'collapse',
+  },
+  // Edge cases
+  {
+    id: 'E3-overlapping-highlights',
+    name: 'E3: Overlapping Highlights',
+    description: 'Two layers highlight overlapping paths',
+    focusDirectory: 'auth-server/src',
+    highlightLayers: [
+      {
+        id: 'src-layer',
+        name: 'All Source',
+        enabled: true,
+        color: '#22c55e',
+        items: [{ path: 'auth-server/src', type: 'directory' as const }],
+      },
+      {
+        id: 'api-layer',
+        name: 'API Only',
+        enabled: true,
+        color: '#ef4444',
+        items: [{ path: 'auth-server/src/app/api', type: 'directory' as const }],
+      },
+    ],
+    isolationMode: 'collapse',
+  },
+  {
+    id: 'E4-focus-inside-highlight',
+    name: 'E4: Focus Inside Highlight',
+    description: 'Focus on subset of highlighted area',
+    focusDirectory: 'auth-server/src/app/api/auth',
+    highlightLayers: [
+      {
+        id: 'api-layer',
+        name: 'All API',
+        enabled: true,
+        color: '#8b5cf6',
+        items: [{ path: 'auth-server/src/app/api', type: 'directory' as const }],
+      },
+    ],
+    isolationMode: 'collapse',
+  },
+];
+
+const TourScenarioTesterTemplate: React.FC = () => {
+  const [currentScenarioIndex, setCurrentScenarioIndex] = React.useState(0);
+  const [transitionLog, setTransitionLog] = React.useState<string[]>([]);
+  const prevScenarioRef = React.useRef<TestScenario | null>(null);
+
+  const scenario = testScenarios[currentScenarioIndex];
+
+  // Log transitions
+  React.useEffect(() => {
+    const prev = prevScenarioRef.current;
+    if (prev && prev.id !== scenario.id) {
+      const logEntry = `${new Date().toLocaleTimeString()} | ${prev.name} → ${scenario.name}`;
+      setTransitionLog(logs => [...logs.slice(-9), logEntry]);
+      console.log('[TourScenario]', logEntry);
+      console.log('  From:', { focus: prev.focusDirectory, layers: prev.highlightLayers.length });
+      console.log('  To:', {
+        focus: scenario.focusDirectory,
+        layers: scenario.highlightLayers.length,
+      });
+    }
+    prevScenarioRef.current = scenario;
+  }, [scenario]);
+
+  const goToScenario = (index: number) => {
+    if (index >= 0 && index < testScenarios.length) {
+      setCurrentScenarioIndex(index);
+    }
+  };
+
+  return (
+    <div
+      style={{ height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}
+    >
+      {/* 3D City */}
+      <FileCity3D
+        cityData={authServerCityData as CityData}
+        height="100%"
+        heightScaling="linear"
+        linearScale={0.5}
+        focusDirectory={scenario.focusDirectory}
+        focusColor={scenario.focusColor}
+        highlightLayers={scenario.highlightLayers}
+        isolationMode={scenario.isolationMode}
+        dimOpacity={0.12}
+        animation={{
+          startFlat: false,
+          staggerDelay: 8,
+          tension: 140,
+          friction: 14,
+        }}
+        showControls={true}
+      />
+
+      {/* Scenario selector panel */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 16,
+          left: 16,
+          zIndex: 100,
+          background: 'rgba(15, 23, 42, 0.95)',
+          border: '1px solid #334155',
+          borderRadius: 8,
+          padding: 16,
+          color: '#e2e8f0',
+          fontFamily: 'system-ui, sans-serif',
+          maxWidth: 360,
+        }}
+      >
+        <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>
+          Tour Scenario Tester
+        </h3>
+
+        {/* Scenario dropdown */}
+        <select
+          value={currentScenarioIndex}
+          onChange={e => goToScenario(Number(e.target.value))}
+          style={{
+            width: '100%',
+            padding: '8px 12px',
+            background: '#1e293b',
+            border: '1px solid #475569',
+            borderRadius: 6,
+            color: '#e2e8f0',
+            fontSize: 13,
+            marginBottom: 12,
+          }}
+        >
+          {testScenarios.map((s, i) => (
+            <option key={s.id} value={i}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+
+        {/* Scenario description */}
+        <p style={{ margin: '0 0 12px', fontSize: 12, color: '#94a3b8' }}>
+          {scenario.description}
+        </p>
+
+        {/* Current state */}
+        <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <strong>focusDirectory:</strong>{' '}
+            <code style={{ color: '#22c55e' }}>{scenario.focusDirectory ?? 'null'}</code>
+            {scenario.focusColor && (
+              <span
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 2,
+                  background: scenario.focusColor,
+                  marginLeft: 4,
+                }}
+              />
+            )}
+          </div>
+          <div>
+            <strong>highlightLayers:</strong>{' '}
+            <code style={{ color: '#3b82f6' }}>{scenario.highlightLayers.length} layer(s)</code>
+          </div>
+          <div>
+            <strong>isolationMode:</strong>{' '}
+            <code style={{ color: '#f59e0b' }}>{scenario.isolationMode}</code>
+          </div>
+        </div>
+
+        {/* Highlight layer details */}
+        {scenario.highlightLayers.length > 0 && (
+          <div style={{ fontSize: 10, color: '#64748b', marginBottom: 8 }}>
+            {scenario.highlightLayers.map(layer => (
+              <div key={layer.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: 2,
+                    background: layer.color,
+                  }}
+                />
+                <span>{layer.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Quick navigation */}
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          <button
+            onClick={() => goToScenario(currentScenarioIndex - 1)}
+            disabled={currentScenarioIndex === 0}
+            style={{
+              flex: 1,
+              padding: '6px 12px',
+              background: currentScenarioIndex === 0 ? '#1e293b' : '#334155',
+              border: '1px solid #475569',
+              borderRadius: 4,
+              color: currentScenarioIndex === 0 ? '#475569' : '#e2e8f0',
+              cursor: currentScenarioIndex === 0 ? 'not-allowed' : 'pointer',
+              fontSize: 12,
+            }}
+          >
+            ← Prev
+          </button>
+          <button
+            onClick={() => goToScenario(0)}
+            style={{
+              padding: '6px 12px',
+              background: '#334155',
+              border: '1px solid #475569',
+              borderRadius: 4,
+              color: '#e2e8f0',
+              cursor: 'pointer',
+              fontSize: 12,
+            }}
+          >
+            Reset
+          </button>
+          <button
+            onClick={() => goToScenario(currentScenarioIndex + 1)}
+            disabled={currentScenarioIndex === testScenarios.length - 1}
+            style={{
+              flex: 1,
+              padding: '6px 12px',
+              background:
+                currentScenarioIndex === testScenarios.length - 1 ? '#1e293b' : '#334155',
+              border: '1px solid #475569',
+              borderRadius: 4,
+              color:
+                currentScenarioIndex === testScenarios.length - 1 ? '#475569' : '#e2e8f0',
+              cursor:
+                currentScenarioIndex === testScenarios.length - 1 ? 'not-allowed' : 'pointer',
+              fontSize: 12,
+            }}
+          >
+            Next →
+          </button>
+        </div>
+      </div>
+
+      {/* Transition log */}
+      {transitionLog.length > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 16,
+            left: 16,
+            zIndex: 100,
+            background: 'rgba(15, 23, 42, 0.9)',
+            border: '1px solid #334155',
+            borderRadius: 8,
+            padding: 12,
+            color: '#94a3b8',
+            fontFamily: 'monospace',
+            fontSize: 10,
+            maxWidth: 400,
+          }}
+        >
+          <div style={{ marginBottom: 4, color: '#64748b', fontWeight: 600 }}>
+            Transition Log:
+          </div>
+          {transitionLog.map((log, i) => (
+            <div key={i} style={{ opacity: 0.5 + (i / transitionLog.length) * 0.5 }}>
+              {log}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Scenario indicator pills */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 16,
+          right: 16,
+          zIndex: 100,
+          display: 'flex',
+          gap: 4,
+        }}
+      >
+        {testScenarios.map((s, i) => (
+          <button
+            key={s.id}
+            onClick={() => goToScenario(i)}
+            title={s.name}
+            style={{
+              width: i === currentScenarioIndex ? 24 : 8,
+              height: 8,
+              borderRadius: 4,
+              border: 'none',
+              background: i === currentScenarioIndex ? '#3b82f6' : '#475569',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export const TourScenarioTester: Story = {
+  render: () => <TourScenarioTesterTemplate />,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Interactive tester for all tour scenarios. See docs/TOUR_TEST_SCENARIOS.md for documentation.',
+      },
+    },
+  },
+};
+
+/**
+ * Camera Controls - Test programmatic camera rotation and movement
+ */
+const CameraControlsTemplate: React.FC = () => {
+  const [currentAngle, setCurrentAngle] = React.useState<number | null>(null);
+  const [currentTilt, setCurrentTilt] = React.useState<number | null>(null);
+  const [currentTarget, setCurrentTarget] = React.useState<{ x: number; y: number; z: number } | null>(null);
+  const [customAngle, setCustomAngle] = React.useState(0);
+  const [duration, setDuration] = React.useState<number | undefined>(undefined);
+
+  // Update angle, tilt, and target display periodically
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      const angle = getCameraAngle();
+      const tilt = getCameraTilt();
+      const target = getCameraTarget();
+      if (angle !== null) {
+        setCurrentAngle(Math.round(angle));
+      }
+      if (tilt !== null) {
+        setCurrentTilt(Math.round(tilt));
+      }
+      if (target !== null) {
+        setCurrentTarget({
+          x: Math.round(target.x),
+          y: Math.round(target.y),
+          z: Math.round(target.z),
+        });
+      }
+    }, 100);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Get rotation options based on current duration setting
+  const getRotateOptions = () => duration ? { duration } : undefined;
+
+  const buttonStyle = {
+    padding: '10px 16px',
+    background: '#334155',
+    border: '1px solid #475569',
+    borderRadius: 6,
+    color: '#e2e8f0',
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 500 as const,
+    minWidth: 80,
+  };
+
+  const directionButtonStyle = {
+    ...buttonStyle,
+    width: 60,
+    height: 60,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'column' as const,
+    gap: 2,
+  };
+
+  return (
+    <div
+      style={{ height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}
+    >
+      {/* 3D City */}
+      <FileCity3D
+        cityData={authServerCityData as CityData}
+        height="100%"
+        heightScaling="linear"
+        linearScale={0.5}
+        animation={{
+          startFlat: true,
+          autoStartDelay: 600,
+          staggerDelay: 8,
+          tension: 140,
+          friction: 14,
+        }}
+        showControls={false}
+      />
+
+      {/* Camera controls panel */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 16,
+          left: 16,
+          zIndex: 100,
+          background: 'rgba(15, 23, 42, 0.95)',
+          border: '1px solid #334155',
+          borderRadius: 8,
+          padding: 16,
+          color: '#e2e8f0',
+          fontFamily: 'system-ui, sans-serif',
+          minWidth: 280,
+        }}
+      >
+        <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 600 }}>
+          Camera Controls
+        </h3>
+
+        {/* Current angle and tilt display */}
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+            marginBottom: 16,
+          }}
+        >
+          <div
+            style={{
+              flex: 1,
+              background: '#1e293b',
+              padding: '8px 12px',
+              borderRadius: 6,
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4 }}>Rotation</div>
+            <div style={{ fontSize: 20, fontWeight: 600, color: '#3b82f6' }}>
+              {currentAngle !== null ? `${currentAngle}°` : '—'}
+            </div>
+          </div>
+          <div
+            style={{
+              flex: 1,
+              background: '#1e293b',
+              padding: '8px 12px',
+              borderRadius: 6,
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4 }}>Tilt</div>
+            <div style={{ fontSize: 20, fontWeight: 600, color: '#22c55e' }}>
+              {currentTilt !== null ? `${currentTilt}°` : '—'}
+            </div>
+          </div>
+        </div>
+
+        {/* Duration control */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>
+            Animation Duration: {duration ? `${duration}ms` : 'Spring (default)'}
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {[undefined, 500, 1000, 2000, 3000, 5000].map((d) => (
+              <button
+                key={d ?? 'spring'}
+                onClick={() => setDuration(d)}
+                style={{
+                  padding: '6px 10px',
+                  background: duration === d ? '#3b82f6' : '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: 4,
+                  color: duration === d ? '#ffffff' : '#94a3b8',
+                  cursor: 'pointer',
+                  fontSize: 11,
+                }}
+              >
+                {d ? `${d}ms` : 'Spring'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Cardinal direction buttons */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>Cardinal Directions</div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 60px)',
+              gridTemplateRows: 'repeat(3, 60px)',
+              gap: 4,
+              justifyContent: 'center',
+            }}
+          >
+            <div /> {/* Empty top-left */}
+            <button
+              onClick={() => rotateCameraTo('north', getRotateOptions())}
+              style={directionButtonStyle}
+              title="North (180°)"
+            >
+              <span style={{ fontSize: 16 }}>N</span>
+              <span style={{ fontSize: 9, color: '#64748b' }}>180°</span>
+            </button>
+            <div /> {/* Empty top-right */}
+
+            <button
+              onClick={() => rotateCameraTo('west', getRotateOptions())}
+              style={directionButtonStyle}
+              title="West (90°)"
+            >
+              <span style={{ fontSize: 16 }}>W</span>
+              <span style={{ fontSize: 9, color: '#64748b' }}>90°</span>
+            </button>
+            <button
+              onClick={() => resetCamera()}
+              style={{
+                ...directionButtonStyle,
+                background: '#1e293b',
+              }}
+              title="Reset Camera"
+            >
+              <span style={{ fontSize: 12 }}>Reset</span>
+            </button>
+            <button
+              onClick={() => rotateCameraTo('east', getRotateOptions())}
+              style={directionButtonStyle}
+              title="East (270°)"
+            >
+              <span style={{ fontSize: 16 }}>E</span>
+              <span style={{ fontSize: 9, color: '#64748b' }}>270°</span>
+            </button>
+
+            <div /> {/* Empty bottom-left */}
+            <button
+              onClick={() => rotateCameraTo('south', getRotateOptions())}
+              style={directionButtonStyle}
+              title="South (0°)"
+            >
+              <span style={{ fontSize: 16 }}>S</span>
+              <span style={{ fontSize: 9, color: '#64748b' }}>0°</span>
+            </button>
+            <div /> {/* Empty bottom-right */}
+          </div>
+        </div>
+
+        {/* Custom angle input */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>Custom Angle</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="range"
+              min={0}
+              max={360}
+              value={customAngle}
+              onChange={e => setCustomAngle(Number(e.target.value))}
+              style={{ flex: 1 }}
+            />
+            <input
+              type="number"
+              min={0}
+              max={360}
+              value={customAngle}
+              onChange={e => setCustomAngle(Number(e.target.value))}
+              style={{
+                width: 60,
+                padding: '4px 8px',
+                background: '#1e293b',
+                border: '1px solid #475569',
+                borderRadius: 4,
+                color: '#e2e8f0',
+                fontSize: 13,
+                textAlign: 'center',
+              }}
+            />
+            <button
+              onClick={() => rotateCameraTo(customAngle, getRotateOptions())}
+              style={{ ...buttonStyle, minWidth: 50 }}
+            >
+              Go
+            </button>
+          </div>
+        </div>
+
+        {/* Quick angle presets */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>Quick Angles (shortest path)</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {[0, 45, 90, 135, 180, 225, 270, 315].map(angle => (
+              <button
+                key={angle}
+                onClick={() => rotateCameraTo(angle, getRotateOptions())}
+                style={{
+                  padding: '6px 10px',
+                  background: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: 4,
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  fontSize: 11,
+                }}
+              >
+                {angle}°
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Relative rotation */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>Rotate (horizontal arc)</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              onClick={() => rotateCameraBy(-90, getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="Counter-clockwise 90°"
+            >
+              -90° CCW
+            </button>
+            <button
+              onClick={() => rotateCameraBy(-45, getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="Counter-clockwise 45°"
+            >
+              -45°
+            </button>
+            <button
+              onClick={() => rotateCameraBy(45, getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="Clockwise 45°"
+            >
+              +45°
+            </button>
+            <button
+              onClick={() => rotateCameraBy(90, getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="Clockwise 90°"
+            >
+              +90° CW
+            </button>
+          </div>
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <button
+              onClick={() => rotateCameraBy(-180, getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="Counter-clockwise 180°"
+            >
+              -180° CCW
+            </button>
+            <button
+              onClick={() => rotateCameraBy(180, getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="Clockwise 180°"
+            >
+              +180° CW
+            </button>
+            <button
+              onClick={() => rotateCameraBy(360, getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="Full rotation clockwise"
+            >
+              +360° Full
+            </button>
+          </div>
+        </div>
+
+        {/* Tilt presets */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>Tilt Presets (vertical arc)</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              onClick={() => tiltCameraTo('top', getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="Top-down view (15°)"
+            >
+              Top (15°)
+            </button>
+            <button
+              onClick={() => tiltCameraTo('high', getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="High angle (35°)"
+            >
+              High (35°)
+            </button>
+            <button
+              onClick={() => tiltCameraTo('low', getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="Low angle (60°)"
+            >
+              Low (60°)
+            </button>
+            <button
+              onClick={() => tiltCameraTo('level', getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="Level view (80°)"
+            >
+              Level (80°)
+            </button>
+          </div>
+        </div>
+
+        {/* Relative tilt */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>Tilt By (+ = down, - = up)</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              onClick={() => tiltCameraBy(-30, getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="Tilt up 30°"
+            >
+              -30° Up
+            </button>
+            <button
+              onClick={() => tiltCameraBy(-15, getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="Tilt up 15°"
+            >
+              -15°
+            </button>
+            <button
+              onClick={() => tiltCameraBy(15, getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="Tilt down 15°"
+            >
+              +15°
+            </button>
+            <button
+              onClick={() => tiltCameraBy(30, getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="Tilt down 30°"
+            >
+              +30° Down
+            </button>
+          </div>
+        </div>
+
+        {/* Camera target */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>
+            Camera Target: {currentTarget ? `(${currentTarget.x}, ${currentTarget.y}, ${currentTarget.z})` : '—'}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              onClick={() => setCameraTarget(0, 0, 0, getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="Look at center"
+            >
+              Center
+            </button>
+            <button
+              onClick={() => setCameraTarget(-40, 0, -40, getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="Look at top-left area"
+            >
+              Top-Left
+            </button>
+            <button
+              onClick={() => setCameraTarget(40, 0, 40, getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="Look at bottom-right area"
+            >
+              Bottom-Right
+            </button>
+          </div>
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <button
+              onClick={() => setCameraTarget(20, 0, 0, getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="Look at right side"
+            >
+              Right (+X)
+            </button>
+            <button
+              onClick={() => setCameraTarget(-20, 0, 0, getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="Look at left side"
+            >
+              Left (-X)
+            </button>
+            <button
+              onClick={() => setCameraTarget(0, 0, 30, getRotateOptions())}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+              title="Look at front"
+            >
+              Front (+Z)
+            </button>
+          </div>
+        </div>
+
+        {/* Move to coordinates */}
+        <div>
+          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>Move to Position</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              onClick={() => moveCameraTo(0, 0, 50)}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+            >
+              Center
+            </button>
+            <button
+              onClick={() => moveCameraTo(-50, -50, 40)}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+            >
+              Top-Left
+            </button>
+            <button
+              onClick={() => moveCameraTo(50, 50, 40)}
+              style={{ ...buttonStyle, flex: 1, fontSize: 11 }}
+            >
+              Bottom-Right
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Angle reference */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 16,
+          right: 16,
+          zIndex: 100,
+          background: 'rgba(15, 23, 42, 0.9)',
+          border: '1px solid #334155',
+          borderRadius: 8,
+          padding: 12,
+          color: '#94a3b8',
+          fontFamily: 'monospace',
+          fontSize: 11,
+          maxWidth: 200,
+        }}
+      >
+        <div style={{ fontWeight: 600, marginBottom: 8, color: '#3b82f6' }}>Rotation (horizontal)</div>
+        <div>0° = South (default)</div>
+        <div>90° = West</div>
+        <div>180° = North</div>
+        <div>270° = East</div>
+        <div style={{ marginTop: 8, borderTop: '1px solid #334155', paddingTop: 8 }}>
+          <div style={{ fontWeight: 600, marginBottom: 4, color: '#22c55e' }}>Tilt (vertical)</div>
+          <div>0° = Top-down</div>
+          <div>45° = Diagonal</div>
+          <div>90° = Level/Horizontal</div>
+        </div>
+        <div style={{ marginTop: 8, borderTop: '1px solid #334155', paddingTop: 8 }}>
+          <div style={{ color: '#e2e8f0', marginBottom: 4 }}>Direction</div>
+          <div>Rotate: + = CW, - = CCW</div>
+          <div>Tilt: + = down, - = up</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const CameraControls: Story = {
+  render: () => <CameraControlsTemplate />,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Test programmatic camera rotation and movement. Use cardinal direction buttons, custom angles, or position buttons to control the camera.',
+      },
+    },
+  },
+};
+
+/**
+ * 2D to 3D Transition - Tests the camera angle adjustment when transitioning from flat to grown
+ * Camera starts top-down when flat, then animates to an angled view when buildings grow
+ */
+const FlatToGrownTransitionTemplate: React.FC = () => {
+  const [isGrown, setIsGrown] = React.useState(false);
+  const [autoTransition, setAutoTransition] = React.useState(false);
+  const [adaptCamera, setAdaptCamera] = React.useState(true);
+
+  // Auto-transition effect (simulates the CodeCityPanel behavior)
+  React.useEffect(() => {
+    if (!autoTransition) return;
+    setIsGrown(false);
+    const timer = setTimeout(() => {
+      setIsGrown(true);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [autoTransition]);
+
+  return (
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      {/* 3D City */}
+      <FileCity3D
+        cityData={sampleCityData}
+        height="100%"
+        heightScaling="linear"
+        linearScale={0.5}
+        isGrown={isGrown}
+        adaptCameraToBuildings={adaptCamera}
+        animation={{
+          startFlat: true,
+          autoStartDelay: null, // External control
+          staggerDelay: 15,
+          tension: 120,
+          friction: 14,
+        }}
+        showControls={true}
+      />
+
+      {/* Control panel */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 100,
+          background: 'rgba(15, 23, 42, 0.95)',
+          borderTop: '1px solid #334155',
+          padding: '16px 24px',
+        }}
+      >
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ color: '#94a3b8', fontSize: '14px' }}>
+            State: <strong style={{ color: isGrown ? '#22c55e' : '#f59e0b' }}>{isGrown ? 'GROWN' : 'FLAT'}</strong>
+          </div>
+          <button
+            onClick={() => setIsGrown(false)}
+            style={{
+              padding: '8px 16px',
+              background: !isGrown ? '#3b82f6' : '#1e293b',
+              color: 'white',
+              border: '1px solid #334155',
+              borderRadius: '6px',
+              cursor: 'pointer',
+            }}
+          >
+            Flatten (2D)
+          </button>
+          <button
+            onClick={() => setIsGrown(true)}
+            style={{
+              padding: '8px 16px',
+              background: isGrown ? '#3b82f6' : '#1e293b',
+              color: 'white',
+              border: '1px solid #334155',
+              borderRadius: '6px',
+              cursor: 'pointer',
+            }}
+          >
+            Grow (3D)
+          </button>
+          <button
+            onClick={() => {
+              setAutoTransition(false);
+              setTimeout(() => setAutoTransition(true), 10);
+            }}
+            style={{
+              padding: '8px 16px',
+              background: '#7c3aed',
+              color: 'white',
+              border: '1px solid #334155',
+              borderRadius: '6px',
+              cursor: 'pointer',
+            }}
+          >
+            Simulate 2D→3D Transition
+          </button>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94a3b8', fontSize: '14px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={adaptCamera}
+              onChange={(e) => setAdaptCamera(e.target.checked)}
+              style={{ cursor: 'pointer' }}
+            />
+            Adapt to building heights
+          </label>
+        </div>
+        <div style={{ color: '#64748b', fontSize: '12px', textAlign: 'center', marginTop: '8px' }}>
+          Camera should start top-down when flat, then animate to angled view when grown.
+          {adaptCamera && ' Camera height will adjust based on tallest building.'}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const FlatToGrownTransition: Story = {
+  render: () => <FlatToGrownTransitionTemplate />,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Tests the camera angle adjustment when transitioning between flat (2D) and grown (3D) states. ' +
+          'The camera should start with a top-down view when buildings are flat, then animate to an angled view when buildings grow. ' +
+          'Use "Simulate 2D→3D Transition" to test the full transition sequence as it happens in CodeCityPanel.',
+      },
+    },
+  },
 };
