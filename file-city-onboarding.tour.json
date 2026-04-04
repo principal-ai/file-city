@@ -1,0 +1,255 @@
+{
+  "id": "file-city-onboarding",
+  "title": "File City Monorepo Tour",
+  "description": "A guided walkthrough of the File City visualization engine — learn how codebases become cities through builder algorithms, React rendering, and server-side generation.",
+  "version": "1.0.0",
+  "audience": "New Contributors",
+  "prerequisites": [
+    "Familiarity with TypeScript and React",
+    "Basic understanding of monorepo architecture"
+  ],
+  "steps": [
+    {
+      "id": "welcome-overview",
+      "title": "Welcome to File City",
+      "description": "File City is a visualization engine that turns codebases into interactive city metaphors — files become buildings, directories become districts. Let's explore how it all fits together.",
+      "estimatedTime": 60,
+      "colorMode": "fileTypes"
+    },
+    {
+      "id": "monorepo-packages",
+      "title": "The Three Packages",
+      "description": "The monorepo is organized into three packages with clear separation of concerns. The builder handles pure data transformation, react provides interactive UI components, and server enables static image generation. Data flows from builder → react/server.",
+      "estimatedTime": 60,
+      "focusDirectory": "packages",
+      "highlightLayers": [
+        {
+          "id": "builder-pkg",
+          "name": "Builder (Algorithms)",
+          "color": "#3b82f6",
+          "items": [
+            { "path": "packages/builder", "type": "directory" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "react-pkg",
+          "name": "React (Client UI)",
+          "color": "#10b981",
+          "items": [
+            { "path": "packages/react", "type": "directory" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "server-pkg",
+          "name": "Server (SSR)",
+          "color": "#f59e0b",
+          "items": [
+            { "path": "packages/server", "type": "directory" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        }
+      ],
+      "colorMode": "fileTypes"
+    },
+    {
+      "id": "builder-core",
+      "title": "Builder: Core Algorithms",
+      "description": "The builder package transforms file system data into city geometry. The highlighted files form a pipeline: raw data is converted into a tree, versions are tracked across snapshots, and a treemap algorithm handles the spatial layout.",
+      "estimatedTime": 120,
+      "focusDirectory": "packages/builder/src",
+      "highlightLayers": [
+        {
+          "id": "builder-pipeline",
+          "name": "Build Pipeline",
+          "color": "#3b82f6",
+          "items": [
+            { "path": "packages/builder/src/buildMultiVersionCity.ts", "type": "file" },
+            { "path": "packages/builder/src/MultiVersionCityBuilder.ts", "type": "file" },
+            { "path": "packages/builder/src/CodeCityBuilderWithGrid.ts", "type": "file" },
+            { "path": "packages/builder/src/FileTreeBuilder.ts", "type": "file" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "builder-layout",
+          "name": "Layout Engine",
+          "color": "#8b5cf6",
+          "items": [
+            { "path": "packages/builder/src/GridLayoutManager.ts", "type": "file" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        }
+      ],
+      "interactiveActions": [
+        {
+          "type": "click-file",
+          "description": "Click to see the main entry point",
+          "target": "packages/builder/src/buildMultiVersionCity.ts"
+        }
+      ],
+      "colorMode": "fileTypes"
+    },
+    {
+      "id": "builder-types",
+      "title": "Builder: Domain Types",
+      "description": "This directory defines the shared domain model — the core shapes for cities, buildings, and districts that flow through the entire system. Every package depends on these definitions.",
+      "estimatedTime": 90,
+      "focusDirectory": "packages/builder/src/types",
+      "highlightLayers": [
+        {
+          "id": "core-types",
+          "name": "Core Domain Types",
+          "color": "#ec4899",
+          "items": [
+            { "path": "packages/builder/src/types/cityData.ts", "type": "file" },
+            { "path": "packages/builder/src/types/sorts.ts", "type": "file" },
+            { "path": "packages/builder/src/types/ui-metadata.ts", "type": "file" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "border"
+        }
+      ],
+      "interactiveActions": [
+        {
+          "type": "click-file",
+          "description": "Explore the core domain types",
+          "target": "packages/builder/src/types/cityData.ts"
+        }
+      ],
+      "colorMode": "fileTypes"
+    },
+    {
+      "id": "react-components",
+      "title": "React: Visualization Components",
+      "description": "The react package provides the interactive UI. Components handle layer-based highlighting and pan/zoom controls, while hooks manage the data lifecycle.",
+      "estimatedTime": 120,
+      "focusDirectory": "packages/react/src",
+      "highlightLayers": [
+        {
+          "id": "react-components-layer",
+          "name": "Main Components",
+          "color": "#10b981",
+          "items": [
+            { "path": "packages/react/src/components", "type": "directory" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "react-hooks-layer",
+          "name": "Hooks",
+          "color": "#06b6d4",
+          "items": [
+            { "path": "packages/react/src/hooks", "type": "directory" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        }
+      ],
+      "interactiveActions": [
+        {
+          "type": "click-file",
+          "description": "See the main visualization component",
+          "target": "packages/react/src/components/ArchitectureMapHighlightLayers.tsx"
+        }
+      ],
+      "colorMode": "fileTypes"
+    },
+    {
+      "id": "react-rendering",
+      "title": "React: Canvas Rendering Engine",
+      "description": "This directory contains the canvas drawing logic — performant rendering of buildings with full layer support. Recent optimizations use an index structure for instant path lookups, keeping interactions smooth even on large codebases.",
+      "estimatedTime": 90,
+      "focusDirectory": "packages/react/src/render",
+      "highlightLayers": [
+        {
+          "id": "client-render",
+          "name": "Client Rendering",
+          "color": "#10b981",
+          "items": [
+            { "path": "packages/react/src/render/client", "type": "directory" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "border"
+        }
+      ],
+      "colorMode": "fileTypes"
+    },
+    {
+      "id": "server-rendering",
+      "title": "Server: Static Image Generation",
+      "description": "The server package generates static city images outside the browser. It mirrors the client rendering logic but runs headlessly — useful for thumbnails, previews, and continuous-integration pipelines.",
+      "estimatedTime": 90,
+      "focusDirectory": "packages/server/src",
+      "highlightLayers": [
+        {
+          "id": "server-render",
+          "name": "Server Rendering",
+          "color": "#f59e0b",
+          "items": [
+            { "path": "packages/server/src/render", "type": "directory" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "server-types",
+          "name": "Server Types",
+          "color": "#f97316",
+          "items": [
+            { "path": "packages/server/src/types", "type": "directory" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        }
+      ],
+      "colorMode": "fileTypes"
+    },
+    {
+      "id": "configuration",
+      "title": "Root Configuration",
+      "description": "The highlighted files control the monorepo — workspaces, scripts, dependencies, and strict type-checking are all defined here at the root.",
+      "estimatedTime": 60,
+      "focusDirectory": "",
+      "highlightLayers": [
+        {
+          "id": "config-files",
+          "name": "Configuration",
+          "color": "#6366f1",
+          "items": [
+            { "path": "package.json", "type": "file" },
+            { "path": "tsconfig.json", "type": "file" },
+            { "path": "tsconfig.base.json", "type": "file" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        }
+      ],
+      "colorMode": "fileTypes"
+    },
+    {
+      "id": "full-picture",
+      "title": "The Full Picture",
+      "description": "You've now seen the complete File City engine — from data transformation through to rendering. Dive into any district to explore further!",
+      "estimatedTime": 30,
+      "focusDirectory": "",
+      "colorMode": "fileTypes"
+    }
+  ],
+  "metadata": {
+    "author": "Claude",
+    "createdAt": "2026-04-04T00:00:00.000Z",
+    "tags": [
+      "onboarding",
+      "monorepo",
+      "architecture"
+    ]
+  }
+}
