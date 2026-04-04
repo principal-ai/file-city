@@ -1628,7 +1628,13 @@ function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }
 
   return (
     <>
-      <PerspectiveCamera makeDefault fov={50} near={1} far={citySize * 10} />
+      <PerspectiveCamera
+        makeDefault
+        fov={50}
+        near={1}
+        far={citySize * 10}
+        position={[targetPos.x, targetPos.y, targetPos.z]}
+      />
       <OrbitControls
         ref={controlsRef}
         enableDamping
@@ -1636,6 +1642,7 @@ function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }
         minDistance={10}
         maxDistance={citySize * 3}
         maxPolarAngle={Math.PI / 2.1}
+        target={[targetPos.targetX, targetPos.targetY, targetPos.targetZ]}
       />
     </>
   );
