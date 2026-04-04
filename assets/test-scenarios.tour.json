@@ -1,0 +1,187 @@
+{
+  "id": "tour-test-scenarios",
+  "title": "Tour Animation Test Scenarios",
+  "description": "Exercises all combinations of focusDirectory and highlightLayers for testing 3D animation behavior",
+  "version": "1.0.0",
+  "audience": "Developers",
+  "prerequisites": ["Understanding of tour format", "Access to Storybook"],
+  "steps": [
+    {
+      "id": "S1-baseline",
+      "title": "S1: Baseline",
+      "description": "Starting state: full city view with no focus and no highlights. All buildings at normal height with file-type colors.",
+      "estimatedTime": 10,
+      "focusDirectory": "",
+      "colorMode": "fileTypes"
+    },
+    {
+      "id": "S2-focus-only",
+      "title": "S2: Focus Only",
+      "description": "Transition T1: Adding focusDirectory. Camera should zoom to src/app/api, non-focused buildings collapse to 5% height and desaturate to gray.",
+      "estimatedTime": 15,
+      "focusDirectory": "auth-server/src/app/api",
+      "colorMode": "fileTypes"
+    },
+    {
+      "id": "S2b-switch-focus",
+      "title": "S2b: Switch Focus Directory",
+      "description": "Transition T3: Switching focus directory. Three-phase animation: zoom out, collapse/expand swap, zoom to new focus.",
+      "estimatedTime": 15,
+      "focusDirectory": "auth-server/bruno",
+      "colorMode": "fileTypes"
+    },
+    {
+      "id": "S3-highlight-only",
+      "title": "S3: Highlight Only (no focus)",
+      "description": "Transition T2→T4: Remove focus, add highlight. Camera zooms out, buildings expand, then API routes get green highlight while others dim.",
+      "estimatedTime": 15,
+      "focusDirectory": "",
+      "colorMode": "fileTypes",
+      "highlightLayers": [
+        {
+          "id": "api-layer",
+          "name": "API Routes",
+          "color": "#22c55e",
+          "items": [
+            { "path": "auth-server/src/app/api", "type": "directory" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "fill"
+        }
+      ]
+    },
+    {
+      "id": "S4-focus-highlight-same",
+      "title": "S4: Focus + Highlight (same)",
+      "description": "Transition T7: Add focus to existing highlight. Camera zooms to API, others collapse, highlight color maintained.",
+      "estimatedTime": 15,
+      "focusDirectory": "auth-server/src/app/api",
+      "colorMode": "fileTypes",
+      "highlightLayers": [
+        {
+          "id": "api-layer",
+          "name": "API Routes",
+          "color": "#3b82f6",
+          "items": [
+            { "path": "auth-server/src/app/api", "type": "directory" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "fill"
+        }
+      ]
+    },
+    {
+      "id": "S5-focus-highlight-subset",
+      "title": "S5: Focus + Highlight (subset)",
+      "description": "Focus on broader directory (src), highlight only subset (lib). Shows partial highlighting within focused area.",
+      "estimatedTime": 15,
+      "focusDirectory": "auth-server/src",
+      "colorMode": "fileTypes",
+      "highlightLayers": [
+        {
+          "id": "lib-layer",
+          "name": "Libraries",
+          "color": "#8b5cf6",
+          "items": [
+            { "path": "auth-server/src/lib", "type": "directory" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "fill"
+        }
+      ]
+    },
+    {
+      "id": "S6-switch-highlight-same-focus",
+      "title": "S6: Switch Highlight (same focus)",
+      "description": "Transition T6: Change highlight layers while focus stays same. Camera position unchanged, only colors transition.",
+      "estimatedTime": 15,
+      "focusDirectory": "auth-server/src",
+      "colorMode": "fileTypes",
+      "highlightLayers": [
+        {
+          "id": "app-layer",
+          "name": "App Directory",
+          "color": "#f59e0b",
+          "items": [
+            { "path": "auth-server/src/app", "type": "directory" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "fill"
+        }
+      ]
+    },
+    {
+      "id": "S7-multiple-highlights-focus",
+      "title": "S7: Multiple Highlights (with focus)",
+      "description": "Transition T9: Add second highlight layer. Two distinct colors visible within focused area.",
+      "estimatedTime": 15,
+      "focusDirectory": "auth-server/src",
+      "colorMode": "fileTypes",
+      "highlightLayers": [
+        {
+          "id": "api-layer",
+          "name": "API Routes",
+          "color": "#22c55e",
+          "items": [
+            { "path": "auth-server/src/app/api", "type": "directory" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "fill"
+        },
+        {
+          "id": "lib-layer",
+          "name": "Libraries",
+          "color": "#f59e0b",
+          "items": [
+            { "path": "auth-server/src/lib", "type": "directory" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "fill"
+        }
+      ]
+    },
+    {
+      "id": "S8-multiple-highlights-no-focus",
+      "title": "S8: Multiple Highlights (no focus)",
+      "description": "Transition T8: Remove focus, keep multiple highlights. Full city view with two distinct highlight colors.",
+      "estimatedTime": 15,
+      "focusDirectory": "",
+      "colorMode": "fileTypes",
+      "highlightLayers": [
+        {
+          "id": "api-layer",
+          "name": "API Routes",
+          "color": "#3b82f6",
+          "items": [
+            { "path": "auth-server/src/app/api", "type": "directory" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "fill"
+        },
+        {
+          "id": "bruno-layer",
+          "name": "Bruno Tests",
+          "color": "#ef4444",
+          "items": [
+            { "path": "auth-server/bruno", "type": "directory" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "fill"
+        }
+      ]
+    },
+    {
+      "id": "S9-clear-all",
+      "title": "S9: Clear All (return to baseline)",
+      "description": "Transition T10: Remove all highlights and focus. Full reset to baseline state.",
+      "estimatedTime": 10,
+      "focusDirectory": "",
+      "colorMode": "fileTypes"
+    }
+  ],
+  "metadata": {
+    "author": "File City Team",
+    "createdAt": "2026-04-03",
+    "tags": ["testing", "animation", "scenarios", "QA"]
+  }
+}

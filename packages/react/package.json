@@ -1,6 +1,6 @@
 {
   "name": "@principal-ai/file-city-react",
-  "version": "0.5.21",
+  "version": "0.5.22",
   "type": "module",
   "description": "React components for File City visualization",
   "main": "dist/index.js",
@@ -26,6 +26,7 @@
     "react": "^19.0.0"
   },
   "devDependencies": {
+    "@principal-ade/industry-theme": "^0.1.19",
     "@principal-ai/file-city-builder": "^0.4.5",
     "@storybook/addon-docs": "^10.1.2",
     "@storybook/addon-links": "^10.1.2",
