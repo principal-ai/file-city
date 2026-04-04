@@ -1142,10 +1142,11 @@ function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }
   // When grown, use focusTarget if available, otherwise angled overview
   const targetPos = useMemo(() => {
     // Flat state: always top-down, ignore any focus
+    // Height calculated to match 2D view zoom level (with FOV=50°)
     if (isFlat) {
       return {
         x: 0,
-        y: citySize * 2.0,
+        y: citySize * 1.2,
         z: 0.001, // Near-zero for top-down (tiny offset to avoid gimbal lock)
         targetX: 0,
         targetY: 0,
