@@ -1146,9 +1146,7 @@ function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }
     const aspect = perspCam.aspect || 1;
     // Use min(1, aspect) to handle both landscape and portrait viewports
     const effectiveAspect = Math.min(1, aspect);
-    // Add 10% padding to match 2D view
-    const padding = 1.1;
-    return (citySize * padding) / (2 * tanHalfFov * effectiveAspect);
+    return citySize / (2 * tanHalfFov * effectiveAspect);
   }, [camera, citySize]);
 
   // Compute target camera position
