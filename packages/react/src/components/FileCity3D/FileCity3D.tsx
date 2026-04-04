@@ -745,12 +745,12 @@ function AnimatedIcon({
   staggerDelayMs,
   springDuration,
 }: AnimatedIconProps) {
-  const spriteRef = useRef<THREE.Sprite>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
   const startTimeRef = useRef<number | null>(null);
-  const materialRef = useRef<THREE.SpriteMaterial>(null);
+  const materialRef = useRef<THREE.MeshBasicMaterial>(null);
 
   useFrame(({ clock }) => {
-    if (!spriteRef.current) return;
+    if (!meshRef.current) return;
 
     if (startTimeRef.current === null && growProgress > 0) {
       startTimeRef.current = clock.elapsedTime * 1000;
@@ -775,31 +775,48 @@ function AnimatedIcon({
     const baseOffset = 0.2;
     const height = animProgress * targetHeight + minHeight;
     const buildingTop = height + baseOffset;
-    const yPosition = buildingTop + iconSize / 2 + 2;
 
-    spriteRef.current.position.y = yPosition;
+    // When flat (animProgress=0): icon lies flat at ground level
+    // When grown (animProgress=1): icon floats above building
+    const flatY = minHeight + baseOffset + 0.5;
+    const grownY = buildingTop + iconSize / 2 + 2;
+    const yPosition = flatY + (grownY - flatY) * animProgress;
+
+    meshRef.current.position.y = yPosition;
+
+    // Rotate from flat (facing up) to upright (facing camera-ish)
+    // Flat: -Math.PI / 2 (facing up)
+    // Grown: 0 (facing forward)
+    const flatRotationX = -Math.PI / 2;
+    const grownRotationX = 0;
+    meshRef.current.rotation.x = flatRotationX + (grownRotationX - flatRotationX) * animProgress;
 
     if (materialRef.current) {
-      materialRef.current.opacity = opacity * animProgress;
+      // Show icons even when flat, fade out only slightly
+      const minOpacity = 0.8;
+      const effectiveOpacity = minOpacity + (1 - minOpacity) * animProgress;
+      materialRef.current.opacity = opacity * effectiveOpacity;
     }
   });
 
   return (
-    <sprite
-      ref={spriteRef}
+    <mesh
+      ref={meshRef}
       position={[x, 0, z]}
       scale={[iconSize, iconSize, 1]}
       raycast={() => null}
     >
-      <spriteMaterial
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial
         ref={materialRef}
         map={texture}
         transparent
-        opacity={0}
+        opacity={0.8}
         depthTest={true}
         depthWrite={false}
+        side={THREE.DoubleSide}
       />
-    </sprite>
+    </mesh>
   );
 }
 
@@ -871,9 +888,7 @@ function BuildingIcons({
     staggerDelay,
   ]);
 
-  // Don't render if no progress yet
-  if (growProgress < 0.1) return null;
-
+  // Icons are now always rendered (flat or grown)
   return (
     <>
       {buildingsWithIcons.map(
@@ -884,7 +899,7 @@ function BuildingIcons({
 
           // Icon size based on building dimensions
           const [width] = building.dimensions;
-          const baseSize = Math.max(width * 0.8, 6);
+          const baseSize = Math.max(width * 1.2, 8);
           const heightBoost = Math.min(targetHeight / 20, 3);
           const iconSize = (baseSize + heightBoost) * (icon.size || 1);
 
@@ -916,9 +931,10 @@ interface DistrictFloorProps {
   centerOffset: { x: number; z: number };
   opacity: number;
   highlightColor?: string | null;
+  growProgress: number;
 }
 
-function DistrictFloor({ district, centerOffset, highlightColor }: DistrictFloorProps) {
+function DistrictFloor({ district, centerOffset, highlightColor, growProgress }: DistrictFloorProps) {
   const { worldBounds } = district;
   const width = worldBounds.maxX - worldBounds.minX;
   const depth = worldBounds.maxZ - worldBounds.minZ;
@@ -933,6 +949,21 @@ function DistrictFloor({ district, centerOffset, highlightColor }: DistrictFloor
   const borderColor = highlightColor || '#475569';
   const lineWidth = highlightColor ? 3 : 1;
   const labelColor = highlightColor || '#cbd5e1';
+
+  // Interpolate text rotation and position based on growProgress
+  // Flat: -Math.PI / 2 (facing up), positioned at center of district
+  // Grown: -Math.PI / 6 (angled), positioned at edge of district
+  const flatRotationX = -Math.PI / 2;
+  const grownRotationX = -Math.PI / 6;
+  const textRotationX = flatRotationX + (grownRotationX - flatRotationX) * growProgress;
+
+  const flatY = 0.5;
+  const grownY = 1.5;
+  const textY = flatY + (grownY - flatY) * growProgress;
+
+  const flatZ = 0; // Center of district when flat
+  const grownZ = depth / 2 + 2; // Edge of district when grown
+  const textZ = flatZ + (grownZ - flatZ) * growProgress;
 
   return (
     <group position={[centerX, 0, centerZ]}>
@@ -952,8 +983,8 @@ function DistrictFloor({ district, centerOffset, highlightColor }: DistrictFloor
 
       {district.label && (
         <Text
-          position={[0, 1.5, depth / 2 + 2]}
-          rotation={[-Math.PI / 6, 0, 0]}
+          position={[0, textY, textZ]}
+          rotation={[textRotationX, 0, 0]}
           fontSize={Math.min(3, width / 6)}
           color={labelColor}
           anchorX="center"
@@ -1107,8 +1138,22 @@ function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }
   const frameCount = useRef(0);
 
   // Compute target camera position
-  // When flat, use a more top-down view; when grown, use an angled view
+  // When flat, always use top-down view (ignore focusTarget)
+  // When grown, use focusTarget if available, otherwise angled overview
   const targetPos = useMemo(() => {
+    // Flat state: always top-down, ignore any focus
+    if (isFlat) {
+      return {
+        x: 0,
+        y: citySize * 2.0,
+        z: 0.001, // Near-zero for top-down (tiny offset to avoid gimbal lock)
+        targetX: 0,
+        targetY: 0,
+        targetZ: 0,
+      };
+    }
+
+    // Grown state: use focusTarget if available
     if (focusTarget) {
       const distance = Math.max(focusTarget.size * 2, 50);
       const height = Math.max(focusTarget.size * 1.5, 40);
@@ -1121,19 +1166,16 @@ function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }
         targetZ: focusTarget.z,
       };
     }
-    // Default overview - adjust angle based on flat/grown state
-    // Flat: directly overhead (90 degrees, looking straight down)
-    // Grown: angled view to see building heights (optionally based on max building height)
+
+    // Grown state without focus: angled overview
     const baseHeight = citySize * 1.1;
     const buildingAwareHeight = maxBuildingHeight > 0
       ? Math.max(baseHeight, maxBuildingHeight * 2.5)
       : baseHeight;
-    const targetHeight = isFlat ? citySize * 2.0 : buildingAwareHeight;
-    const targetZ = isFlat ? 0.001 : citySize * 1.3; // Near-zero for top-down (tiny offset to avoid gimbal lock)
     return {
       x: 0,
-      y: targetHeight,
-      z: targetZ,
+      y: buildingAwareHeight,
+      z: citySize * 1.3,
       targetX: 0,
       targetY: 0,
       targetZ: 0,
@@ -2018,6 +2060,7 @@ function CityScene({
             centerOffset={centerOffset}
             opacity={1}
             highlightColor={districtColor}
+            growProgress={growProgress}
           />
         );
       })}
