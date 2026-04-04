@@ -1137,16 +1137,30 @@ function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }
   const hasAppliedInitial = useRef(false);
   const frameCount = useRef(0);
 
+  // Calculate camera height to fit city in viewport (for top-down view)
+  // Formula: height = citySize / (2 * tan(fov/2) * min(1, aspect))
+  const calculateFlatCameraHeight = useCallback(() => {
+    const perspCam = camera as THREE.PerspectiveCamera;
+    const fovRad = (perspCam.fov * Math.PI) / 180;
+    const tanHalfFov = Math.tan(fovRad / 2);
+    const aspect = perspCam.aspect || 1;
+    // Use min(1, aspect) to handle both landscape and portrait viewports
+    const effectiveAspect = Math.min(1, aspect);
+    // Add 10% padding to match 2D view
+    const padding = 1.1;
+    return (citySize * padding) / (2 * tanHalfFov * effectiveAspect);
+  }, [camera, citySize]);
+
   // Compute target camera position
   // When flat, always use top-down view (ignore focusTarget)
   // When grown, use focusTarget if available, otherwise angled overview
   const targetPos = useMemo(() => {
     // Flat state: always top-down, ignore any focus
-    // Height calculated to match 2D view zoom level (with FOV=50°)
+    // Height calculated mathematically to match 2D view zoom level
     if (isFlat) {
       return {
         x: 0,
-        y: citySize * 1.2,
+        y: calculateFlatCameraHeight(),
         z: 0.001, // Near-zero for top-down (tiny offset to avoid gimbal lock)
         targetX: 0,
         targetY: 0,
@@ -1181,7 +1195,7 @@ function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }
       targetY: 0,
       targetZ: 0,
     };
-  }, [focusTarget, citySize, isFlat, maxBuildingHeight]);
+  }, [focusTarget, citySize, isFlat, maxBuildingHeight, calculateFlatCameraHeight]);
 
   // Spring animation for camera movement
   const [{ camX, camY, camZ, lookX, lookY, lookZ }, api] = useSpring(() => ({
