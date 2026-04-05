@@ -769,9 +769,6 @@ interface BuildingIconsProps {
   highlightLayers: HighlightLayer[];
   isolationMode: IsolationMode;
   hasActiveHighlights: boolean;
-  staggerIndices: number[];
-  springDuration: number;
-  staggerDelay: number;
 }
 
 // Individual animated icon component
@@ -783,8 +780,6 @@ interface AnimatedIconProps {
   texture: THREE.Texture;
   opacity: number;
   growProgress: number;
-  staggerDelayMs: number;
-  springDuration: number;
 }
 
 function AnimatedIcon({
@@ -795,60 +790,33 @@ function AnimatedIcon({
   texture,
   opacity,
   growProgress,
-  staggerDelayMs,
-  springDuration,
 }: AnimatedIconProps) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const startTimeRef = useRef<number | null>(null);
   const materialRef = useRef<THREE.MeshBasicMaterial>(null);
 
-  useFrame(({ clock }) => {
+  useFrame(() => {
     if (!meshRef.current) return;
 
-    if (startTimeRef.current === null && growProgress > 0) {
-      startTimeRef.current = clock.elapsedTime * 1000;
-    }
-
-    const currentTime = clock.elapsedTime * 1000;
-    const animStartTime = startTimeRef.current ?? currentTime;
-
-    // Calculate per-icon animation progress
-    const elapsed = currentTime - animStartTime - staggerDelayMs;
-    let animProgress = growProgress;
-
-    if (growProgress > 0 && elapsed >= 0) {
-      const t = Math.min(elapsed / springDuration, 1);
-      const eased = 1 - Math.pow(1 - t, 3);
-      animProgress = eased * growProgress;
-    } else if (growProgress > 0 && elapsed < 0) {
-      animProgress = 0;
-    }
-
+    // Icons track the global growProgress directly (no stagger)
+    // This keeps them in sync with the building heights
     const minHeight = 0.3;
     const baseOffset = 0.2;
-    const height = animProgress * targetHeight + minHeight;
+    const height = growProgress * targetHeight + minHeight;
     const buildingTop = height + baseOffset;
 
-    // When flat (animProgress=0): icon lies flat at ground level
-    // When grown (animProgress=1): icon floats above building
+    // When flat (growProgress=0): icon lies flat at ground level
+    // When grown (growProgress=1): icon lies flat above building roof
     const flatY = minHeight + baseOffset + 0.5;
-    const grownY = buildingTop + iconSize / 2 + 2;
-    const yPosition = flatY + (grownY - flatY) * animProgress;
+    const grownY = buildingTop + 0.5;
+    const yPosition = flatY + (grownY - flatY) * growProgress;
 
     meshRef.current.position.y = yPosition;
 
-    // Rotate from flat (facing up) to upright (facing camera-ish)
-    // Flat: -Math.PI / 2 (facing up)
-    // Grown: 0 (facing forward)
-    const flatRotationX = -Math.PI / 2;
-    const grownRotationX = 0;
-    meshRef.current.rotation.x = flatRotationX + (grownRotationX - flatRotationX) * animProgress;
+    // Keep icon flat (facing up) at all times
+    meshRef.current.rotation.x = -Math.PI / 2;
 
     if (materialRef.current) {
-      // Show icons even when flat, fade out only slightly
-      const minOpacity = 0.8;
-      const effectiveOpacity = minOpacity + (1 - minOpacity) * animProgress;
-      materialRef.current.opacity = opacity * effectiveOpacity;
+      materialRef.current.opacity = opacity;
     }
   });
 
@@ -883,14 +851,11 @@ function BuildingIcons({
   highlightLayers,
   isolationMode,
   hasActiveHighlights,
-  staggerIndices,
-  springDuration,
-  staggerDelay,
 }: BuildingIconsProps) {
   // Pre-compute buildings with icons
   const buildingsWithIcons = useMemo(() => {
     return buildings
-      .map((building, index) => {
+      .map((building) => {
         const config = getConfigForFile(building);
         if (!config.icon) return null;
 
@@ -900,16 +865,14 @@ function BuildingIcons({
         const shouldHide = shouldDim && isolationMode === 'hide';
         const shouldCollapse = shouldDim && isolationMode === 'collapse';
 
-        if (shouldHide) return null;
+        // Hide icons for buildings that are hidden or collapsed
+        if (shouldHide || shouldCollapse) return null;
 
         const fullHeight = calculateBuildingHeight(building, heightScaling, linearScale, flatPatterns);
-        const targetHeight = shouldCollapse ? 0.5 : fullHeight;
+        const targetHeight = fullHeight;
 
         const x = building.position.x - centerOffset.x;
         const z = building.position.z - centerOffset.z;
-
-        const staggerIndex = staggerIndices[index] ?? index;
-        const staggerDelayMs = staggerDelay * staggerIndex;
 
         return {
           building,
@@ -918,7 +881,6 @@ function BuildingIcons({
           z,
           targetHeight,
           shouldDim,
-          staggerDelayMs,
         };
       })
       .filter(Boolean) as Array<{
@@ -928,7 +890,6 @@ function BuildingIcons({
       z: number;
       targetHeight: number;
       shouldDim: boolean;
-      staggerDelayMs: number;
     }>;
   }, [
     buildings,
@@ -939,15 +900,13 @@ function BuildingIcons({
     heightScaling,
     linearScale,
     flatPatterns,
-    staggerIndices,
-    staggerDelay,
   ]);
 
   // Icons are now always rendered (flat or grown)
   return (
     <>
       {buildingsWithIcons.map(
-        ({ building, config, x, z, targetHeight, shouldDim, staggerDelayMs }) => {
+        ({ building, config, x, z, targetHeight, shouldDim }) => {
           const icon = config.icon!;
           const texture = getIconTexture(icon.name, icon.color || '#ffffff');
           if (!texture) return null;
@@ -969,8 +928,6 @@ function BuildingIcons({
               texture={texture}
               opacity={opacity}
               growProgress={growProgress}
-              staggerDelayMs={staggerDelayMs}
-              springDuration={springDuration}
             />
           );
         },
@@ -1015,8 +972,8 @@ function DistrictFloor({ district, centerOffset, highlightColor, growProgress }:
   const grownY = 1.5;
   const textY = flatY + (grownY - flatY) * growProgress;
 
-  const flatZ = 0; // Center of district when flat
-  const grownZ = depth / 2 + 2; // Edge of district when grown
+  const flatZ = depth / 2 - 6; // Near bottom of district when flat, with padding
+  const grownZ = depth / 2 + 2; // Just outside edge when grown
   const textZ = flatZ + (grownZ - flatZ) * growProgress;
 
   return (
@@ -1035,20 +992,19 @@ function DistrictFloor({ district, centerOffset, highlightColor, growProgress }:
         </mesh>
       )}
 
-      {district.label && (
-        <Text
-          position={[0, textY, textZ]}
-          rotation={[textRotationX, 0, 0]}
-          fontSize={Math.min(3, width / 6)}
-          color={labelColor}
-          anchorX="center"
-          anchorY="middle"
-          outlineWidth={0.1}
-          outlineColor="#0f172a"
-        >
-          {dirName}
-        </Text>
-      )}
+      {/* Always show directory name label */}
+      <Text
+        position={[0, textY, textZ]}
+        rotation={[textRotationX, 0, 0]}
+        fontSize={Math.max(6, Math.min(12, width / 3))}
+        color={labelColor}
+        anchorX="center"
+        anchorY="middle"
+        outlineWidth={0.15}
+        outlineColor="#0f172a"
+      >
+        {dirName}
+      </Text>
     </group>
   );
 }
@@ -1190,6 +1146,7 @@ function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }
   const isOrbitingRef = useRef(false);
   const hasAppliedInitial = useRef(false);
   const frameCount = useRef(0);
+  const prevIsFlatRef = useRef(isFlat); // Track previous isFlat to detect actual state changes
 
   // Calculate camera height to fit city in viewport (for top-down view)
   // Formula: height = citySize / (2 * tan(fov/2) * min(1, aspect))
@@ -1312,11 +1269,32 @@ function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }
     azimuthAngle: number; // horizontal angle to maintain
   } | null>(null);
 
-  // When targetPos changes after initial, animate to new position
+  // When isFlat changes after initial setup, animate to new position
+  // We track isFlat explicitly rather than targetPos to avoid spurious animations
+  // from aspect ratio changes or other recalculations
   useEffect(() => {
     // Skip the first render - we handle that directly in useFrame
     if (!hasAppliedInitial.current) return;
 
+    // Only animate if isFlat actually changed (flat <-> grown transition)
+    const isFlatChanged = prevIsFlatRef.current !== isFlat;
+    prevIsFlatRef.current = isFlat;
+
+    if (!isFlatChanged) {
+      // isFlat didn't change, just update position directly without animation
+      // This handles things like focusTarget changes within the same flat/grown state
+      api.set({
+        camX: targetPos.x,
+        camY: targetPos.y,
+        camZ: targetPos.z,
+        lookX: targetPos.targetX,
+        lookY: targetPos.targetY,
+        lookZ: targetPos.targetZ,
+      });
+      return;
+    }
+
+    // isFlat changed - animate the transition
     api.start({
       camX: targetPos.x,
       camY: targetPos.y,
@@ -1328,7 +1306,7 @@ function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }
         isAnimatingRef.current = false;
       },
     });
-  }, [targetPos, api]);
+  }, [targetPos, api, isFlat]);
 
   // Update camera each frame
   useFrame(() => {
@@ -2140,9 +2118,6 @@ function CityScene({
         highlightLayers={highlightLayers}
         isolationMode={isolationMode}
         hasActiveHighlights={activeHighlights}
-        staggerIndices={staggerIndices}
-        springDuration={springDuration}
-        staggerDelay={animationConfig.staggerDelay || 15}
       />
     </>
   );
