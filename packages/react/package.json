@@ -1,6 +1,6 @@
 {
   "name": "@principal-ai/file-city-react",
-  "version": "0.5.28",
+  "version": "0.5.29",
   "type": "module",
   "description": "React components for File City visualization",
   "main": "dist/index.js",
@@ -14,7 +14,7 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
-    "@react-spring/three": "^9.7.5",
+    "@react-spring/three": "^10.0.3",
     "@react-three/drei": "^10.0.6",
     "@react-three/fiber": "^9.1.2",
     "lucide-react": "^0.563.0",
