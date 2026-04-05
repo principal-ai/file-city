@@ -1210,6 +1210,13 @@ function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }
     };
   }, [focusTarget, citySize, isFlat, maxBuildingHeight, calculateFlatCameraHeight]);
 
+  // Capture initial camera position on first render only
+  // This prevents the PerspectiveCamera position prop from causing jumps when targetPos changes
+  const initialPosRef = useRef<typeof targetPos | null>(null);
+  if (!initialPosRef.current) {
+    initialPosRef.current = targetPos;
+  }
+
   // Spring animation for camera movement
   const [{ camX, camY, camZ, lookX, lookY, lookZ }, api] = useSpring(() => ({
     camX: targetPos.x,
@@ -1682,7 +1689,7 @@ function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }
         fov={50}
         near={1}
         far={citySize * 10}
-        position={[targetPos.x, targetPos.y, targetPos.z]}
+        position={[initialPosRef.current!.x, initialPosRef.current!.y, initialPosRef.current!.z]}
       />
       <OrbitControls
         ref={controlsRef}
@@ -1691,7 +1698,7 @@ function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }
         minDistance={10}
         maxDistance={citySize * 3}
         maxPolarAngle={Math.PI / 2.1}
-        target={[targetPos.targetX, targetPos.targetY, targetPos.targetZ]}
+        target={[initialPosRef.current!.targetX, initialPosRef.current!.targetY, initialPosRef.current!.targetZ]}
       />
     </>
   );

@@ -525,3 +525,144 @@ export const ScenarioComparison: StoryObj = {
   },
 };
 
+/**
+ * This story reproduces the exact panel behavior:
+ * 1. Start in 2D mode
+ * 2. Click "Switch to 3D" button
+ * 3. 3D renders flat behind 2D overlay
+ * 4. Overlay fades out (100ms delay, 300ms transition)
+ * 5. After overlay is gone, buildings grow (400ms delay)
+ *
+ * This tests the camera initialization issue where the camera
+ * might flash to an angled position before settling to flat.
+ */
+export const PanelTransitionTest: StoryObj = {
+  render: function RenderPanelTransitionTest() {
+    const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
+    const [isGrown, setIsGrown] = useState(false);
+    const [overlayOpacity, setOverlayOpacity] = useState(1);
+    const [hideOverlay, setHideOverlay] = useState(true);
+    const cityData = authServerCityData as CityData;
+    const highlightLayers = createFileColorHighlightLayers(cityData.buildings);
+
+    // Handle view mode toggle - sets overlay state BEFORE changing viewMode
+    const handleToggle = () => {
+      if (viewMode === '2d') {
+        // Switching from 2D to 3D - show overlay at full opacity BEFORE mode changes
+        setOverlayOpacity(1);
+        setHideOverlay(false);
+        setIsGrown(false);
+        setViewMode('3d');
+      } else {
+        setViewMode('2d');
+      }
+    };
+
+    // Handle transition timing
+    useEffect(() => {
+      if (viewMode === '3d') {
+        // Timeline:
+        // T=0ms: Both 2D and 3D render, 2D at full opacity
+        // T=100ms: Start fading overlay
+        // T=400ms: Remove overlay, start grow animation
+        const fadeTimer = setTimeout(() => {
+          setOverlayOpacity(0);
+        }, 100);
+
+        const removeTimer = setTimeout(() => {
+          setHideOverlay(true);
+          setIsGrown(true);
+        }, 400);
+
+        return () => {
+          clearTimeout(fadeTimer);
+          clearTimeout(removeTimer);
+        };
+      } else {
+        setIsGrown(false);
+        setOverlayOpacity(1);
+        setHideOverlay(true);
+      }
+    }, [viewMode]);
+
+    return (
+      <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <div
+          style={{
+            padding: '12px 16px',
+            backgroundColor: '#1f2937',
+            borderBottom: '1px solid #374151',
+            display: 'flex',
+            gap: '16px',
+            alignItems: 'center',
+          }}
+        >
+          <button
+            onClick={handleToggle}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '6px',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 500,
+              backgroundColor: '#3b82f6',
+              color: '#ffffff',
+            }}
+          >
+            {viewMode === '2d' ? 'Switch to 3D' : 'Switch to 2D'}
+          </button>
+          <span style={{ color: '#9ca3af', fontSize: '13px' }}>
+            viewMode: {viewMode} | isGrown: {String(isGrown)} | hideOverlay: {String(hideOverlay)} | opacity: {overlayOpacity}
+          </span>
+        </div>
+
+        <div style={{ flex: 1, backgroundColor: '#0f1419', position: 'relative' }}>
+          {/* 3D layer - renders when in 3D mode */}
+          {viewMode === '3d' && (
+            <FileCity3D
+              cityData={cityData}
+              highlightLayers={highlightLayers}
+              width="100%"
+              height="100%"
+              isGrown={isGrown}
+              animation={{ startFlat: true, autoStartDelay: null }}
+              showControls={false}
+              backgroundColor="#0f1419"
+            />
+          )}
+
+          {/* 2D overlay - fades out during transition */}
+          {(viewMode === '2d' || !hideOverlay) && (
+            <div
+              style={{
+                position: viewMode === '3d' ? 'absolute' : 'relative',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                width: '100%',
+                height: '100%',
+                zIndex: viewMode === '3d' ? 10 : undefined,
+                opacity: viewMode === '2d' ? 1 : overlayOpacity,
+                transition: 'opacity 300ms ease-out',
+                pointerEvents: viewMode === '2d' ? 'auto' : 'none',
+              }}
+            >
+              <ArchitectureMapHighlightLayers
+                cityData={cityData}
+                highlightLayers={highlightLayers}
+                fullSize={true}
+                canvasBackgroundColor="#0f1419"
+                defaultBuildingColor="#36454F"
+                defaultDirectoryColor="#111827"
+                enableZoom={viewMode === '2d'}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  },
+};
+
