@@ -72,7 +72,7 @@ export {
 export { ThemeProvider, useTheme } from '@principal-ade/industry-theme';
 
 // 3D visualization component
-export { FileCity3D, resetCamera } from './components/FileCity3D';
+export { FileCity3D, resetCamera, DEFAULT_FLAT_PATTERNS } from './components/FileCity3D';
 export type {
   FileCity3DProps,
   AnimationConfig,
@@ -81,8 +81,17 @@ export type {
   HighlightItem,
   IsolationMode,
   HeightScaling,
+  FlatPattern,
 } from './components/FileCity3D';
 
 // Re-export HighlightLayer from FileCity3D with distinct name to avoid conflict
 // with the 2D HighlightLayer from drawLayeredBuildings
 export type { HighlightLayer as FileCity3DHL } from './components/FileCity3D';
+
+// Visualization resolution utilities
+// See docs/VISUALIZATION_STATE_RESOLUTION.md for documentation
+export { resolveVisualizationIntent } from './utils/visualizationResolution';
+export type {
+  VisualizationIntent,
+  ResolvedVisualizationState,
+} from './utils/visualizationResolution';

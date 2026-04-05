@@ -14,6 +14,7 @@ export {
   tiltCameraBy,
   moveCameraTo,
   setCameraTarget,
+  DEFAULT_FLAT_PATTERNS,
 } from './FileCity3D';
 export type {
   FileCity3DProps,
@@ -22,6 +23,7 @@ export type {
   HighlightItem,
   IsolationMode,
   HeightScaling,
+  FlatPattern,
   CityData,
   CityBuilding,
   CityDistrict,

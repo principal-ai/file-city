@@ -23,6 +23,7 @@ import {
 import { MapInteractionState, MapDisplayOptions } from '../types/react-types';
 import { getDefaultFileColorConfig } from '../utils/fileColorHighlightLayers';
 import { extractIconConfig } from '../utils/fileTypeIcons';
+import { resolveVisualizationIntent } from '../utils/visualizationResolution';
 
 const DEFAULT_DISPLAY_OPTIONS: MapDisplayOptions = {
   showGrid: false,
@@ -105,6 +106,12 @@ export interface ArchitectureMapHighlightLayersProps {
   // Border radius configuration
   buildingBorderRadius?: number; // Border radius for buildings (files), default: 0 (sharp corners)
   districtBorderRadius?: number; // Border radius for districts (directories), default: 0 (sharp corners)
+
+  /** Color to highlight the focused directory border (hex color, e.g. "#3b82f6") */
+  focusColor?: string | null;
+
+  /** Base file type color layers (resolved with highlightLayers) */
+  fileColorLayers?: HighlightLayer[];
 }
 
 // Spatial Grid for fast hit testing (copied from original for now)
@@ -289,14 +296,14 @@ interface HitTestCache {
 
 function ArchitectureMapHighlightLayersInner({
   cityData,
-  highlightLayers = [],
+  highlightLayers: externalHighlightLayers,
   onLayerToggle,
   focusDirectory = null,
   rootDirectoryName,
   onDirectorySelect,
   onFileClick,
   enableZoom = false,
-  zoomToPath = null,
+  zoomToPath: externalZoomToPath,
   onZoomComplete,
   zoomAnimationSpeed = 0.12,
   allowZoomToPath = true,
@@ -319,8 +326,48 @@ function ArchitectureMapHighlightLayersInner({
   onHover,
   buildingBorderRadius = 0,
   districtBorderRadius = 0,
+  focusColor: externalFocusColor,
+  fileColorLayers,
 }: ArchitectureMapHighlightLayersProps) {
   const { theme } = useTheme();
+
+  // ============================================================================
+  // Visualization Resolution
+  // Always resolve: combines highlightLayers with fileColorLayers,
+  // filtering fileColorLayers based on focus/highlight scope.
+  // ============================================================================
+  const resolved = useMemo(() => {
+    // Cast to InputHighlightLayer[] for resolution - types are compatible at runtime
+    const resolution = resolveVisualizationIntent({
+      focusPath: externalZoomToPath,
+      focusColor: externalFocusColor,
+      highlightLayers: (externalHighlightLayers ?? []) as Parameters<typeof resolveVisualizationIntent>[0]['highlightLayers'],
+      fileColorLayers: (fileColorLayers ?? []) as Parameters<typeof resolveVisualizationIntent>[0]['fileColorLayers'],
+    });
+
+    return {
+      highlightLayers: resolution.highlightLayers,
+      zoomToPath: resolution.cameraFocusPath,
+      focusColor: resolution.focusColor,
+      shouldDim: resolution.shouldIsolate,
+    };
+  }, [
+    fileColorLayers,
+    externalHighlightLayers,
+    externalZoomToPath,
+    externalFocusColor,
+  ]);
+
+  // Use resolved values, ensuring layers have required priority for drawing functions
+  const highlightLayers: HighlightLayer[] = useMemo(() =>
+    resolved.highlightLayers.map((layer, index) => ({
+      ...layer,
+      priority: layer.priority ?? index,
+    })) as HighlightLayer[],
+    [resolved.highlightLayers]
+  );
+  const zoomToPath = resolved.zoomToPath;
+  const focusColor = resolved.focusColor;
 
   // Use theme colors as defaults, with prop overrides
   const resolvedCanvasBackgroundColor = canvasBackgroundColor ?? theme.colors.background;
@@ -1234,6 +1281,55 @@ function ArchitectureMapHighlightLayersInner({
       iconMap, // Icon configuration map for file type icons
     );
 
+    // Draw focus color border around the zoomToPath target
+    if (focusColor && zoomToPath) {
+      const normalizedPath = zoomToPath.replace(/^\/+|\/+$/g, '');
+      // Find the district or building that matches the path
+      const targetDistrict = filteredCityData.districts?.find(
+        d => d.path === normalizedPath || d.path === zoomToPath,
+      );
+      const targetBuilding = !targetDistrict
+        ? filteredCityData.buildings?.find(
+            b => b.path === normalizedPath || b.path === zoomToPath,
+          )
+        : null;
+
+      if (targetDistrict) {
+        // Draw border around district
+        const { minX, maxX, minZ, maxZ } = targetDistrict.worldBounds;
+        const topLeft = worldToCanvas(minX, minZ);
+        const bottomRight = worldToCanvas(maxX, maxZ);
+        const width = bottomRight.x - topLeft.x;
+        const height = bottomRight.y - topLeft.y;
+
+        ctx.save();
+        ctx.strokeStyle = focusColor;
+        ctx.lineWidth = 3 * zoomState.scale;
+        ctx.strokeRect(topLeft.x, topLeft.y, width, height);
+        ctx.restore();
+      } else if (targetBuilding) {
+        // Draw border around building
+        const size = Math.max(targetBuilding.dimensions[0], targetBuilding.dimensions[2]);
+        const halfSize = size / 2;
+        const topLeft = worldToCanvas(
+          targetBuilding.position.x - halfSize,
+          targetBuilding.position.z - halfSize,
+        );
+        const bottomRight = worldToCanvas(
+          targetBuilding.position.x + halfSize,
+          targetBuilding.position.z + halfSize,
+        );
+        const width = bottomRight.x - topLeft.x;
+        const height = bottomRight.y - topLeft.y;
+
+        ctx.save();
+        ctx.strokeStyle = focusColor;
+        ctx.lineWidth = 3 * zoomState.scale;
+        ctx.strokeRect(topLeft.x, topLeft.y, width, height);
+        ctx.restore();
+      }
+    }
+
     // Performance monitoring end available for debugging
     // Performance stats available but not logged to reduce console noise
     // Uncomment for debugging: render time, buildings/districts counts, layer counts
@@ -1268,6 +1364,9 @@ function ArchitectureMapHighlightLayersInner({
     abstractedPathsSet,
     layerIndex,
     iconMap,
+    // Focus color border
+    focusColor,
+    zoomToPath,
   ]);
 
   // Optimized hit testing

@@ -21,6 +21,7 @@ import type {
 } from '@principal-ai/file-city-builder';
 import * as THREE from 'three';
 import type { ThreeElements } from '@react-three/fiber';
+import { resolveVisualizationIntent } from '../../utils/visualizationResolution';
 
 // Extend JSX with Three.js elements
 declare module 'react' {
@@ -48,6 +49,10 @@ export interface HighlightLayer {
   items: HighlightItem[];
   /** Opacity for highlighted items (0-1) */
   opacity?: number;
+  /** Rendering priority (higher renders on top) */
+  priority?: number;
+  /** Border width in pixels */
+  borderWidth?: number;
 }
 
 export interface HighlightItem {
@@ -83,6 +88,40 @@ export interface AnimationConfig {
 /** Height scaling mode for buildings */
 export type HeightScaling = 'logarithmic' | 'linear';
 
+/** Pattern for files that should render flat (e.g., lock files, generated files) */
+export interface FlatPattern {
+  /** Glob-like pattern or regex to match file paths */
+  pattern: string | RegExp;
+  /** Height to use for matched files (default: 0.5) */
+  height?: number;
+}
+
+/** Default patterns for files that should render flat */
+export const DEFAULT_FLAT_PATTERNS: FlatPattern[] = [
+  { pattern: /package-lock\.json$/ },
+  { pattern: /yarn\.lock$/ },
+  { pattern: /pnpm-lock\.yaml$/ },
+  { pattern: /composer\.lock$/ },
+  { pattern: /Gemfile\.lock$/ },
+  { pattern: /Cargo\.lock$/ },
+  { pattern: /poetry\.lock$/ },
+  { pattern: /\.lock$/ }, // Generic lock files
+];
+
+/**
+ * Check if a file path matches any flat pattern.
+ * Returns the matched pattern's height or undefined if no match.
+ */
+function matchFlatPattern(path: string, patterns: FlatPattern[]): number | undefined {
+  for (const { pattern, height } of patterns) {
+    const regex = typeof pattern === 'string' ? new RegExp(pattern) : pattern;
+    if (regex.test(path)) {
+      return height ?? 0.5; // Default flat height
+    }
+  }
+  return undefined;
+}
+
 const DEFAULT_ANIMATION: AnimationConfig = {
   startFlat: false,
   autoStartDelay: 500,
@@ -100,8 +139,15 @@ const DEFAULT_ANIMATION: AnimationConfig = {
 function calculateBuildingHeight(
   building: CityBuilding,
   scaling: HeightScaling = 'logarithmic',
-  linearScale: number = 0.05,
+  linearScale: number = 1,
+  flatPatterns: FlatPattern[] = [],
 ): number {
+  // Check if this file matches a flat pattern (e.g., lock files)
+  const flatHeight = matchFlatPattern(building.path, flatPatterns);
+  if (flatHeight !== undefined) {
+    return flatHeight;
+  }
+
   const minHeight = 2;
 
   // Use lineCount if available (any text file), otherwise fall back to size
@@ -375,6 +421,7 @@ interface InstancedBuildingsProps {
   animationConfig: AnimationConfig;
   heightScaling: HeightScaling;
   linearScale: number;
+  flatPatterns: FlatPattern[];
   staggerIndices: number[];
   focusDirectory: string | null;
   highlightLayers: HighlightLayer[];
@@ -398,6 +445,7 @@ function InstancedBuildings({
   animationConfig,
   heightScaling,
   linearScale,
+  flatPatterns,
   staggerIndices,
   focusDirectory,
   highlightLayers,
@@ -483,8 +531,10 @@ function InstancedBuildings({
   const buildingData = useMemo(() => {
     return buildings.map((building, index) => {
       const [width, , depth] = building.dimensions;
-      const fullHeight = calculateBuildingHeight(building, heightScaling, linearScale);
-      const color = getColorForFile(building);
+      const fullHeight = calculateBuildingHeight(building, heightScaling, linearScale, flatPatterns);
+      // Use highlight layer color if available, otherwise fall back to file config color
+      const highlight = getHighlightForPath(building.path, highlightLayers);
+      const color = highlight?.color ?? getColorForFile(building);
 
       const x = building.position.x - centerOffset.x;
       const z = building.position.z - centerOffset.z;
@@ -509,8 +559,10 @@ function InstancedBuildings({
     centerOffset,
     heightScaling,
     linearScale,
+    flatPatterns,
     staggerIndices,
     animationConfig.staggerDelay,
+    highlightLayers,
   ]);
 
   const minHeight = 0.3;
@@ -679,7 +731,7 @@ function InstancedBuildings({
         frustumCulled={false}
       >
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial metalness={0.1} roughness={0.35} />
+        <meshBasicMaterial />
       </instancedMesh>
 
       {/* Building edge outlines */}
@@ -713,6 +765,7 @@ interface BuildingIconsProps {
   growProgress: number;
   heightScaling: HeightScaling;
   linearScale: number;
+  flatPatterns: FlatPattern[];
   highlightLayers: HighlightLayer[];
   isolationMode: IsolationMode;
   hasActiveHighlights: boolean;
@@ -826,6 +879,7 @@ function BuildingIcons({
   growProgress,
   heightScaling,
   linearScale,
+  flatPatterns,
   highlightLayers,
   isolationMode,
   hasActiveHighlights,
@@ -848,7 +902,7 @@ function BuildingIcons({
 
         if (shouldHide) return null;
 
-        const fullHeight = calculateBuildingHeight(building, heightScaling, linearScale);
+        const fullHeight = calculateBuildingHeight(building, heightScaling, linearScale, flatPatterns);
         const targetHeight = shouldCollapse ? 0.5 : fullHeight;
 
         const x = building.position.x - centerOffset.x;
@@ -884,6 +938,7 @@ function BuildingIcons({
     hasActiveHighlights,
     heightScaling,
     linearScale,
+    flatPatterns,
     staggerIndices,
     staggerDelay,
   ]);
@@ -897,11 +952,10 @@ function BuildingIcons({
           const texture = getIconTexture(icon.name, icon.color || '#ffffff');
           if (!texture) return null;
 
-          // Icon size based on building dimensions
-          const [width] = building.dimensions;
-          const baseSize = Math.max(width * 1.2, 8);
-          const heightBoost = Math.min(targetHeight / 20, 3);
-          const iconSize = (baseSize + heightBoost) * (icon.size || 1);
+          // Icon size based on building dimensions (matching 2D calculation)
+          const [width, , depth] = building.dimensions;
+          const minDimension = Math.min(width, depth);
+          const iconSize = minDimension * (icon.size || 0.6) * 1.7;
 
           const opacity = shouldDim && isolationMode === 'transparent' ? 0.3 : 1;
 
@@ -1139,6 +1193,7 @@ function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }
 
   // Calculate camera height to fit city in viewport (for top-down view)
   // Formula: height = citySize / (2 * tan(fov/2) * min(1, aspect))
+  // Padding factor adds space around the city to match 2D component
   const calculateFlatCameraHeight = useCallback(() => {
     const perspCam = camera as THREE.PerspectiveCamera;
     const fovRad = (perspCam.fov * Math.PI) / 180;
@@ -1146,7 +1201,10 @@ function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }
     const aspect = perspCam.aspect || 1;
     // Use min(1, aspect) to handle both landscape and portrait viewports
     const effectiveAspect = Math.min(1, aspect);
-    return citySize / (2 * tanHalfFov * effectiveAspect);
+    const baseHeight = citySize / (2 * tanHalfFov * effectiveAspect);
+    // Add padding to match 2D component's default padding
+    const paddingFactor = 1.08;
+    return baseHeight * paddingFactor;
   }, [camera, citySize]);
 
   // Compute target camera position
@@ -1763,6 +1821,7 @@ interface CitySceneProps {
   isolationMode: IsolationMode;
   heightScaling: HeightScaling;
   linearScale: number;
+  flatPatterns: FlatPattern[];
   focusDirectory: string | null;
   focusColor?: string | null;
   adaptCameraToBuildings?: boolean;
@@ -1780,6 +1839,7 @@ function CityScene({
   isolationMode,
   heightScaling,
   linearScale,
+  flatPatterns,
   focusDirectory,
   focusColor,
   adaptCameraToBuildings = false,
@@ -1954,44 +2014,11 @@ function CityScene({
       return { x: centerX, z: centerZ, size };
     }
 
-    // Priority 2: highlight layers (only if no focusDirectory is pending)
-    // Don't focus on highlights if we're waiting for cameraFocusDirectory to catch up
-    if (!activeHighlights || focusDirectory) return null;
-
-    const highlightedBuildings = cityData.buildings.filter(building => {
-      const highlight = getHighlightForPath(building.path, highlightLayers);
-      return highlight !== null;
-    });
-
-    if (highlightedBuildings.length === 0) return null;
-
-    let minX = Infinity,
-      maxX = -Infinity;
-    let minZ = Infinity,
-      maxZ = -Infinity;
-
-    for (const building of highlightedBuildings) {
-      const x = building.position.x - centerOffset.x;
-      const z = building.position.z - centerOffset.z;
-      const [width, , depth] = building.dimensions;
-
-      minX = Math.min(minX, x - width / 2);
-      maxX = Math.max(maxX, x + width / 2);
-      minZ = Math.min(minZ, z - depth / 2);
-      maxZ = Math.max(maxZ, z + depth / 2);
-    }
-
-    const centerX = (minX + maxX) / 2;
-    const centerZ = (minZ + maxZ) / 2;
-    const size = Math.max(maxX - minX, maxZ - minZ);
-
-    return { x: centerX, z: centerZ, size };
+    // No auto-focus on highlights - camera only moves with explicit focusDirectory
+    return null;
   }, [
     cameraFocusDirectory,
-    focusDirectory,
-    activeHighlights,
     cityData.buildings,
-    highlightLayers,
     centerOffset,
     isPathInDirectory,
   ]);
@@ -2096,6 +2123,7 @@ function CityScene({
         animationConfig={animationConfig}
         heightScaling={heightScaling}
         linearScale={linearScale}
+        flatPatterns={flatPatterns}
         staggerIndices={staggerIndices}
         focusDirectory={buildingFocusDirectory}
         highlightLayers={highlightLayers}
@@ -2108,6 +2136,7 @@ function CityScene({
         growProgress={growProgress}
         heightScaling={heightScaling}
         linearScale={linearScale}
+        flatPatterns={flatPatterns}
         highlightLayers={highlightLayers}
         isolationMode={isolationMode}
         hasActiveHighlights={activeHighlights}
@@ -2160,6 +2189,8 @@ export interface FileCity3DProps {
   heightScaling?: HeightScaling;
   /** Scale factor for linear mode (height per line, default 0.05) */
   linearScale?: number;
+  /** Patterns for files that should render flat (e.g., lock files). Set to DEFAULT_FLAT_PATTERNS for common lock files, or [] to disable. */
+  flatPatterns?: FlatPattern[];
   /** Directory path to focus on - buildings outside will collapse */
   focusDirectory?: string | null;
   /** Color to highlight the focused directory (hex color, e.g. "#3b82f6") */
@@ -2174,6 +2205,9 @@ export interface FileCity3DProps {
   selectedBuilding?: CityBuilding | null;
   /** When true, camera height adjusts based on tallest building when grown */
   adaptCameraToBuildings?: boolean;
+
+  /** Base file type color layers (resolved with highlightLayers) */
+  fileColorLayers?: HighlightLayer[];
 }
 
 /**
@@ -2193,26 +2227,63 @@ export function FileCity3D({
   isGrown: externalIsGrown,
   onGrowChange,
   showControls = true,
-  highlightLayers = [],
-  isolationMode = 'transparent',
+  highlightLayers: externalHighlightLayers,
+  isolationMode: externalIsolationMode,
   dimOpacity: _dimOpacity = 0.15,
   isLoading = false,
   loadingMessage = 'Loading file city...',
   emptyMessage = 'No file tree data available',
-  heightScaling = 'logarithmic',
-  linearScale = 0.05,
-  focusDirectory = null,
-  focusColor = null,
+  heightScaling = 'linear',
+  linearScale = 1,
+  flatPatterns = DEFAULT_FLAT_PATTERNS,
+  focusDirectory: externalFocusDirectory,
+  focusColor: externalFocusColor,
   onDirectorySelect: _onDirectorySelect,
   backgroundColor = '#0f172a',
   textColor = '#94a3b8',
   selectedBuilding = null,
   adaptCameraToBuildings = false,
+  fileColorLayers,
 }: FileCity3DProps) {
   const [hoveredBuilding, setHoveredBuilding] = useState<CityBuilding | null>(null);
   const [internalIsGrown, setInternalIsGrown] = useState(false);
 
   const animationConfig = useMemo(() => ({ ...DEFAULT_ANIMATION, ...animation }), [animation]);
+
+  // ============================================================================
+  // Visualization Resolution
+  // Always resolve: combines highlightLayers with fileColorLayers,
+  // filtering fileColorLayers based on focus/highlight scope.
+  // ============================================================================
+  const resolved = useMemo(() => {
+    // Cast to InputHighlightLayer[] for resolution - types are compatible at runtime
+    const resolution = resolveVisualizationIntent({
+      focusPath: externalFocusDirectory,
+      focusColor: externalFocusColor,
+      highlightLayers: (externalHighlightLayers ?? []) as Parameters<typeof resolveVisualizationIntent>[0]['highlightLayers'],
+      fileColorLayers: (fileColorLayers ?? []) as Parameters<typeof resolveVisualizationIntent>[0]['fileColorLayers'],
+    });
+
+    return {
+      highlightLayers: resolution.highlightLayers as HighlightLayer[],
+      focusDirectory: resolution.cameraFocusPath,
+      focusColor: resolution.focusColor,
+      // Use explicit isolation mode if provided, otherwise auto-determine
+      isolationMode: externalIsolationMode ?? (resolution.shouldIsolate ? 'collapse' : 'none'),
+    };
+  }, [
+    fileColorLayers,
+    externalHighlightLayers,
+    externalFocusDirectory,
+    externalFocusColor,
+    externalIsolationMode,
+  ]);
+
+  // Use resolved values
+  const highlightLayers = resolved.highlightLayers;
+  const focusDirectory = resolved.focusDirectory;
+  const focusColor = resolved.focusColor;
+  const isolationMode = resolved.isolationMode as IsolationMode;
 
   const isGrown = externalIsGrown !== undefined ? externalIsGrown : internalIsGrown;
   const setIsGrown = (value: boolean) => {
@@ -2301,6 +2372,7 @@ export function FileCity3D({
     >
       <Canvas
         shadows
+        flat // Disables tone mapping for true colors
         style={{
           position: 'absolute',
           top: 0,
@@ -2321,6 +2393,7 @@ export function FileCity3D({
           isolationMode={isolationMode}
           heightScaling={heightScaling}
           linearScale={linearScale}
+          flatPatterns={flatPatterns}
           focusDirectory={focusDirectory}
           focusColor={focusColor}
           adaptCameraToBuildings={adaptCameraToBuildings}
