@@ -2148,7 +2148,7 @@ export interface FileCity3DProps {
   isGrown?: boolean;
   /** Callback when grow state changes */
   onGrowChange?: (isGrown: boolean) => void;
-  /** Show control buttons */
+  /** Show control buttons (default: false). Use isGrown prop and resetCamera() for programmatic control. */
   showControls?: boolean;
   /** Highlight layers for focusing on specific files/directories */
   highlightLayers?: HighlightLayer[];
@@ -2203,7 +2203,7 @@ export function FileCity3D({
   animation,
   isGrown: externalIsGrown,
   onGrowChange,
-  showControls = true,
+  showControls = false,
   highlightLayers: externalHighlightLayers,
   isolationMode: externalIsolationMode,
   dimOpacity: _dimOpacity = 0.15,
