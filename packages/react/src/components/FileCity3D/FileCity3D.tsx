@@ -1138,8 +1138,10 @@ export function getCameraTilt() {
   return cameraApi?.getCurrentTilt() ?? null;
 }
 
-function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }: AnimatedCameraProps) {
-  const { camera } = useThree();
+const AnimatedCamera = React.memo(function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }: AnimatedCameraProps) {
+  // Use selector to only subscribe to camera, not the entire R3F state
+  // This prevents re-renders on pointer movement
+  const camera = useThree((state) => state.camera);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
   const isAnimatingRef = useRef(false);
@@ -1684,13 +1686,7 @@ function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }
 
   return (
     <>
-      <PerspectiveCamera
-        makeDefault
-        fov={50}
-        near={1}
-        far={citySize * 10}
-        position={[initialPosRef.current!.x, initialPosRef.current!.y, initialPosRef.current!.z]}
-      />
+      <PerspectiveCamera makeDefault fov={50} near={1} far={citySize * 10} />
       <OrbitControls
         ref={controlsRef}
         enableDamping
@@ -1698,11 +1694,10 @@ function AnimatedCamera({ citySize, isFlat, focusTarget, maxBuildingHeight = 0 }
         minDistance={10}
         maxDistance={citySize * 3}
         maxPolarAngle={Math.PI / 2.1}
-        target={[initialPosRef.current!.targetX, initialPosRef.current!.targetY, initialPosRef.current!.targetZ]}
       />
     </>
   );
-}
+});
 
 // Info panel overlay
 interface InfoPanelProps {
