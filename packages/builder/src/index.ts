@@ -58,7 +58,11 @@ export type {
 } from './config/getFileConfig.js';
 
 // Layer types for highlighting and visualization
-export type { LayerItem, LayerRenderStrategy, HighlightLayer } from './layers/types.js';
+export type { LayerItem, LayerRenderStrategy, HighlightLayer, FileTypeIconConfig } from './layers/types.js';
+
+// Highlight layer creation utilities
+export { createFileHighlightLayers, extractFileIconMap } from './layers/createFileHighlightLayers.js';
+export type { FileHighlightLayersResult, FileHighlightLayersOptions } from './layers/createFileHighlightLayers.js';
 
 // Tour types and utilities
 export type {

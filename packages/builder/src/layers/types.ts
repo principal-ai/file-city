@@ -4,6 +4,24 @@
  */
 
 /**
+ * Icon configuration for file type visualization
+ */
+export interface FileTypeIconConfig {
+  /** Icon type: emoji character or Lucide icon name */
+  type: 'emoji' | 'lucide';
+  /** The emoji character or Lucide icon name */
+  name: string;
+  /** Icon color (hex format) */
+  color?: string;
+  /** Background color for the icon */
+  backgroundColor?: string;
+  /** Whether to add a glow effect */
+  glow?: boolean;
+  /** Scale factor (0-1) relative to building size */
+  size?: number;
+}
+
+/**
  * Rendering strategy for layer items
  */
 export type LayerRenderStrategy =
