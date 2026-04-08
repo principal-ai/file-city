@@ -128,7 +128,7 @@ export function createFileHighlightLayers(
 
     highlightLayers.push(primaryLayer);
 
-    // Create secondary layer if configured
+    // Create secondary layer if configured (lower priority than primary)
     if (config.secondary) {
       const secondaryLayer: HighlightLayer = {
         id: `ext-${pattern}-secondary`,
@@ -136,7 +136,7 @@ export function createFileHighlightLayers(
         color: config.secondary.color,
         enabled: true,
         opacity: config.secondary.opacity ?? 1.0,
-        priority: priority + 100,
+        priority: priority - 1,
         items: filePaths.map(
           (path): LayerItem => ({
             path,
