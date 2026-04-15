@@ -1758,33 +1758,48 @@ function ControlsOverlay({ isFlat, onToggle, onResetCamera }: ControlsOverlayPro
   const buttonStyle = {
     background: 'rgba(15, 23, 42, 0.9)',
     border: '1px solid #334155',
-    borderRadius: 6,
-    padding: '8px 16px',
+    borderRadius: 8,
+    padding: '10px',
     color: '#e2e8f0',
-    fontSize: 13,
+    fontSize: 14,
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    width: 40,
+    height: 40,
+    fontWeight: 500,
   };
 
   return (
-    <div
-      style={{
-        position: 'absolute',
-        top: 16,
-        right: 16,
-        display: 'flex',
-        gap: 8,
-      }}
-    >
-      <button onClick={onResetCamera} style={buttonStyle}>
-        Reset View
+    <>
+      {/* 2D/3D Toggle - Top Left */}
+      <button
+        onClick={onToggle}
+        style={{
+          ...buttonStyle,
+          position: 'absolute',
+          top: 8,
+          left: 8,
+        }}
+      >
+        {isFlat ? '3D' : '2D'}
       </button>
-      <button onClick={onToggle} style={buttonStyle}>
-        {isFlat ? 'Grow to 3D' : 'Flatten to 2D'}
+
+      {/* Reset Camera - Top Right */}
+      <button
+        onClick={onResetCamera}
+        style={{
+          ...buttonStyle,
+          position: 'absolute',
+          top: 8,
+          right: 8,
+        }}
+        title="Reset View"
+      >
+        ↻
       </button>
-    </div>
+    </>
   );
 }
 
@@ -2376,7 +2391,7 @@ export function FileCity3D({
           adaptCameraToBuildings={adaptCameraToBuildings}
         />
       </Canvas>
-      <InfoPanel building={selectedBuilding || hoveredBuilding} />
+      <InfoPanel building={selectedBuilding} />
       {showControls && (
         <ControlsOverlay isFlat={!isGrown} onToggle={handleToggle} onResetCamera={resetCamera} />
       )}
