@@ -88,3 +88,11 @@ export {
   loadTourFromFileTree,
   loadAllToursFromFileTree,
 } from './tour/discovery.js';
+
+// Zoom calculations (shared between web and mobile)
+export {
+  findTargetBounds,
+  calculateZoomTarget,
+  calculateAnimationDuration,
+} from './zoom/zoomCalculations.js';
+export type { TargetBounds, ZoomTarget, ScaleAndOffset } from './zoom/zoomCalculations.js';

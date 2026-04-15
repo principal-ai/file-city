@@ -1,6 +1,6 @@
 {
   "name": "@principal-ai/file-city-react",
-  "version": "0.5.31",
+  "version": "0.5.32",
   "type": "module",
   "description": "React components for File City visualization",
   "main": "dist/index.js",
@@ -14,20 +14,23 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
-    "@react-spring/three": "^10.0.3",
-    "@react-three/drei": "^10.0.6",
-    "@react-three/fiber": "^9.1.2",
     "lucide-react": "^0.563.0",
-    "reactflow": "^11.11.4",
-    "three": "^0.175.0"
+    "reactflow": "^11.11.4"
   },
   "peerDependencies": {
     "@principal-ai/file-city-builder": ">=0.4.5",
-    "react": "^19.0.0"
+    "@react-spring/three": ">=10.0.0",
+    "@react-three/drei": ">=10.0.0",
+    "@react-three/fiber": ">=9.0.0",
+    "react": "^19.0.0",
+    "three": ">=0.170.0"
   },
   "devDependencies": {
     "@principal-ade/industry-theme": "^0.1.19",
     "@principal-ai/file-city-builder": "^0.4.5",
+    "@react-spring/three": "^10.0.3",
+    "@react-three/drei": "^10.0.6",
+    "@react-three/fiber": "^9.1.2",
     "@storybook/addon-docs": "^10.1.2",
     "@storybook/addon-links": "^10.1.2",
     "@storybook/react-vite": "^10.1.2",
@@ -37,6 +40,7 @@
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "storybook": "^10.1.2",
+    "three": "^0.175.0",
     "typescript": "^5.0.0",
     "vite": "^5.0.0"
   },
