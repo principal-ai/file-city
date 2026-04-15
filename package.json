@@ -38,7 +38,7 @@
     "typescript": "^5.0.4"
   },
   "packageManager": "bun@1.2.5",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "dependencies": {
     "@principal-ai/file-city-react": "^0.5.23"
   }
