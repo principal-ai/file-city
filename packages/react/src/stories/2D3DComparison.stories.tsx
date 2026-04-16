@@ -536,12 +536,77 @@ export const ScenarioComparison: StoryObj = {
  * This tests the camera initialization issue where the camera
  * might flash to an angled position before settling to flat.
  */
+/**
+ * Simple 3D Component in 2D Mode - Tests camera initialization in flat state
+ * Renders FileCity3D with buildings flat and camera top-down (no transitions)
+ */
+export const ThreeDComponentIn2DMode: StoryObj = {
+  render: function RenderThreeDIn2DMode() {
+    const [mountKey, setMountKey] = useState(0);
+    const cityData = authServerCityData as CityData;
+    const highlightLayers = createFileColorHighlightLayers(cityData.buildings);
+
+    const handleRemount = () => {
+      setMountKey(prev => prev + 1);
+    };
+
+    return (
+      <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <div
+          style={{
+            padding: '12px 16px',
+            backgroundColor: '#1f2937',
+            borderBottom: '1px solid #374151',
+            display: 'flex',
+            gap: '16px',
+            alignItems: 'center',
+          }}
+        >
+          <button
+            onClick={handleRemount}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '6px',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 500,
+              backgroundColor: '#8b5cf6',
+              color: '#ffffff',
+            }}
+          >
+            Remount Component
+          </button>
+          <span style={{ color: '#9ca3af', fontSize: '13px' }}>
+            3D component in 2D mode (flat) | Mount count: {mountKey + 1}
+          </span>
+        </div>
+
+        <div style={{ flex: 1, backgroundColor: '#0f1419' }}>
+          <FileCity3D
+            key={`filecity-2d-${mountKey}`}
+            cityData={cityData}
+            highlightLayers={highlightLayers}
+            width="100%"
+            height="100%"
+            isGrown={false}
+            animation={{ startFlat: true, autoStartDelay: null }}
+            showControls={true}
+            backgroundColor="#0f1419"
+          />
+        </div>
+      </div>
+    );
+  },
+};
+
 export const PanelTransitionTest: StoryObj = {
   render: function RenderPanelTransitionTest() {
     const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
     const [isGrown, setIsGrown] = useState(false);
     const [overlayOpacity, setOverlayOpacity] = useState(1);
     const [hideOverlay, setHideOverlay] = useState(true);
+    const [mountKey, setMountKey] = useState(0);
     const cityData = authServerCityData as CityData;
     const highlightLayers = createFileColorHighlightLayers(cityData.buildings);
 
@@ -556,6 +621,16 @@ export const PanelTransitionTest: StoryObj = {
       } else {
         setViewMode('2d');
       }
+    };
+
+    // Handle remount - force component to unmount and remount
+    const handleRemount = () => {
+      setMountKey(prev => prev + 1);
+      // Reset to initial state
+      setViewMode('2d');
+      setIsGrown(false);
+      setOverlayOpacity(1);
+      setHideOverlay(true);
     };
 
     // Handle transition timing
@@ -612,8 +687,23 @@ export const PanelTransitionTest: StoryObj = {
           >
             {viewMode === '2d' ? 'Switch to 3D' : 'Switch to 2D'}
           </button>
+          <button
+            onClick={handleRemount}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '6px',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 500,
+              backgroundColor: '#8b5cf6',
+              color: '#ffffff',
+            }}
+          >
+            Remount Component
+          </button>
           <span style={{ color: '#9ca3af', fontSize: '13px' }}>
-            viewMode: {viewMode} | isGrown: {String(isGrown)} | hideOverlay: {String(hideOverlay)} | opacity: {overlayOpacity}
+            viewMode: {viewMode} | isGrown: {String(isGrown)} | hideOverlay: {String(hideOverlay)} | opacity: {overlayOpacity} | mounts: {mountKey + 1}
           </span>
         </div>
 
@@ -621,6 +711,7 @@ export const PanelTransitionTest: StoryObj = {
           {/* 3D layer - renders when in 3D mode */}
           {viewMode === '3d' && (
             <FileCity3D
+              key={`filecity-${mountKey}`}
               cityData={cityData}
               highlightLayers={highlightLayers}
               width="100%"
@@ -650,6 +741,7 @@ export const PanelTransitionTest: StoryObj = {
               }}
             >
               <ArchitectureMapHighlightLayers
+                key={`canvas-${mountKey}`}
                 cityData={cityData}
                 highlightLayers={highlightLayers}
                 fullSize={true}

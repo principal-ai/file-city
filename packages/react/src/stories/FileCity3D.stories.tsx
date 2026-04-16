@@ -681,6 +681,24 @@ export const ElectronApp: Story = {
 };
 
 /**
+ * Electron App Flicker Test - Reproduces camera flicker issue
+ * Stays flat (no auto-grow) to isolate the camera position jump on initial load
+ */
+export const ElectronAppFlickerTest: Story = {
+  args: {
+    cityData: electronAppCityData as CityData,
+    height: '100vh',
+    heightScaling: 'linear',
+    linearScale: 0.5,
+    animation: {
+      startFlat: true,
+      autoStartDelay: null, // Don't auto-grow, stay flat
+    },
+    showControls: true,
+  },
+};
+
+/**
  * This Repo - industry-themed-repository-composition-panels
  */
 export const ThisRepo: Story = {
