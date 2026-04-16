@@ -1156,101 +1156,56 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   const frameCount = useRef(0);
   const hasNotifiedReady = useRef(false);
   const prevIsFlatRef = useRef(isFlat); // Track previous isFlat to detect actual state changes
-  const isSyncingInitial = useRef(false); // Flag to prevent onStart from triggering during Frame 3 sync
 
-  // Calculate camera height to fit city in viewport (for top-down view)
+  // Helper to calculate flat camera height with known FOV (50) and aspect ratio
   // Formula: height = citySize / (2 * tan(fov/2) * min(1, aspect))
   // Padding factor adds space around the city to match 2D component
-  const calculateFlatCameraHeight = useCallback(() => {
-    const perspCam = camera as THREE.PerspectiveCamera;
-    const fovRad = (perspCam.fov * Math.PI) / 180;
+  const calculateFlatCameraHeight = useCallback((aspect: number) => {
+    const fov = 50; // Known FOV that will be set on PerspectiveCamera
+    const fovRad = (fov * Math.PI) / 180;
     const tanHalfFov = Math.tan(fovRad / 2);
-    const aspect = perspCam.aspect || 1;
     // Use min(1, aspect) to handle both landscape and portrait viewports
     const effectiveAspect = Math.min(1, aspect);
     const baseHeight = citySize / (2 * tanHalfFov * effectiveAspect);
     // Add padding to match 2D component's default padding
     const paddingFactor = 1.08;
-    const result = baseHeight * paddingFactor;
-    console.log('[calculateFlatCameraHeight]', {
-      fov: perspCam.fov,
-      aspect,
-      effectiveAspect,
-      citySize,
-      baseHeight,
-      result,
-    });
-    return result;
-  }, [camera, citySize]);
+    return baseHeight * paddingFactor;
+  }, [citySize]);
 
-  // Compute target camera position
-  // When flat, always use top-down view (ignore focusTarget)
-  // When grown, use focusTarget if available, otherwise angled overview
-  const targetPos = useMemo(() => {
-    // Flat state: always top-down, ignore any focus
-    // Height calculated mathematically to match 2D view zoom level
-    if (isFlat) {
-      return {
-        x: 0,
-        y: calculateFlatCameraHeight(),
-        z: 0.001, // Near-zero for top-down (tiny offset to avoid gimbal lock)
-        targetX: 0,
-        targetY: 0,
-        targetZ: 0,
-      };
-    }
+  // Calculate initial 2D position (component always starts in 2D mode)
+  // We need aspect ratio from the camera, but we'll use a default until Frame 1
+  const getInitial2DPosition = useCallback(() => {
+    const perspCam = camera as THREE.PerspectiveCamera;
+    const aspect = perspCam.aspect || 1;
+    const height = calculateFlatCameraHeight(aspect);
 
-    // Grown state: use focusTarget if available
-    if (focusTarget) {
-      const distance = Math.max(focusTarget.size * 2, 50);
-      const height = Math.max(focusTarget.size * 1.5, 40);
-      return {
-        x: focusTarget.x,
-        y: height,
-        z: focusTarget.z + distance,
-        targetX: focusTarget.x,
-        targetY: 0,
-        targetZ: focusTarget.z,
-      };
-    }
-
-    // Grown state without focus: angled overview
-    const baseHeight = citySize * 1.1;
-    const buildingAwareHeight = maxBuildingHeight > 0
-      ? Math.max(baseHeight, maxBuildingHeight * 2.5)
-      : baseHeight;
     return {
       x: 0,
-      y: buildingAwareHeight,
-      z: citySize * 1.3,
+      y: height,
+      z: 0.001, // Near-zero for top-down (tiny offset to avoid gimbal lock)
       targetX: 0,
       targetY: 0,
       targetZ: 0,
     };
-  }, [focusTarget, citySize, isFlat, maxBuildingHeight, calculateFlatCameraHeight]);
-
-  // Freeze initial camera position on Frame 1 (not during render)
-  // This ensures we capture the correct calculation after canvas is initialized
-  const initialPosRef = useRef<typeof targetPos | null>(null);
+  }, [camera, calculateFlatCameraHeight]);
 
   // Spring animation for camera movement
-  // Initialize spring with neutral values - will be set properly in Frame 3
+  // Initialize with correct 2D position from the start
   const [{ camX, camY, camZ, lookX, lookY, lookZ }, api] = useSpring(() => {
-    console.log('[Spring init] Initializing with neutral values');
+    // Calculate initial position with default aspect ratio
+    // This will be corrected in Frame 1 if aspect is different
+    const initialHeight = calculateFlatCameraHeight(1);
+
+    console.log('[Spring init] Initializing with 2D position, height:', initialHeight);
     return {
       camX: 0,
-      camY: 0,
-      camZ: 0,
+      camY: initialHeight,
+      camZ: 0.001,
       lookX: 0,
       lookY: 0,
       lookZ: 0,
       config: { tension: 60, friction: 20 },
       onStart: () => {
-        // Block animations during initial sync in Frame 3
-        if (isSyncingInitial.current) {
-          console.log('[Spring onStart] Blocked - syncing initial position');
-          return;
-        }
         // Only allow animations after initial setup is complete
         if (hasAppliedInitial.current) {
           console.log('[Spring onStart] Animation starting - camY:', camY.get());
@@ -1308,42 +1263,31 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     azimuthAngle: number; // horizontal angle to maintain
   } | null>(null);
 
-  // When isFlat changes after initial setup, animate to new position
-  // We track isFlat explicitly rather than targetPos to avoid spurious animations
-  // from aspect ratio changes or other recalculations
+  // When isFlat changes from true to false, animate to 3D view
+  // Component always starts in 2D, so we only animate the 2D→3D transition
   useEffect(() => {
-    console.log('[useEffect] Called - hasAppliedInitial:', hasAppliedInitial.current, 'isFlat:', isFlat, 'prevIsFlat:', prevIsFlatRef.current);
-    console.log('[useEffect] Dependency check - focusTarget:', focusTarget, 'citySize:', citySize, 'maxBuildingHeight:', maxBuildingHeight);
+    console.log('[useEffect] isFlat:', isFlat, 'prevIsFlat:', prevIsFlatRef.current, 'hasAppliedInitial:', hasAppliedInitial.current);
 
     // Skip until camera is initialized
-    if (!hasAppliedInitial.current || !initialPosRef.current) {
+    if (!hasAppliedInitial.current) {
       console.log('[useEffect] Skipping - not initialized yet');
       return;
     }
 
-    // Only animate if isFlat actually changed (flat <-> grown transition)
+    // Only animate if isFlat changed from true to false (2D → 3D transition)
     const isFlatChanged = prevIsFlatRef.current !== isFlat;
 
     if (!isFlatChanged) {
-      // isFlat didn't change, don't update anything
-      // Use initialPosRef to prevent updates from targetPos recalculations
-      console.log('[useEffect] No isFlat change - skipping (prevIsFlat:', prevIsFlatRef.current, 'isFlat:', isFlat, ')');
+      console.log('[useEffect] No isFlat change - skipping');
       return;
     }
 
     console.log('[useEffect] isFlat changed from', prevIsFlatRef.current, 'to', isFlat, '- animating transition');
     prevIsFlatRef.current = isFlat;
 
-    // isFlat changed - recalculate target position and animate
+    // Calculate target position for 3D view
     const newPos = isFlat
-      ? {
-          x: 0,
-          y: calculateFlatCameraHeight(),
-          z: 0.001,
-          targetX: 0,
-          targetY: 0,
-          targetZ: 0,
-        }
+      ? getInitial2DPosition() // Going back to 2D
       : focusTarget
       ? {
           x: focusTarget.x,
@@ -1362,10 +1306,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
           targetZ: 0,
         };
 
-    // Update frozen position for future reference
-    initialPosRef.current = newPos;
-
-    console.log('[useEffect] Starting animation to:', newPos);
+    console.log('[useEffect] Animating to:', newPos);
     api.start({
       camX: newPos.x,
       camY: newPos.y,
@@ -1373,21 +1314,18 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       lookX: newPos.targetX,
       lookY: newPos.targetY,
       lookZ: newPos.targetZ,
-      onRest: () => {
-        console.log('[useEffect animation] onRest called');
-        isAnimatingRef.current = false;
-      },
     });
-  }, [api, isFlat, focusTarget, citySize, maxBuildingHeight, calculateFlatCameraHeight]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFlat]); // Only animate when isFlat changes, not when focusTarget/citySize/etc change
 
   // Update camera each frame
   useFrame(() => {
     frameCount.current++;
 
-    // Capture and apply initial position on first frame
-    // This prevents the camera from starting at (0,0,0) and causing a flicker
+    // On Frame 1: Set camera to initial 2D position and mark as ready
+    // Component always starts in 2D mode, so we just need to set the correct position once
     if (frameCount.current === 1) {
-      // Ensure camera FOV is set correctly (it defaults to 75 before the prop applies)
+      // Ensure camera FOV is correct (defaults to 75 before prop applies)
       const perspCam = camera as THREE.PerspectiveCamera;
       if (perspCam.fov !== 50) {
         console.log('[Frame 1] Correcting FOV from', perspCam.fov, 'to 50');
@@ -1395,99 +1333,41 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
         perspCam.updateProjectionMatrix();
       }
 
-      // Calculate position directly on Frame 1 when camera is properly initialized
-      // Don't rely on memoized targetPos which may have been calculated with stale camera info
-      if (!initialPosRef.current) {
-        console.log('[Frame 1] Calculating initial position, isFlat:', isFlat);
-        // Recalculate fresh to ensure we have correct camera aspect ratio and FOV
-        const freshPos = isFlat
-          ? {
-              x: 0,
-              y: calculateFlatCameraHeight(),
-              z: 0.001,
-              targetX: 0,
-              targetY: 0,
-              targetZ: 0,
-            }
-          : focusTarget
-          ? {
-              x: focusTarget.x,
-              y: Math.max(focusTarget.size * 1.5, 40),
-              z: focusTarget.z + Math.max(focusTarget.size * 2, 50),
-              targetX: focusTarget.x,
-              targetY: 0,
-              targetZ: focusTarget.z,
-            }
-          : {
-              x: 0,
-              y: maxBuildingHeight > 0 ? Math.max(citySize * 1.1, maxBuildingHeight * 2.5) : citySize * 1.1,
-              z: citySize * 1.3,
-              targetX: 0,
-              targetY: 0,
-              targetZ: 0,
-            };
-        console.log('[Frame 1] Calculated position:', freshPos);
-        initialPosRef.current = freshPos;
-      }
-      const pos = initialPosRef.current;
-      console.log('[Frame 1] Setting camera to:', pos);
-      camera.position.set(pos.x, pos.y, pos.z);
-      return;
-    }
+      // Calculate initial 2D position with correct aspect ratio
+      const initialPos = getInitial2DPosition();
+      console.log('[Frame 1] Setting camera to initial 2D position:', initialPos);
 
-    // Skip first 2 frames to ensure OrbitControls is fully initialized
-    if (frameCount.current < 3) return;
-    if (!controlsRef.current) return;
+      camera.position.set(initialPos.x, initialPos.y, initialPos.z);
 
-    // Set initial target and sync spring (after OrbitControls is ready)
-    // Use frozen initialPosRef to match Frame 1 position
-    if (!hasAppliedInitial.current && initialPosRef.current) {
-      const pos = initialPosRef.current;
-      camera.position.set(pos.x, pos.y, pos.z);
-      controlsRef.current.target.set(pos.targetX, pos.targetY, pos.targetZ);
-      controlsRef.current.update();
+      // Wait for controls to be ready, then set target and sync spring
+      if (controlsRef.current) {
+        controlsRef.current.target.set(initialPos.targetX, initialPos.targetY, initialPos.targetZ);
+        controlsRef.current.update();
 
-      // Sync spring to this position so future animations start from here
-      console.log('[Frame 3] Syncing spring to:', pos);
+        // Sync spring to match camera position (use immediate to avoid animation)
+        api.start({
+          camX: initialPos.x,
+          camY: initialPos.y,
+          camZ: initialPos.z,
+          lookX: initialPos.targetX,
+          lookY: initialPos.targetY,
+          lookZ: initialPos.targetZ,
+          immediate: true,
+        });
 
-      // Set flag to prevent onStart from triggering
-      isSyncingInitial.current = true;
+        hasAppliedInitial.current = true;
 
-      // Stop any ongoing animations first
-      api.stop();
-
-      // Use api.start with immediate: true to set both current AND target values
-      // This ensures the spring won't try to animate back to any previous target
-      api.start({
-        camX: pos.x,
-        camY: pos.y,
-        camZ: pos.z,
-        lookX: pos.targetX,
-        lookY: pos.targetY,
-        lookZ: pos.targetZ,
-        immediate: true,
-      });
-
-      // Clear the syncing flag after a small delay to ensure spring is settled
-      setTimeout(() => {
-        isSyncingInitial.current = false;
-        console.log('[Frame 3] Sync complete - spring ready for animations');
-      }, 100);
-
-      // Ensure animation flag is off
-      isAnimatingRef.current = false;
-
-      console.log('[Frame 3] Spring values after sync:', { camY: camY.get() });
-
-      hasAppliedInitial.current = true;
-
-      // Notify parent that camera is ready (only once)
-      if (!hasNotifiedReady.current && onCameraReady) {
-        hasNotifiedReady.current = true;
-        onCameraReady();
+        // Notify parent that camera is ready
+        if (!hasNotifiedReady.current && onCameraReady) {
+          hasNotifiedReady.current = true;
+          onCameraReady();
+        }
       }
       return;
     }
+
+    // Wait for controls and initialization to complete
+    if (!controlsRef.current || !hasAppliedInitial.current) return;
 
     // Handle orbit animation (horizontal rotation along arc)
     if (isOrbitingRef.current && orbitParamsRef.current) {
@@ -1846,6 +1726,14 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       />
     </>
   );
+}, (prevProps, nextProps) => {
+  // Custom comparison: only re-render if isFlat, citySize, or maxBuildingHeight changes
+  // Skip re-render when only focusTarget changes (handled internally by useEffect on isFlat)
+  return (
+    prevProps.isFlat === nextProps.isFlat &&
+    prevProps.citySize === nextProps.citySize &&
+    prevProps.maxBuildingHeight === nextProps.maxBuildingHeight
+  );
 });
 
 // Info panel overlay
@@ -2198,11 +2086,6 @@ function CityScene({
     if (!selectedBuilding) return null;
     return cityData.buildings.findIndex(b => b.path === selectedBuilding.path);
   }, [selectedBuilding, cityData.buildings]);
-
-  // Calculate spring duration for animation sync
-  const tension = animationConfig.tension || 120;
-  const friction = animationConfig.friction || 14;
-  const springDuration = Math.sqrt(1 / (tension * 0.001)) * friction * 20;
 
   return (
     <>
