@@ -1,9 +1,6 @@
 {
-  "pv": {
-    "name": "Code City Builder Architecture",
-    "version": "1.0.0",
-    "markdown": ".principal-views/builder.md"
-  },
+  "name": "Code City Builder Architecture",
+  "markdown": ".principal-views/builder.md",
   "nodes": [
     {
       "id": "code-city-builder",
@@ -18,7 +15,7 @@
         "nodeType": "core-module",
         "name": "CodeCityBuilderWithGrid",
         "description": "Main builder class that orchestrates city generation with grid-based layouts",
-        "sources": ["packages/builder/src/CodeCityBuilderWithGrid.ts"]
+        "references": ["packages/builder/src/CodeCityBuilderWithGrid.ts"]
       }
     },
     {
@@ -34,7 +31,7 @@
         "nodeType": "core-module",
         "name": "GridLayoutManager",
         "description": "Manages grid system for positioning buildings and districts",
-        "sources": ["packages/builder/src/GridLayoutManager.ts"]
+        "references": ["packages/builder/src/GridLayoutManager.ts"]
       }
     },
     {
@@ -50,7 +47,7 @@
         "nodeType": "core-module",
         "name": "FileTreeBuilder",
         "description": "Constructs hierarchical file tree from repository data",
-        "sources": ["packages/builder/src/FileTreeBuilder.ts"]
+        "references": ["packages/builder/src/FileTreeBuilder.ts"]
       }
     },
     {
@@ -66,7 +63,7 @@
         "nodeType": "core-module",
         "name": "MultiVersionCityBuilder",
         "description": "Handles visualization of multiple repository versions for diff views",
-        "sources": ["packages/builder/src/MultiVersionCityBuilder.ts"]
+        "references": ["packages/builder/src/MultiVersionCityBuilder.ts"]
       }
     },
     {
@@ -82,7 +79,7 @@
         "nodeType": "utility",
         "name": "GridLayoutConfigValidator",
         "description": "Validates grid layout configuration",
-        "sources": ["packages/builder/src/GridLayoutConfigValidator.ts"]
+        "references": ["packages/builder/src/GridLayoutConfigValidator.ts"]
       }
     },
     {
@@ -98,7 +95,7 @@
         "nodeType": "utility",
         "name": "Tour Validation",
         "description": "Validates tour configuration files against city layout",
-        "sources": ["packages/builder/src/tour/validation.ts"]
+        "references": ["packages/builder/src/tour/validation.ts"]
       }
     },
     {
@@ -114,7 +111,7 @@
         "nodeType": "utility",
         "name": "Tour Discovery",
         "description": "Auto-discovers available tours in a repository",
-        "sources": ["packages/builder/src/tour/discovery.ts"]
+        "references": ["packages/builder/src/tour/discovery.ts"]
       }
     },
     {
@@ -130,7 +127,7 @@
         "nodeType": "type-def",
         "name": "City Data Types",
         "description": "TypeScript types for city data structures",
-        "sources": ["packages/builder/src/types/cityData.ts"]
+        "references": ["packages/builder/src/types/cityData.ts"]
       }
     },
     {
@@ -146,7 +143,7 @@
         "nodeType": "type-def",
         "name": "Tour Types",
         "description": "TypeScript types for tour system",
-        "sources": ["packages/builder/src/tour/types.ts"]
+        "references": ["packages/builder/src/tour/types.ts"]
       }
     },
     {
@@ -172,9 +169,7 @@
       "toNode": "grid-layout-manager",
       "fromSide": "bottom",
       "toSide": "top",
-      "pv": {
-        "edgeType": "uses"
-      }
+      "edgeType": "uses"
     },
     {
       "id": "builder-uses-file-tree",
@@ -182,9 +177,7 @@
       "toNode": "file-tree-builder",
       "fromSide": "bottom",
       "toSide": "top",
-      "pv": {
-        "edgeType": "uses"
-      }
+      "edgeType": "uses"
     },
     {
       "id": "builder-uses-city-types",
@@ -192,9 +185,7 @@
       "toNode": "city-data-types",
       "fromSide": "bottom",
       "toSide": "top",
-      "pv": {
-        "edgeType": "uses"
-      }
+      "edgeType": "uses"
     },
     {
       "id": "grid-uses-validator",
@@ -202,9 +193,7 @@
       "toNode": "grid-config-validator",
       "fromSide": "bottom",
       "toSide": "top",
-      "pv": {
-        "edgeType": "uses"
-      }
+      "edgeType": "uses"
     },
     {
       "id": "grid-uses-d3",
@@ -212,9 +201,7 @@
       "toNode": "ext-d3-hierarchy",
       "fromSide": "bottom",
       "toSide": "top",
-      "pv": {
-        "edgeType": "uses"
-      }
+      "edgeType": "uses"
     },
     {
       "id": "multi-version-uses-builder",
@@ -222,9 +209,7 @@
       "toNode": "code-city-builder",
       "fromSide": "left",
       "toSide": "right",
-      "pv": {
-        "edgeType": "uses"
-      }
+      "edgeType": "uses"
     },
     {
       "id": "tour-validation-uses-types",
@@ -232,9 +217,7 @@
       "toNode": "tour-types",
       "fromSide": "bottom",
       "toSide": "top",
-      "pv": {
-        "edgeType": "uses"
-      }
+      "edgeType": "uses"
     },
     {
       "id": "tour-discovery-uses-types",
@@ -242,9 +225,7 @@
       "toNode": "tour-types",
       "fromSide": "bottom",
       "toSide": "top",
-      "pv": {
-        "edgeType": "uses"
-      }
+      "edgeType": "uses"
     }
   ]
 }

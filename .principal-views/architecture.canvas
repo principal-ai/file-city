@@ -1,9 +1,6 @@
 {
-  "pv": {
-    "name": "File City Architecture",
-    "version": "1.0.0",
-    "markdown": ".principal-views/architecture.md"
-  },
+  "name": "File City Architecture",
+  "markdown": ".principal-views/architecture.md",
   "nodes": [
     {
       "id": "pkg-builder",
@@ -18,7 +15,7 @@
         "nodeType": "package",
         "name": "@principal-ai/file-city-builder",
         "description": "Core algorithms and data structures for file city visualization",
-        "sources": ["packages/builder/package.json"]
+        "references": ["packages/builder/package.json"]
       }
     },
     {
@@ -34,7 +31,7 @@
         "nodeType": "package",
         "name": "@principal-ai/file-city-react",
         "description": "React components for File City visualization",
-        "sources": ["packages/react/package.json"]
+        "references": ["packages/react/package.json"]
       }
     },
     {
@@ -50,7 +47,7 @@
         "nodeType": "package",
         "name": "@principal-ai/file-city-server",
         "description": "Server-side rendering utilities for File City visualization",
-        "sources": ["packages/server/package.json"]
+        "references": ["packages/server/package.json"]
       }
     },
     {
@@ -66,7 +63,7 @@
         "nodeType": "package",
         "name": "@principal-ai/file-city-cli",
         "description": "CLI tool for File City tours - validation, creation, and linting",
-        "sources": ["packages/cli/package.json"]
+        "references": ["packages/cli/package.json"]
       }
     },
     {
@@ -137,9 +134,7 @@
       "toNode": "pkg-builder",
       "fromSide": "bottom",
       "toSide": "top",
-      "pv": {
-        "edgeType": "depends-on"
-      }
+      "edgeType": "depends-on"
     },
     {
       "id": "server-depends-builder",
@@ -147,9 +142,7 @@
       "toNode": "pkg-builder",
       "fromSide": "bottom",
       "toSide": "top",
-      "pv": {
-        "edgeType": "depends-on"
-      }
+      "edgeType": "depends-on"
     },
     {
       "id": "cli-depends-builder",
@@ -157,9 +150,7 @@
       "toNode": "pkg-builder",
       "fromSide": "bottom",
       "toSide": "top",
-      "pv": {
-        "edgeType": "depends-on"
-      }
+      "edgeType": "depends-on"
     },
     {
       "id": "builder-uses-d3",
@@ -167,9 +158,7 @@
       "toNode": "ext-d3-hierarchy",
       "fromSide": "bottom",
       "toSide": "top",
-      "pv": {
-        "edgeType": "uses"
-      }
+      "edgeType": "uses"
     },
     {
       "id": "react-uses-three",
@@ -177,9 +166,7 @@
       "toNode": "ext-three",
       "fromSide": "left",
       "toSide": "right",
-      "pv": {
-        "edgeType": "uses"
-      }
+      "edgeType": "uses"
     },
     {
       "id": "react-uses-r3f",
@@ -187,9 +174,7 @@
       "toNode": "ext-react-three-fiber",
       "fromSide": "left",
       "toSide": "right",
-      "pv": {
-        "edgeType": "uses"
-      }
+      "edgeType": "uses"
     },
     {
       "id": "server-uses-canvas",
@@ -197,9 +182,7 @@
       "toNode": "ext-canvas",
       "fromSide": "bottom",
       "toSide": "top",
-      "pv": {
-        "edgeType": "uses"
-      }
+      "edgeType": "uses"
     }
   ]
 }
