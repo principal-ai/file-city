@@ -4,6 +4,7 @@ import {
   FileTree,
   useFileTree,
   useFileTreeSelection,
+  useFileTreeSelector,
 } from '@pierre/trees/react';
 import {
   FileCity3D,
@@ -1122,6 +1123,42 @@ const SingleScopeTemplate: React.FC = () => {
     pendingExpand.current = [];
   }, [scopeTreeModel, scopeTreePaths]);
 
+  // Track which scope/namespace nodes are expanded in the scope tree. The
+  // city panels mirror this: a collapsed scope shows one umbrella tile, an
+  // expanded scope shows per-namespace tiles, and an expanded namespace
+  // hides its tile so the buildings underneath are visible.
+  const treeExpansion = useFileTreeSelector(
+    scopeTreeModel,
+    React.useCallback(
+      (model: FileTree) => {
+        const expandedScopes = new Set<string>();
+        const expandedNamespaces = new Set<string>();
+        for (const scope of scopes) {
+          const scopeItem = model.getItem(scope.id);
+          if (scopeItem?.isDirectory() && scopeItem.isExpanded()) {
+            expandedScopes.add(scope.id);
+            for (const ns of scope.namespaces) {
+              const nsKey = `${scope.id}/${ns.name}`;
+              const nsItem = model.getItem(nsKey);
+              if (nsItem?.isDirectory() && nsItem.isExpanded()) {
+                expandedNamespaces.add(nsKey);
+              }
+            }
+          }
+        }
+        return { expandedScopes, expandedNamespaces };
+      },
+      [scopes],
+    ),
+    React.useCallback((prev, next) => {
+      if (prev.expandedScopes.size !== next.expandedScopes.size) return false;
+      for (const k of prev.expandedScopes) if (!next.expandedScopes.has(k)) return false;
+      if (prev.expandedNamespaces.size !== next.expandedNamespaces.size) return false;
+      for (const k of prev.expandedNamespaces) if (!next.expandedNamespaces.has(k)) return false;
+      return true;
+    }, []),
+  );
+
   // Resolve the current scope tree selection into the underlying objects.
   const scopeInfo = React.useMemo(() => {
     if (!scopeSelection) return null;
@@ -1149,45 +1186,54 @@ const SingleScopeTemplate: React.FC = () => {
     return auditHighlightLayers;
   }, [activeTab, scopeInfo, auditHighlightLayers]);
 
-  // Elevated scope panels — only on the scopes tab when a scope is selected.
-  // Scope-level paths render lower (gray); namespace paths render higher
-  // (namespace color), so they read as "this scope owns this region, with
-  // these namespaces partitioning it."
+  // Elevated scope panels — driven by the scope tree's expansion state.
+  // - Collapsed scope → one gray umbrella tile per scope path.
+  // - Expanded scope, collapsed namespace → colored tile per namespace path.
+  // - Expanded namespace → no tile (buildings show through).
   const cityElevatedPanels = React.useMemo<ElevatedScopePanel[] | undefined>(() => {
-    if (activeTab !== 'scopes' || !scopeInfo) return undefined;
+    if (activeTab !== 'scopes') return undefined;
     const panels: ElevatedScopePanel[] = [];
-    const scope = scopeInfo.scope;
 
-    for (const sp of scope.paths) {
-      const district = ELECTRON_DISTRICTS_BY_PATH.get(toCityPath(sp));
-      if (!district) continue;
-      panels.push({
-        id: `${scope.id}::scope::${sp}`,
-        color: '#64748b',
-        opacity: 0.35,
-        height: 350,
-        thickness: 8,
-        bounds: district.worldBounds,
-      });
-    }
+    for (const scope of scopes) {
+      const isScopeExpanded = treeExpansion.expandedScopes.has(scope.id);
 
-    for (const ns of scope.namespaces) {
-      for (const np of ns.paths) {
-        const district = ELECTRON_DISTRICTS_BY_PATH.get(toCityPath(np));
-        if (!district) continue;
-        panels.push({
-          id: `${scope.id}::${ns.name}::${np}`,
-          color: ns.color,
-          opacity: 0.55,
-          height: 200,
-          thickness: 6,
-          bounds: district.worldBounds,
-        });
+      if (!isScopeExpanded) {
+        for (const sp of scope.paths) {
+          const district = ELECTRON_DISTRICTS_BY_PATH.get(toCityPath(sp));
+          if (!district) continue;
+          panels.push({
+            id: `${scope.id}::scope::${sp}`,
+            color: '#64748b',
+            height: 4,
+            thickness: 2,
+            bounds: district.worldBounds,
+            label: scope.id,
+          });
+        }
+        continue;
+      }
+
+      for (const ns of scope.namespaces) {
+        const nsKey = `${scope.id}/${ns.name}`;
+        if (treeExpansion.expandedNamespaces.has(nsKey)) continue;
+
+        for (const np of ns.paths) {
+          const district = ELECTRON_DISTRICTS_BY_PATH.get(toCityPath(np));
+          if (!district) continue;
+          panels.push({
+            id: `${scope.id}::${ns.name}::${np}`,
+            color: ns.color,
+            height: 4,
+            thickness: 2,
+            bounds: district.worldBounds,
+            label: ns.name,
+          });
+        }
       }
     }
 
-    return panels;
-  }, [activeTab, scopeInfo]);
+    return panels.length > 0 ? panels : undefined;
+  }, [activeTab, scopes, treeExpansion]);
 
   const openAddModal = React.useCallback((prefillScopeId?: string) => {
     setModalScopeId(prefillScopeId ?? '');
@@ -1524,7 +1570,7 @@ const SingleScopeTemplate: React.FC = () => {
           elevatedScopePanels={cityElevatedPanels}
           animation={{
             startFlat: true,
-            autoStartDelay: 600,
+            autoStartDelay: null,
             staggerDelay: 5,
             tension: 150,
             friction: 16,

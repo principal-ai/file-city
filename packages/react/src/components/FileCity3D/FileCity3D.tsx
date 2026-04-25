@@ -66,27 +66,28 @@ export interface AnimationConfig {
 export type HeightScaling = 'logarithmic' | 'linear';
 
 /**
- * A translucent slab rendered above the city to visualize scope coverage in 3D.
- * The slab spans `bounds` in world space at elevation `height`, with `color`
- * and `opacity` controlling its appearance.
+ * An opaque slab rendered above the flat city to visualize scope coverage.
+ * Only renders when the city is in 2D (flat) mode — in 3D the buildings show
+ * through normally. When opaque, the slab's depth value occludes buildings and
+ * icons beneath its `bounds`, so the scope reads as a single colored tile.
  */
 export interface ElevatedScopePanel {
   /** Unique identifier (used as React key) */
   id: string;
   /** Hex color */
   color: string;
-  /** 0–1 opacity */
+  /** 0–1 opacity. Default 1 (fully opaque). */
   opacity?: number;
-  /**
-   * Vertical offset (world units) above the top of the tallest building.
-   * Scales with growProgress so panels sit close to the floor when flat and
-   * rise above the city as it grows. Default 20.
-   */
+  /** Y position (world units) above the ground when flat. Default 4. */
   height?: number;
   /** Slab thickness in world units (default 2) */
   thickness?: number;
   /** World-space bounds the slab covers */
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
+  /** Optional label rendered flat on top of the slab. */
+  label?: string;
+  /** Hex color for the label (default white). */
+  labelColor?: string;
 }
 
 /** Pattern for files that should render flat (e.g., lock files, generated files) */
@@ -2369,17 +2370,6 @@ function CityScene({
     return Math.max(...cityData.buildings.map(b => b.dimensions[1]), 0);
   }, [adaptCameraToBuildings, cityData.buildings]);
 
-  // Per-building heights, used to find the tallest building within each
-  // elevated panel's bounds (so a single outlier elsewhere in the city doesn't
-  // shoot every panel past the camera's far plane).
-  const buildingHeights = useMemo(
-    () =>
-      cityData.buildings.map(b =>
-        calculateBuildingHeight(b, heightScaling, linearScale, flatPatterns),
-      ),
-    [cityData.buildings, heightScaling, linearScale, flatPatterns],
-  );
-
   const activeHighlights = useMemo(() => hasActiveHighlights(highlightLayers), [highlightLayers]);
 
   // Helper to check if a path is inside a directory
@@ -2661,43 +2651,56 @@ function CityScene({
         hasActiveHighlights={activeHighlights}
       />
 
-      {elevatedScopePanels?.map(panel => {
-        const cx = (panel.bounds.minX + panel.bounds.maxX) / 2 - centerOffset.x;
-        const cz = (panel.bounds.minZ + panel.bounds.maxZ) / 2 - centerOffset.z;
-        const w = Math.max(1, panel.bounds.maxX - panel.bounds.minX);
-        const d = Math.max(1, panel.bounds.maxZ - panel.bounds.minZ);
-        const t = panel.thickness ?? 2;
+      {growProgress === 0 &&
+        elevatedScopePanels?.map(panel => {
+          const cx = (panel.bounds.minX + panel.bounds.maxX) / 2 - centerOffset.x;
+          const cz = (panel.bounds.minZ + panel.bounds.maxZ) / 2 - centerOffset.z;
+          const w = Math.max(1, panel.bounds.maxX - panel.bounds.minX);
+          const d = Math.max(1, panel.bounds.maxZ - panel.bounds.minZ);
+          const t = panel.thickness ?? 2;
+          const y = (panel.height ?? 4) + t / 2;
+          const opacity = panel.opacity ?? 1;
+          const isOpaque = opacity >= 1;
+          const topY = y + t / 2;
+          // Size text to the panel: roughly fit longest reasonable label,
+          // clamped so tiny tiles still render legibly and huge ones don't
+          // get absurd.
+          const labelSize = Math.max(4, Math.min(24, Math.min(w, d) / 6));
 
-        // Tallest building whose center sits inside this panel's bounds.
-        let localTallest = 0;
-        for (let i = 0; i < cityData.buildings.length; i++) {
-          const b = cityData.buildings[i];
-          if (
-            b.position.x >= panel.bounds.minX &&
-            b.position.x <= panel.bounds.maxX &&
-            b.position.z >= panel.bounds.minZ &&
-            b.position.z <= panel.bounds.maxZ
-          ) {
-            const h = buildingHeights[i];
-            if (h > localTallest) localTallest = h;
-          }
-        }
-
-        const offset = panel.height ?? 20;
-        const y = localTallest + offset + t / 2;
-
-        return (
-          <mesh key={panel.id} position={[cx, y, cz]} renderOrder={10}>
-            <boxGeometry args={[w, t, d]} />
-            <meshBasicMaterial
-              color={panel.color}
-              transparent
-              opacity={panel.opacity ?? 0.35}
-              depthWrite={false}
-            />
-          </mesh>
-        );
-      })}
+          return (
+            <group key={panel.id}>
+              <mesh position={[cx, y, cz]} renderOrder={10}>
+                <boxGeometry args={[w, t, d]} />
+                <meshBasicMaterial
+                  color={panel.color}
+                  transparent={!isOpaque}
+                  opacity={opacity}
+                  depthWrite={isOpaque}
+                />
+              </mesh>
+              {panel.label && (
+                <Text
+                  position={[cx, topY + 0.05, cz]}
+                  rotation={[-Math.PI / 2, 0, 0]}
+                  fontSize={labelSize}
+                  color={panel.labelColor ?? '#ffffff'}
+                  anchorX="center"
+                  anchorY="middle"
+                  maxWidth={w * 0.9}
+                  textAlign="center"
+                  renderOrder={11}
+                >
+                  {panel.label}
+                  <meshBasicMaterial
+                    attach="material"
+                    color={panel.labelColor ?? '#ffffff'}
+                    depthWrite={false}
+                  />
+                </Text>
+              )}
+            </group>
+          );
+        })}
     </>
   );
 }
