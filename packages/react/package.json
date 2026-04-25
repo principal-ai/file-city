@@ -1,6 +1,6 @@
 {
   "name": "@principal-ai/file-city-react",
-  "version": "0.5.35",
+  "version": "0.5.37",
   "type": "module",
   "description": "React components for File City visualization",
   "main": "dist/index.js",
@@ -26,6 +26,7 @@
     "three": ">=0.170.0"
   },
   "devDependencies": {
+    "@pierre/trees": "^1.0.0-beta.3",
     "@principal-ade/industry-theme": "^0.1.19",
     "@principal-ai/file-city-builder": "^0.4.5",
     "@react-spring/three": "^10.0.3",

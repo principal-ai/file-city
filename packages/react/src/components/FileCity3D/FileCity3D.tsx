@@ -18,6 +18,9 @@ import type {
   CityBuilding,
   CityDistrict,
   FileConfigResult,
+  HighlightLayer as BuilderHighlightLayer,
+  LayerItem,
+  LayerRenderStrategy,
 } from '@principal-ai/file-city-builder';
 import * as THREE from 'three';
 import type { ThreeElements } from '@react-three/fiber';
@@ -33,34 +36,8 @@ declare module 'react' {
 }
 
 // Re-export types for convenience
-export type { CityData, CityBuilding, CityDistrict };
-
-// Highlight layer types
-export interface HighlightLayer {
-  /** Unique identifier */
-  id: string;
-  /** Display name */
-  name: string;
-  /** Whether layer is active */
-  enabled: boolean;
-  /** Highlight color (hex) */
-  color: string;
-  /** Items to highlight */
-  items: HighlightItem[];
-  /** Opacity for highlighted items (0-1) */
-  opacity?: number;
-  /** Rendering priority (higher renders on top) */
-  priority?: number;
-  /** Border width in pixels */
-  borderWidth?: number;
-}
-
-export interface HighlightItem {
-  /** File or directory path */
-  path: string;
-  /** Type of item */
-  type: 'file' | 'directory';
-}
+export type { CityData, CityBuilding, CityDistrict, LayerItem, LayerRenderStrategy };
+export type HighlightLayer = BuilderHighlightLayer;
 
 /** What to do with non-highlighted buildings */
 export type IsolationMode =
@@ -87,6 +64,30 @@ export interface AnimationConfig {
 
 /** Height scaling mode for buildings */
 export type HeightScaling = 'logarithmic' | 'linear';
+
+/**
+ * A translucent slab rendered above the city to visualize scope coverage in 3D.
+ * The slab spans `bounds` in world space at elevation `height`, with `color`
+ * and `opacity` controlling its appearance.
+ */
+export interface ElevatedScopePanel {
+  /** Unique identifier (used as React key) */
+  id: string;
+  /** Hex color */
+  color: string;
+  /** 0–1 opacity */
+  opacity?: number;
+  /**
+   * Vertical offset (world units) above the top of the tallest building.
+   * Scales with growProgress so panels sit close to the floor when flat and
+   * rise above the city as it grows. Default 20.
+   */
+  height?: number;
+  /** Slab thickness in world units (default 2) */
+  thickness?: number;
+  /** World-space bounds the slab covers */
+  bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
+}
 
 /** Pattern for files that should render flat (e.g., lock files, generated files) */
 export interface FlatPattern {
@@ -273,25 +274,71 @@ function getColorForFile(building: CityBuilding): string {
   return getConfigForFile(building).color;
 }
 
+interface LayerMatch {
+  layer: HighlightLayer;
+  item: LayerItem;
+  color: string;
+  opacity: number;
+  borderWidth?: number;
+  renderStrategy: LayerRenderStrategy;
+}
+
 /**
- * Check if a path is highlighted by any enabled layer.
+ * Get ALL layer matches for a path, sorted by priority (highest first).
+ * Returns array to support multiple layers rendering together (e.g., fill + border).
+ */
+function getLayerMatchesForPath(
+  path: string,
+  layers: HighlightLayer[],
+): LayerMatch[] {
+  const matches: LayerMatch[] = [];
+
+  for (const layer of layers) {
+    if (!layer.enabled) continue;
+
+    for (const item of layer.items) {
+      let isMatch = false;
+
+      if (item.type === 'file' && item.path === path) {
+        isMatch = true;
+      } else if (item.type === 'directory' && (path === item.path || path.startsWith(item.path + '/'))) {
+        isMatch = true;
+      }
+
+      if (isMatch) {
+        matches.push({
+          layer,
+          item,
+          color: layer.color,
+          opacity: layer.opacity ?? 1,
+          borderWidth: layer.borderWidth,
+          renderStrategy: item.renderStrategy || 'border', // Default from 2D renderer
+        });
+      }
+    }
+  }
+
+  // Sort by priority (highest first)
+  return matches.sort((a, b) => (b.layer.priority ?? 0) - (a.layer.priority ?? 0));
+}
+
+/**
+ * Get the highest-priority fill color for a path (backward compatibility).
+ * Returns the first matching layer with 'fill' strategy.
  */
 function getHighlightForPath(
   path: string,
   layers: HighlightLayer[],
 ): { color: string; opacity: number } | null {
-  for (const layer of layers) {
-    if (!layer.enabled) continue;
+  const matches = getLayerMatchesForPath(path, layers);
 
-    for (const item of layer.items) {
-      if (item.type === 'file' && item.path === path) {
-        return { color: layer.color, opacity: layer.opacity ?? 1 };
-      }
-      if (item.type === 'directory' && (path === item.path || path.startsWith(item.path + '/'))) {
-        return { color: layer.color, opacity: layer.opacity ?? 1 };
-      }
-    }
+  // Find first fill match
+  const fillMatch = matches.find(m => m.renderStrategy === 'fill');
+
+  if (fillMatch) {
+    return { color: fillMatch.color, opacity: fillMatch.opacity };
   }
+
   return null;
 }
 
@@ -402,6 +449,252 @@ function BuildingEdges({
     <instancedMesh ref={meshRef} args={[undefined, undefined, numEdges]} frustumCulled={false}>
       <boxGeometry args={[1, 1, 1]} />
       <meshBasicMaterial color="#1a1a2e" transparent opacity={0.7} />
+    </instancedMesh>
+  );
+}
+
+// ============================================================================
+// Border Highlights - Colored edge outlines for highlighted buildings
+// ============================================================================
+
+interface BorderEdgeData {
+  x: number;
+  z: number;
+  fullHeight: number;
+  buildingIndex: number;
+  staggerDelayMs: number;
+  color: string;
+  opacity: number;
+  borderWidth: number;
+  edgeType: 'vertical' | 'horizontal-x' | 'horizontal-z'; // Edge orientation
+  width?: number; // For horizontal edges (length along X axis)
+  depth?: number; // For horizontal edges (length along Z axis)
+}
+
+interface BorderHighlightsProps {
+  buildings: CityBuilding[];
+  centerOffset: { x: number; z: number };
+  highlightLayers: HighlightLayer[];
+  growProgress: number;
+  minHeight: number;
+  baseOffset: number;
+  springDuration: number;
+  heightMultipliersRef: React.MutableRefObject<Float32Array | null>;
+  heightScaling: HeightScaling;
+  linearScale: number;
+  flatPatterns: FlatPattern[];
+  staggerIndices: number[];
+  animationConfig: AnimationConfig;
+}
+
+function BorderHighlights({
+  buildings,
+  centerOffset,
+  highlightLayers,
+  growProgress,
+  minHeight,
+  baseOffset,
+  springDuration,
+  heightMultipliersRef,
+  heightScaling,
+  linearScale,
+  flatPatterns,
+  staggerIndices,
+  animationConfig,
+}: BorderHighlightsProps) {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const startTimeRef = useRef<number | null>(null);
+  const tempObject = useMemo(() => new THREE.Object3D(), []);
+  const tempColor = useMemo(() => new THREE.Color(), []);
+
+  // Pre-compute border edge data from buildings with border highlights
+  const borderEdgeData = useMemo(() => {
+    const edges: BorderEdgeData[] = [];
+
+    buildings.forEach((building, buildingIndex) => {
+      const matches = getLayerMatchesForPath(building.path, highlightLayers);
+
+      // Find border matches
+      const borderMatches = matches.filter(m => m.renderStrategy === 'border');
+
+      if (borderMatches.length === 0) return;
+
+      // Use highest priority border match
+      const borderMatch = borderMatches[0];
+
+      const [width, , depth] = building.dimensions;
+      const fullHeight = calculateBuildingHeight(building, heightScaling, linearScale, flatPatterns);
+      const x = building.position.x - centerOffset.x;
+      const z = building.position.z - centerOffset.z;
+      const staggerIndex = staggerIndices[buildingIndex] ?? buildingIndex;
+      const staggerDelayMs = (animationConfig.staggerDelay || 15) * staggerIndex;
+
+      const halfW = width / 2;
+      const halfD = depth / 2;
+
+      // Create 4 vertical corner edges
+      const corners = [
+        { x: x - halfW, z: z - halfD },
+        { x: x + halfW, z: z - halfD },
+        { x: x - halfW, z: z + halfD },
+        { x: x + halfW, z: z + halfD },
+      ];
+
+      corners.forEach(corner => {
+        edges.push({
+          x: corner.x,
+          z: corner.z,
+          fullHeight,
+          buildingIndex,
+          staggerDelayMs,
+          color: borderMatch.color,
+          opacity: borderMatch.opacity,
+          borderWidth: borderMatch.borderWidth ?? 2,
+          edgeType: 'vertical',
+        });
+      });
+
+      // Create 4 horizontal edges on top (roof outline)
+      // Two edges along X axis (front and back)
+      edges.push({
+        x: x,
+        z: z - halfD,
+        fullHeight,
+        buildingIndex,
+        staggerDelayMs,
+        color: borderMatch.color,
+        opacity: borderMatch.opacity,
+        borderWidth: borderMatch.borderWidth ?? 2,
+        edgeType: 'horizontal-x',
+        width,
+      });
+      edges.push({
+        x: x,
+        z: z + halfD,
+        fullHeight,
+        buildingIndex,
+        staggerDelayMs,
+        color: borderMatch.color,
+        opacity: borderMatch.opacity,
+        borderWidth: borderMatch.borderWidth ?? 2,
+        edgeType: 'horizontal-x',
+        width,
+      });
+
+      // Two edges along Z axis (left and right)
+      edges.push({
+        x: x - halfW,
+        z: z,
+        fullHeight,
+        buildingIndex,
+        staggerDelayMs,
+        color: borderMatch.color,
+        opacity: borderMatch.opacity,
+        borderWidth: borderMatch.borderWidth ?? 2,
+        edgeType: 'horizontal-z',
+        depth,
+      });
+      edges.push({
+        x: x + halfW,
+        z: z,
+        fullHeight,
+        buildingIndex,
+        staggerDelayMs,
+        color: borderMatch.color,
+        opacity: borderMatch.opacity,
+        borderWidth: borderMatch.borderWidth ?? 2,
+        edgeType: 'horizontal-z',
+        depth,
+      });
+    });
+
+    return edges;
+  }, [
+    buildings,
+    centerOffset,
+    highlightLayers,
+    heightScaling,
+    linearScale,
+    flatPatterns,
+    staggerIndices,
+    animationConfig.staggerDelay,
+  ]);
+
+  // Animate border edges
+  useFrame(({ clock }) => {
+    if (!meshRef.current || borderEdgeData.length === 0) return;
+
+    if (startTimeRef.current === null && growProgress > 0) {
+      startTimeRef.current = clock.elapsedTime * 1000;
+    }
+
+    const currentTime = clock.elapsedTime * 1000;
+    const animStartTime = startTimeRef.current ?? currentTime;
+
+    borderEdgeData.forEach((edge, idx) => {
+      const { x, z, fullHeight, staggerDelayMs, buildingIndex, color, opacity, borderWidth, edgeType, width, depth } = edge;
+
+      // Get height multiplier from shared ref (for collapse animation)
+      const heightMultiplier = heightMultipliersRef.current?.[buildingIndex] ?? 1;
+
+      // Calculate per-building animation progress
+      const elapsed = currentTime - animStartTime - staggerDelayMs;
+      let animProgress = growProgress;
+
+      if (growProgress > 0 && elapsed >= 0) {
+        const t = Math.min(elapsed / springDuration, 1);
+        const eased = 1 - Math.pow(1 - t, 3);
+        animProgress = eased * growProgress;
+      } else if (growProgress > 0 && elapsed < 0) {
+        animProgress = 0;
+      }
+
+      // Apply both grow animation and collapse multiplier
+      const height = animProgress * fullHeight * heightMultiplier + minHeight;
+
+      // Fixed thickness based on borderWidth (don't scale with building size)
+      const thickness = Math.max(0.2, borderWidth * 0.1); // Convert pixels to world units
+
+      if (edgeType === 'vertical') {
+        // Vertical corner edges
+        const yPosition = height / 2 + baseOffset;
+        tempObject.position.set(x, yPosition, z);
+        tempObject.rotation.set(0, 0, 0);
+        tempObject.scale.set(thickness, height, thickness);
+      } else if (edgeType === 'horizontal-x') {
+        // Horizontal edges along X axis (front/back of roof)
+        const yPosition = height + baseOffset;
+        tempObject.position.set(x, yPosition, z);
+        tempObject.rotation.set(0, 0, Math.PI / 2); // Rotate to horizontal along X
+        tempObject.scale.set(thickness, width!, thickness);
+      } else if (edgeType === 'horizontal-z') {
+        // Horizontal edges along Z axis (left/right of roof)
+        const yPosition = height + baseOffset;
+        tempObject.position.set(x, yPosition, z);
+        tempObject.rotation.set(Math.PI / 2, 0, 0); // Rotate to horizontal along Z
+        tempObject.scale.set(thickness, depth!, thickness);
+      }
+
+      tempObject.updateMatrix();
+      meshRef.current!.setMatrixAt(idx, tempObject.matrix);
+
+      // Set per-instance color with opacity
+      tempColor.set(color);
+      meshRef.current!.setColorAt(idx, tempColor);
+    });
+
+    meshRef.current.instanceMatrix.needsUpdate = true;
+    if (meshRef.current.instanceColor) {
+      meshRef.current.instanceColor.needsUpdate = true;
+    }
+  });
+
+  if (borderEdgeData.length === 0) return null;
+
+  return (
+    <instancedMesh ref={meshRef} args={[undefined, undefined, borderEdgeData.length]} frustumCulled={false}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshBasicMaterial transparent opacity={0.9} vertexColors />
     </instancedMesh>
   );
 }
@@ -532,9 +825,10 @@ function InstancedBuildings({
     return buildings.map((building, index) => {
       const [width, , depth] = building.dimensions;
       const fullHeight = calculateBuildingHeight(building, heightScaling, linearScale, flatPatterns);
-      // Use highlight layer color if available, otherwise fall back to file config color
-      const highlight = getHighlightForPath(building.path, highlightLayers);
-      const color = highlight?.color ?? getColorForFile(building);
+      // Get all layer matches and find first fill match for building color
+      const matches = getLayerMatchesForPath(building.path, highlightLayers);
+      const fillMatch = matches.find(m => m.renderStrategy === 'fill');
+      const color = fillMatch?.color ?? getColorForFile(building);
 
       const x = building.position.x - centerOffset.x;
       const z = building.position.z - centerOffset.z;
@@ -750,6 +1044,23 @@ function InstancedBuildings({
         baseOffset={baseOffset}
         springDuration={springDuration}
         heightMultipliersRef={heightMultipliersRef}
+      />
+
+      {/* Border highlights (colored, layer-driven) */}
+      <BorderHighlights
+        buildings={buildings}
+        centerOffset={centerOffset}
+        highlightLayers={highlightLayers}
+        growProgress={growProgress}
+        minHeight={minHeight}
+        baseOffset={baseOffset}
+        springDuration={springDuration}
+        heightMultipliersRef={heightMultipliersRef}
+        heightScaling={heightScaling}
+        linearScale={linearScale}
+        flatPatterns={flatPatterns}
+        staggerIndices={staggerIndices}
+        animationConfig={animationConfig}
       />
     </group>
   );
@@ -1857,6 +2168,7 @@ interface CitySceneProps {
   focusDirectory: string | null;
   focusColor?: string | null;
   adaptCameraToBuildings?: boolean;
+  elevatedScopePanels?: ElevatedScopePanel[];
 }
 
 function CityScene({
@@ -1875,6 +2187,7 @@ function CityScene({
   focusDirectory,
   focusColor,
   adaptCameraToBuildings = false,
+  elevatedScopePanels,
   onCameraReady,
 }: CitySceneProps & { onCameraReady?: () => void }) {
   const centerOffset = useMemo(
@@ -1895,6 +2208,17 @@ function CityScene({
     if (!adaptCameraToBuildings) return 0;
     return Math.max(...cityData.buildings.map(b => b.dimensions[1]), 0);
   }, [adaptCameraToBuildings, cityData.buildings]);
+
+  // Per-building heights, used to find the tallest building within each
+  // elevated panel's bounds (so a single outlier elsewhere in the city doesn't
+  // shoot every panel past the camera's far plane).
+  const buildingHeights = useMemo(
+    () =>
+      cityData.buildings.map(b =>
+        calculateBuildingHeight(b, heightScaling, linearScale, flatPatterns),
+      ),
+    [cityData.buildings, heightScaling, linearScale, flatPatterns],
+  );
 
   const activeHighlights = useMemo(() => hasActiveHighlights(highlightLayers), [highlightLayers]);
 
@@ -2175,6 +2499,44 @@ function CityScene({
         isolationMode={isolationMode}
         hasActiveHighlights={activeHighlights}
       />
+
+      {elevatedScopePanels?.map(panel => {
+        const cx = (panel.bounds.minX + panel.bounds.maxX) / 2 - centerOffset.x;
+        const cz = (panel.bounds.minZ + panel.bounds.maxZ) / 2 - centerOffset.z;
+        const w = Math.max(1, panel.bounds.maxX - panel.bounds.minX);
+        const d = Math.max(1, panel.bounds.maxZ - panel.bounds.minZ);
+        const t = panel.thickness ?? 2;
+
+        // Tallest building whose center sits inside this panel's bounds.
+        let localTallest = 0;
+        for (let i = 0; i < cityData.buildings.length; i++) {
+          const b = cityData.buildings[i];
+          if (
+            b.position.x >= panel.bounds.minX &&
+            b.position.x <= panel.bounds.maxX &&
+            b.position.z >= panel.bounds.minZ &&
+            b.position.z <= panel.bounds.maxZ
+          ) {
+            const h = buildingHeights[i];
+            if (h > localTallest) localTallest = h;
+          }
+        }
+
+        const offset = panel.height ?? 20;
+        const y = localTallest + offset + t / 2;
+
+        return (
+          <mesh key={panel.id} position={[cx, y, cz]} renderOrder={10}>
+            <boxGeometry args={[w, t, d]} />
+            <meshBasicMaterial
+              color={panel.color}
+              transparent
+              opacity={panel.opacity ?? 0.35}
+              depthWrite={false}
+            />
+          </mesh>
+        );
+      })}
     </>
   );
 }
@@ -2239,6 +2601,12 @@ export interface FileCity3DProps {
 
   /** Base file type color layers (resolved with highlightLayers) */
   fileColorLayers?: HighlightLayer[];
+
+  /**
+   * Translucent slabs rendered above the city showing scope coverage as
+   * elevated planes over the directories they own.
+   */
+  elevatedScopePanels?: ElevatedScopePanel[];
 }
 
 /**
@@ -2258,6 +2626,7 @@ export function FileCity3D({
   isGrown: externalIsGrown,
   onGrowChange,
   showControls = false,
+  elevatedScopePanels,
   highlightLayers: externalHighlightLayers,
   isolationMode: externalIsolationMode,
   dimOpacity: _dimOpacity = 0.15,
@@ -2431,6 +2800,7 @@ export function FileCity3D({
           focusDirectory={focusDirectory}
           focusColor={focusColor}
           adaptCameraToBuildings={adaptCameraToBuildings}
+          elevatedScopePanels={elevatedScopePanels}
           onCameraReady={() => setCameraReady(true)}
         />
       </Canvas>

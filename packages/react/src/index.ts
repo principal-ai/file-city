@@ -77,8 +77,6 @@ export type {
   FileCity3DProps,
   AnimationConfig,
   HighlightLayer as FileCity3DHighlightLayer,
-  HighlightItem as FileCity3DHighlightItem,
-  HighlightItem,
   IsolationMode,
   HeightScaling,
   FlatPattern,
