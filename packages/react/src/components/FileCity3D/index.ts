@@ -15,6 +15,7 @@ export {
   moveCameraTo,
   setCameraTarget,
   DEFAULT_FLAT_PATTERNS,
+  DEFAULT_CAMERA_CONTROLS,
 } from './FileCity3D';
 export type {
   FileCity3DProps,
@@ -29,4 +30,9 @@ export type {
   CityData,
   CityBuilding,
   CityDistrict,
+  CameraControlsConfig,
+  MouseDragAction,
+  TouchOneAction,
+  TouchTwoAction,
+  WheelAction,
 } from './FileCity3D';

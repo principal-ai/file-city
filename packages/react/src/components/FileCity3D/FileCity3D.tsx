@@ -11,7 +11,7 @@ import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react'
 import { Canvas, useFrame, ThreeEvent, useThree } from '@react-three/fiber';
 
 import { useSpring } from '@react-spring/three';
-import { OrbitControls, PerspectiveCamera, Text } from '@react-three/drei';
+import { MapControls, PerspectiveCamera, Text } from '@react-three/drei';
 import { getFileConfig } from '@principal-ai/file-city-builder';
 import type {
   CityData,
@@ -1332,12 +1332,76 @@ interface AnimatedCameraProps {
   isFlat: boolean;
   focusTarget?: FocusTarget | null;
   maxBuildingHeight?: number;
+  cameraControls?: CameraControlsConfig;
 }
 
 // Camera rotation options
 export interface RotateOptions {
   /** Animation duration in milliseconds. Default uses spring physics (~800ms feel). */
   duration?: number;
+}
+
+export type MouseDragAction = 'pan' | 'rotate' | 'zoom' | 'none';
+export type TouchOneAction = 'pan' | 'rotate' | 'none';
+export type TouchTwoAction = 'pan' | 'rotate' | 'dolly-pan' | 'dolly-rotate' | 'none';
+export type WheelAction = 'zoom' | 'pan';
+
+export interface CameraControlsConfig {
+  /** Left mouse button drag. Default: 'pan' */
+  leftDrag?: MouseDragAction;
+  /** Right mouse button drag. Default: 'rotate' */
+  rightDrag?: MouseDragAction;
+  /** Middle mouse button drag. Default: 'zoom' */
+  middleDrag?: MouseDragAction;
+  /** Mouse wheel / two-finger trackpad scroll. Default: 'zoom'.
+   *  When 'pan', ctrl/⌘+wheel still zooms (matches trackpad pinch). */
+  wheel?: WheelAction;
+  /** One-finger touch. Default: 'pan' */
+  oneFingerTouch?: TouchOneAction;
+  /** Two-finger touch. Default: 'dolly-pan' */
+  twoFingerTouch?: TouchTwoAction;
+  /** Pan speed multiplier. Default: 1 */
+  panSpeed?: number;
+  /** Rotate speed multiplier. Default: 1 */
+  rotateSpeed?: number;
+  /** Zoom speed multiplier. Default: 1 */
+  zoomSpeed?: number;
+}
+
+export const DEFAULT_CAMERA_CONTROLS: Required<Omit<CameraControlsConfig, 'panSpeed' | 'rotateSpeed' | 'zoomSpeed'>> & Pick<CameraControlsConfig, 'panSpeed' | 'rotateSpeed' | 'zoomSpeed'> = {
+  leftDrag: 'pan',
+  rightDrag: 'rotate',
+  middleDrag: 'zoom',
+  wheel: 'pan',
+  oneFingerTouch: 'pan',
+  twoFingerTouch: 'dolly-pan',
+};
+
+function mouseAction(action: MouseDragAction): number | undefined {
+  switch (action) {
+    case 'pan': return THREE.MOUSE.PAN;
+    case 'rotate': return THREE.MOUSE.ROTATE;
+    case 'zoom': return THREE.MOUSE.DOLLY;
+    case 'none': return undefined;
+  }
+}
+
+function touchOneAction(action: TouchOneAction): number | undefined {
+  switch (action) {
+    case 'pan': return THREE.TOUCH.PAN;
+    case 'rotate': return THREE.TOUCH.ROTATE;
+    case 'none': return undefined;
+  }
+}
+
+function touchTwoAction(action: TouchTwoAction): number | undefined {
+  switch (action) {
+    case 'pan': return THREE.TOUCH.PAN;
+    case 'rotate': return THREE.TOUCH.ROTATE;
+    case 'dolly-pan': return THREE.TOUCH.DOLLY_PAN;
+    case 'dolly-rotate': return THREE.TOUCH.DOLLY_ROTATE;
+    case 'none': return undefined;
+  }
 }
 
 // Camera control API - populated by AnimatedCamera
@@ -1454,11 +1518,17 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   isFlat,
   focusTarget,
   maxBuildingHeight = 0,
+  cameraControls,
   onCameraReady,
 }: AnimatedCameraProps & { onCameraReady?: () => void }) {
   // Use selector to only subscribe to camera, not the entire R3F state
   // This prevents re-renders on pointer movement
   const camera = useThree((state) => state.camera);
+  const gl = useThree((state) => state.gl);
+  const controlsConfig = useMemo(
+    () => ({ ...DEFAULT_CAMERA_CONTROLS, ...cameraControls }),
+    [cameraControls],
+  );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
   const isAnimatingRef = useRef(false);
@@ -1710,7 +1780,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
 
       // Convert tilt angle to polar angle (0° tilt = looking down, 90° tilt = level)
       // Clamp to avoid extreme angles
-      const clampedTilt = Math.max(5, Math.min(85, currentTilt));
+      const clampedTilt = Math.max(0, Math.min(85, currentTilt));
       const polarRadians = (clampedTilt * Math.PI) / 180;
       const azimuthRadians = (azimuthAngle * Math.PI) / 180;
 
@@ -2024,26 +2094,99 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     };
   }, [resetToInitial, moveTo, setTarget, rotateTo, rotateBy, tiltTo, tiltBy, getCurrentPosition, getCurrentTarget, getCurrentAngle, getCurrentTilt]);
 
+  // Custom wheel handler for wheel === 'pan'. We disable MapControls' built-in
+  // zoom (otherwise it competes with our handler) and handle both axes here:
+  // ctrl/⌘+wheel = zoom (matches trackpad pinch), plain wheel = pan along the
+  // camera-relative ground plane.
+  useEffect(() => {
+    if (controlsConfig.wheel !== 'pan') return;
+    const canvas = gl.domElement;
+    const right = new THREE.Vector3();
+    const forward = new THREE.Vector3();
+    const offset = new THREE.Vector3();
+    const direction = new THREE.Vector3();
+    const panSpeed = controlsConfig.panSpeed ?? 1;
+    const zoomSpeed = controlsConfig.zoomSpeed ?? 1;
+
+    const onWheel = (e: WheelEvent) => {
+      const controls = controlsRef.current;
+      if (!controls) return;
+      e.preventDefault();
+      const target = controls.target as THREE.Vector3;
+
+      if (e.ctrlKey || e.metaKey) {
+        direction.subVectors(camera.position, target);
+        const distance = direction.length();
+        const scale = Math.exp(e.deltaY * 0.01 * zoomSpeed);
+        const minD = controls.minDistance ?? 0;
+        const maxD = controls.maxDistance ?? Infinity;
+        const newDistance = Math.min(Math.max(distance * scale, minD), maxD);
+        direction.normalize().multiplyScalar(newDistance);
+        camera.position.copy(target).add(direction);
+        controls.update();
+        return;
+      }
+
+      const distance = camera.position.distanceTo(target);
+      const factor = distance * 0.0015 * panSpeed;
+
+      camera.getWorldDirection(forward);
+      forward.y = 0;
+      if (forward.lengthSq() < 1e-6) forward.set(0, 0, -1);
+      forward.normalize();
+      right.crossVectors(forward, camera.up).normalize();
+
+      offset.set(0, 0, 0);
+      offset.addScaledVector(right, e.deltaX * factor);
+      offset.addScaledVector(forward, -e.deltaY * factor);
+
+      camera.position.add(offset);
+      target.add(offset);
+      controls.update();
+    };
+
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', onWheel);
+  }, [camera, gl, controlsConfig.wheel, controlsConfig.panSpeed, controlsConfig.zoomSpeed]);
+
+  const mouseButtons = useMemo(() => ({
+    LEFT: mouseAction(controlsConfig.leftDrag),
+    MIDDLE: mouseAction(controlsConfig.middleDrag),
+    RIGHT: mouseAction(controlsConfig.rightDrag),
+  }), [controlsConfig.leftDrag, controlsConfig.middleDrag, controlsConfig.rightDrag]);
+
+  const touches = useMemo(() => ({
+    ONE: touchOneAction(controlsConfig.oneFingerTouch),
+    TWO: touchTwoAction(controlsConfig.twoFingerTouch),
+  }), [controlsConfig.oneFingerTouch, controlsConfig.twoFingerTouch]);
+
   return (
     <>
       <PerspectiveCamera makeDefault fov={50} near={1} far={citySize * 10} />
-      <OrbitControls
+      <MapControls
         ref={controlsRef}
         enableDamping
         dampingFactor={0.05}
         minDistance={10}
         maxDistance={citySize * 3}
         maxPolarAngle={Math.PI / 2.1}
+        mouseButtons={mouseButtons}
+        touches={touches}
+        enableZoom={controlsConfig.wheel !== 'pan'}
+        panSpeed={controlsConfig.panSpeed ?? 1}
+        rotateSpeed={controlsConfig.rotateSpeed ?? 1}
+        zoomSpeed={controlsConfig.zoomSpeed ?? 1}
       />
     </>
   );
 }, (prevProps, nextProps) => {
-  // Custom comparison: only re-render if isFlat, citySize, or maxBuildingHeight changes
+  // Custom comparison: only re-render if isFlat, citySize, maxBuildingHeight, or cameraControls changes
   // Skip re-render when only focusTarget changes (handled internally by useEffect on isFlat)
   return (
     prevProps.isFlat === nextProps.isFlat &&
     prevProps.citySize === nextProps.citySize &&
-    prevProps.maxBuildingHeight === nextProps.maxBuildingHeight
+    prevProps.maxBuildingHeight === nextProps.maxBuildingHeight &&
+    prevProps.cameraControls === nextProps.cameraControls
   );
 });
 
@@ -2063,7 +2206,7 @@ function InfoPanel({ building }: InfoPanelProps) {
       style={{
         position: 'absolute',
         bottom: 16,
-        left: 16,
+        left: 60,
         background: 'rgba(15, 23, 42, 0.9)',
         border: '1px solid #334155',
         borderRadius: 8,
@@ -2100,9 +2243,10 @@ interface ControlsOverlayProps {
   isFlat: boolean;
   onToggle: () => void;
   onResetCamera: () => void;
+  onLookDown: () => void;
 }
 
-function ControlsOverlay({ isFlat, onToggle, onResetCamera }: ControlsOverlayProps) {
+function ControlsOverlay({ isFlat, onToggle, onResetCamera, onLookDown }: ControlsOverlayProps) {
   const buttonStyle = {
     background: 'rgba(15, 23, 42, 0.9)',
     border: '1px solid #334155',
@@ -2147,6 +2291,20 @@ function ControlsOverlay({ isFlat, onToggle, onResetCamera }: ControlsOverlayPro
       >
         ↻
       </button>
+
+      {/* Look Down - Bottom Left */}
+      <button
+        onClick={onLookDown}
+        style={{
+          ...buttonStyle,
+          position: 'absolute',
+          bottom: 8,
+          left: 8,
+        }}
+        title="Look down"
+      >
+        ⬇
+      </button>
     </>
   );
 }
@@ -2169,6 +2327,7 @@ interface CitySceneProps {
   focusColor?: string | null;
   adaptCameraToBuildings?: boolean;
   elevatedScopePanels?: ElevatedScopePanel[];
+  cameraControls?: CameraControlsConfig;
 }
 
 function CityScene({
@@ -2188,6 +2347,7 @@ function CityScene({
   focusColor,
   adaptCameraToBuildings = false,
   elevatedScopePanels,
+  cameraControls,
   onCameraReady,
 }: CitySceneProps & { onCameraReady?: () => void }) {
   const centerOffset = useMemo(
@@ -2418,6 +2578,7 @@ function CityScene({
         isFlat={growProgress === 0}
         focusTarget={focusTarget}
         maxBuildingHeight={maxBuildingHeight}
+        cameraControls={cameraControls}
         onCameraReady={onCameraReady}
       />
 
@@ -2607,6 +2768,16 @@ export interface FileCity3DProps {
    * elevated planes over the directories they own.
    */
   elevatedScopePanels?: ElevatedScopePanel[];
+
+  /**
+   * Configure how mouse / trackpad / touch input drives the camera.
+   * Defaults match Google Maps style: left-drag pans, right-drag rotates,
+   * wheel zooms. Set `wheel: 'pan'` to make trackpad two-finger scroll pan
+   * (ctrl/⌘+wheel still zooms so pinch-zoom keeps working).
+   *
+   * Memoize this object to avoid unnecessary camera re-mounts.
+   */
+  cameraControls?: CameraControlsConfig;
 }
 
 /**
@@ -2644,6 +2815,7 @@ export function FileCity3D({
   selectedBuilding = null,
   adaptCameraToBuildings = false,
   fileColorLayers,
+  cameraControls,
 }: FileCity3DProps) {
   const [hoveredBuilding, setHoveredBuilding] = useState<CityBuilding | null>(null);
   const [internalIsGrown, setInternalIsGrown] = useState(false);
@@ -2801,12 +2973,18 @@ export function FileCity3D({
           focusColor={focusColor}
           adaptCameraToBuildings={adaptCameraToBuildings}
           elevatedScopePanels={elevatedScopePanels}
+          cameraControls={cameraControls}
           onCameraReady={() => setCameraReady(true)}
         />
       </Canvas>
       <InfoPanel building={selectedBuilding} />
       {showControls && (
-        <ControlsOverlay isFlat={!isGrown} onToggle={handleToggle} onResetCamera={resetCamera} />
+        <ControlsOverlay
+          isFlat={!isGrown}
+          onToggle={handleToggle}
+          onResetCamera={resetCamera}
+          onLookDown={() => tiltCameraTo(0)}
+        />
       )}
     </div>
   );
