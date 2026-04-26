@@ -75,214 +75,28 @@ interface MockScope {
   namespaces: MockNamespace[];
 }
 
-const INITIAL_SCOPES: MockScope[] = [
-  {
-    id: 'principal-view.electron-ui',
-    name: 'principal-view.electron-ui',
-    description: 'Top-level views rendered inside the principal window.',
-    paths: ['src/renderer/principal-window/views'],
-    namespaces: [
-      {
-        name: 'skill-browser',
-        description: 'Skill discovery, install, and config UI.',
-        color: '#22c55e',
-        paths: ['src/renderer/principal-window/views/SkillBrowserView'],
-        events: [
-          { action: 'opened', severity: 'info', description: 'User opened the skill browser.' },
-          { action: 'installed', severity: 'info', description: 'A skill was installed.' },
-          { action: 'uninstalled', severity: 'info', description: 'A skill was uninstalled.' },
-          { action: 'install-failed', severity: 'error', description: 'Skill install failed.' },
-        ],
-      },
-      {
-        name: 'onboarding',
-        description: 'First-run onboarding flow.',
-        color: '#3b82f6',
-        paths: ['src/renderer/principal-window/views/OnboardingView'],
-        events: [
-          { action: 'started', severity: 'info', description: 'Onboarding flow began.' },
-          { action: 'step-completed', severity: 'info', description: 'A step finished.' },
-          { action: 'completed', severity: 'info', description: 'Onboarding completed.' },
-          { action: 'skipped', severity: 'warn', description: 'User skipped onboarding.' },
-        ],
-      },
-      {
-        name: 'settings',
-        description: 'User and workspace settings.',
-        color: '#f59e0b',
-        paths: ['src/renderer/principal-window/views/Settings'],
-        events: [
-          { action: 'opened', severity: 'info', description: 'Settings view opened.' },
-          { action: 'changed', severity: 'info', description: 'A setting was changed.' },
-          { action: 'reset', severity: 'warn', description: 'Settings reset to defaults.' },
-        ],
-      },
-      {
-        name: 'auth',
-        description: 'Authentication view and components.',
-        color: '#ec4899',
-        paths: ['src/renderer/principal-window/views/AuthView'],
-        events: [
-          { action: 'login', severity: 'info', description: 'User signed in.' },
-          { action: 'logout', severity: 'info', description: 'User signed out.' },
-          { action: 'refresh', severity: 'info', description: 'Auth token refreshed.' },
-          { action: 'error', severity: 'error', description: 'Auth flow failed.' },
-        ],
-      },
-      {
-        name: 'projects',
-        description: 'Project list and management.',
-        color: '#8b5cf6',
-        paths: ['src/renderer/principal-window/views/ProjectsView'],
-        events: [
-          { action: 'opened', severity: 'info', description: 'A project was opened.' },
-          { action: 'created', severity: 'info', description: 'A project was created.' },
-          { action: 'deleted', severity: 'warn', description: 'A project was deleted.' },
-        ],
-      },
-      {
-        name: 'worlds',
-        description: 'Worlds / environment view.',
-        color: '#06b6d4',
-        paths: ['src/renderer/principal-window/views/WorldsView'],
-        events: [
-          { action: 'opened', severity: 'info', description: 'Worlds view opened.' },
-          { action: 'created', severity: 'info', description: 'A world was created.' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'principal-view.services',
-    name: 'principal-view.services',
-    description: 'Renderer-side services and the views that observe them.',
-    paths: [
-      'src/renderer/services',
-      'src/renderer/panels/localhost-processes',
-      'src/renderer/principal-window/views/GitSyncView',
-      'src/renderer/principal-window/views/LocalhostProcessesView',
-      'src/renderer/principal-window/views/ConnectionsView',
-      'src/renderer/principal-window/views/SystemMonitor',
-    ],
-    namespaces: [
-      {
-        name: 'git-sync',
-        description: 'Git sync service + its UI.',
-        color: '#22c55e',
-        paths: [
-          'src/renderer/services/git-sync',
-          'src/renderer/principal-window/views/GitSyncView',
-        ],
-        events: [
-          { action: 'pull-started', severity: 'info', description: 'Git pull began.' },
-          { action: 'pull-completed', severity: 'info', description: 'Git pull finished.' },
-          { action: 'push-failed', severity: 'error', description: 'Git push failed.' },
-          { action: 'conflict-detected', severity: 'warn', description: 'Merge conflict detected.' },
-        ],
-      },
-      {
-        name: 'storage',
-        description: 'Renderer-side storage service.',
-        color: '#f59e0b',
-        paths: ['src/renderer/services/storage'],
-        events: [
-          { action: 'read', severity: 'info', description: 'Read from storage.' },
-          { action: 'write', severity: 'info', description: 'Wrote to storage.' },
-          { action: 'quota-exceeded', severity: 'error', description: 'Storage quota hit.' },
-        ],
-      },
-      {
-        name: 'processes',
-        description: 'Localhost process monitor + its panel.',
-        color: '#ef4444',
-        paths: [
-          'src/renderer/panels/localhost-processes',
-          'src/renderer/principal-window/views/LocalhostProcessesView',
-        ],
-        events: [
-          { action: 'started', severity: 'info', description: 'A process started.' },
-          { action: 'exited', severity: 'info', description: 'A process exited.' },
-          { action: 'crashed', severity: 'error', description: 'A process crashed.' },
-        ],
-      },
-      {
-        name: 'connections',
-        description: 'Remote connections view.',
-        color: '#3b82f6',
-        paths: ['src/renderer/principal-window/views/ConnectionsView'],
-        events: [
-          { action: 'connected', severity: 'info', description: 'Connection established.' },
-          { action: 'disconnected', severity: 'warn', description: 'Connection dropped.' },
-        ],
-      },
-      {
-        name: 'system-monitor',
-        description: 'System health / resource monitor.',
-        color: '#8b5cf6',
-        paths: ['src/renderer/principal-window/views/SystemMonitor'],
-        events: [
-          { action: 'sample', severity: 'info', description: 'Health sample recorded.' },
-          { action: 'threshold-exceeded', severity: 'warn', description: 'A threshold tripped.' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'principal-view.shell',
-    name: 'principal-view.shell',
-    description: 'Chrome: titlebar, sidebar, panels, integrated shell.',
-    paths: [
-      'src/renderer/components/Titlebar',
-      'src/renderer/components/Sidebar',
-      'src/renderer/panels',
-      'src/renderer/principal-window/components/IntegratedShell',
-    ],
-    namespaces: [
-      {
-        name: 'titlebar',
-        description: 'Window titlebar.',
-        color: '#22c55e',
-        paths: ['src/renderer/components/Titlebar'],
-        events: [
-          { action: 'menu-opened', severity: 'info', description: 'Window menu opened.' },
-          { action: 'window-action', severity: 'info', description: 'Window action invoked.' },
-        ],
-      },
-      {
-        name: 'sidebar',
-        description: 'Navigation sidebar.',
-        color: '#3b82f6',
-        paths: ['src/renderer/components/Sidebar'],
-        events: [
-          { action: 'item-selected', severity: 'info', description: 'Sidebar item selected.' },
-          { action: 'collapsed', severity: 'info', description: 'Sidebar collapsed.' },
-        ],
-      },
-      {
-        name: 'panels',
-        description: 'Bottom/side panel surface.',
-        color: '#f59e0b',
-        paths: ['src/renderer/panels'],
-        events: [
-          { action: 'opened', severity: 'info', description: 'A panel was opened.' },
-          { action: 'closed', severity: 'info', description: 'A panel was closed.' },
-          { action: 'resized', severity: 'info', description: 'A panel was resized.' },
-        ],
-      },
-      {
-        name: 'integrated-shell',
-        description: 'Terminal shell embedded in the window.',
-        color: '#ec4899',
-        paths: ['src/renderer/principal-window/components/IntegratedShell'],
-        events: [
-          { action: 'session-started', severity: 'info', description: 'A shell session began.' },
-          { action: 'session-ended', severity: 'info', description: 'A shell session ended.' },
-          { action: 'command-failed', severity: 'error', description: 'A command exited non-zero.' },
-        ],
-      },
-    ],
-  },
-];
+const SCOPES_STORAGE_KEY = 'file-city.scope-overlay.scopes';
+
+function loadScopesFromStorage(): MockScope[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(SCOPES_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as MockScope[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveScopesToStorage(scopes: readonly MockScope[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(SCOPES_STORAGE_KEY, JSON.stringify(scopes));
+  } catch {
+    // ignore quota / serialization errors in the story
+  }
+}
 
 // ---------------------------------------------------------------------------
 // File tree paths (extracted once from city data)
@@ -301,6 +115,99 @@ const ELECTRON_DIRECTORIES: Set<string> = new Set(
 const ELECTRON_DISTRICTS_BY_PATH: Map<string, CityDistrict> = new Map(
   (electronAppCityData as CityData).districts.map(d => [d.path, d]),
 );
+
+/**
+ * Parent directory → list of immediate child directories. Top-level folders
+ * (e.g. `electron-app`) live under the empty-string parent. Used to walk the
+ * folder hierarchy when generating elevated panels for the file-tree tab.
+ */
+const ELECTRON_FOLDER_CHILDREN: Map<string, string[]> = (() => {
+  const m = new Map<string, string[]>();
+  const dirs = Array.from(ELECTRON_DIRECTORIES).sort();
+  for (const dir of dirs) {
+    const slash = dir.lastIndexOf('/');
+    const parent = slash >= 0 ? dir.slice(0, slash) : '';
+    const arr = m.get(parent);
+    if (arr) arr.push(dir);
+    else m.set(parent, [dir]);
+  }
+  return m;
+})();
+
+/**
+ * Folder path → world bounds spanning every descendant district (including
+ * the folder itself, when it is a district). A collapsed folder uses these
+ * unioned bounds for its umbrella panel.
+ */
+const ELECTRON_FOLDER_BOUNDS: Map<
+  string,
+  { minX: number; maxX: number; minZ: number; maxZ: number }
+> = (() => {
+  const m = new Map<
+    string,
+    { minX: number; maxX: number; minZ: number; maxZ: number }
+  >();
+  for (const district of (electronAppCityData as CityData).districts) {
+    const b = district.worldBounds;
+    let path = district.path;
+    while (path) {
+      const cur = m.get(path);
+      if (!cur) {
+        m.set(path, { minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ });
+      } else {
+        if (b.minX < cur.minX) cur.minX = b.minX;
+        if (b.maxX > cur.maxX) cur.maxX = b.maxX;
+        if (b.minZ < cur.minZ) cur.minZ = b.minZ;
+        if (b.maxZ > cur.maxZ) cur.maxZ = b.maxZ;
+      }
+      const slash = path.lastIndexOf('/');
+      if (slash < 0) break;
+      path = path.slice(0, slash);
+    }
+  }
+  return m;
+})();
+
+/**
+ * Folder path → number of descendant files. Used to scale folder-panel
+ * label text so larger folders read first when scanning the city.
+ */
+const ELECTRON_FOLDER_FILE_COUNTS: Map<string, number> = (() => {
+  const m = new Map<string, number>();
+  for (const b of (electronAppCityData as CityData).buildings) {
+    let path = b.path;
+    const slash = path.lastIndexOf('/');
+    path = slash >= 0 ? path.slice(0, slash) : '';
+    while (path) {
+      m.set(path, (m.get(path) ?? 0) + 1);
+      const s = path.lastIndexOf('/');
+      if (s < 0) break;
+      path = path.slice(0, s);
+    }
+  }
+  return m;
+})();
+
+const FOLDER_PALETTE = [
+  '#3b82f6',
+  '#22c55e',
+  '#f59e0b',
+  '#ec4899',
+  '#8b5cf6',
+  '#06b6d4',
+  '#ef4444',
+  '#14b8a6',
+  '#a855f7',
+  '#eab308',
+];
+
+function hashFolderColor(path: string): string {
+  let h = 0;
+  for (let i = 0; i < path.length; i++) {
+    h = (h * 31 + path.charCodeAt(i)) | 0;
+  }
+  return FOLDER_PALETTE[Math.abs(h) % FOLDER_PALETTE.length];
+}
 
 // ---------------------------------------------------------------------------
 // Scope tree paths
@@ -1002,7 +909,11 @@ function buildLayersForScope(scope: MockScope): HighlightLayer[] {
 }
 
 const SingleScopeTemplate: React.FC = () => {
-  const [scopes, setScopes] = React.useState<MockScope[]>(INITIAL_SCOPES);
+  const [scopes, setScopes] = React.useState<MockScope[]>(loadScopesFromStorage);
+
+  React.useEffect(() => {
+    saveScopesToStorage(scopes);
+  }, [scopes]);
   const [focusDirectory, setFocusDirectory] = React.useState<string | null>(null);
   const [scopeSelection, setScopeSelection] = React.useState<ScopeTreeSelection | null>(null);
   const [auditMode, setAuditMode] = React.useState<AuditMode>('off');
@@ -1077,6 +988,22 @@ const SingleScopeTemplate: React.FC = () => {
     },
   });
   const selectedPaths = useFileTreeSelection(treeModel);
+
+  // Filter the file tree by audit mode so the tree mirrors what's highlighted.
+  const filteredFilePaths = React.useMemo(() => {
+    if (auditMode === 'uncovered') return uncoveredFiles.map(b => b.path).sort();
+    if (auditMode === 'covered') return coveredFiles.map(b => b.path).sort();
+    return ELECTRON_PATHS;
+  }, [auditMode, uncoveredFiles, coveredFiles]);
+
+  const isFirstFileTreeSync = React.useRef(true);
+  React.useEffect(() => {
+    if (isFirstFileTreeSync.current) {
+      isFirstFileTreeSync.current = false;
+      return;
+    }
+    treeModel.resetPaths(filteredFilePaths);
+  }, [treeModel, filteredFilePaths]);
 
   const scopeTreePaths = React.useMemo(() => buildScopeTreePaths(scopes), [scopes]);
   const initialScopeTreePaths = React.useRef(scopeTreePaths);
@@ -1198,6 +1125,10 @@ const SingleScopeTemplate: React.FC = () => {
       const isScopeExpanded = treeExpansion.expandedScopes.has(scope.id);
 
       if (!isScopeExpanded) {
+        const onClick = () => {
+          const item = scopeTreeModel.getItem(scope.id);
+          if (item?.isDirectory()) item.toggle();
+        };
         for (const sp of scope.paths) {
           const district = ELECTRON_DISTRICTS_BY_PATH.get(toCityPath(sp));
           if (!district) continue;
@@ -1208,6 +1139,7 @@ const SingleScopeTemplate: React.FC = () => {
             thickness: 2,
             bounds: district.worldBounds,
             label: scope.id,
+            onClick,
           });
         }
         continue;
@@ -1217,6 +1149,10 @@ const SingleScopeTemplate: React.FC = () => {
         const nsKey = `${scope.id}/${ns.name}`;
         if (treeExpansion.expandedNamespaces.has(nsKey)) continue;
 
+        const onClick = () => {
+          const item = scopeTreeModel.getItem(nsKey);
+          if (item?.isDirectory()) item.toggle();
+        };
         for (const np of ns.paths) {
           const district = ELECTRON_DISTRICTS_BY_PATH.get(toCityPath(np));
           if (!district) continue;
@@ -1227,13 +1163,73 @@ const SingleScopeTemplate: React.FC = () => {
             thickness: 2,
             bounds: district.worldBounds,
             label: ns.name,
+            onClick,
           });
         }
       }
     }
 
     return panels.length > 0 ? panels : undefined;
-  }, [activeTab, scopes, treeExpansion]);
+  }, [activeTab, scopes, scopeTreeModel, treeExpansion]);
+
+  // Track which folders are expanded in the file tree. The file-tree tab's
+  // elevated panels mirror this: a collapsed folder shows one umbrella tile
+  // covering every descendant district; expanding the folder reveals its
+  // sub-folder tiles (or the buildings themselves at the leaves).
+  const folderTreeExpansion = useFileTreeSelector(
+    treeModel,
+    React.useCallback((model: FileTree) => {
+      const expanded = new Set<string>();
+      for (const dir of ELECTRON_DIRECTORIES) {
+        const item = model.getItem(dir);
+        if (item?.isDirectory() && item.isExpanded()) expanded.add(dir);
+      }
+      return { expanded };
+    }, []),
+    React.useCallback((prev, next) => {
+      if (prev.expanded.size !== next.expanded.size) return false;
+      for (const k of prev.expanded) if (!next.expanded.has(k)) return false;
+      return true;
+    }, []),
+  );
+
+  // Elevated folder panels — driven by the file tree's expansion state.
+  // Recursively walks from the top-level folders: an expanded folder
+  // descends into its child folders; a collapsed folder emits one panel
+  // covering the union of all descendant district bounds.
+  const folderElevatedPanels = React.useMemo<ElevatedScopePanel[] | undefined>(() => {
+    if (activeTab !== 'files') return undefined;
+    const panels: ElevatedScopePanel[] = [];
+    const walk = (folderPath: string): void => {
+      if (folderTreeExpansion.expanded.has(folderPath)) {
+        const children = ELECTRON_FOLDER_CHILDREN.get(folderPath) ?? [];
+        for (const child of children) walk(child);
+        return;
+      }
+      const bounds = ELECTRON_FOLDER_BOUNDS.get(folderPath);
+      if (!bounds) return;
+      const label = folderPath.split('/').pop() ?? folderPath;
+      const fileCount = ELECTRON_FOLDER_FILE_COUNTS.get(folderPath) ?? 0;
+      // sqrt growth keeps ~10x file deltas inside a ~3x label-size delta;
+      // the renderer still clamps to the tile footprint.
+      const labelSize = Math.max(12, Math.min(240, 8 + Math.sqrt(fileCount) * 5));
+      panels.push({
+        id: `folder::${folderPath}`,
+        color: hashFolderColor(folderPath),
+        height: 4,
+        thickness: 2,
+        bounds,
+        label,
+        labelSize,
+        onClick: () => {
+          const item = treeModel.getItem(folderPath);
+          if (item?.isDirectory()) item.toggle();
+        },
+      });
+    };
+    for (const top of ELECTRON_FOLDER_CHILDREN.get('') ?? []) walk(top);
+    return panels.length > 0 ? panels : undefined;
+  }, [activeTab, treeModel, folderTreeExpansion]);
 
   const openAddModal = React.useCallback((prefillScopeId?: string) => {
     setModalScopeId(prefillScopeId ?? '');
@@ -1500,6 +1496,79 @@ const SingleScopeTemplate: React.FC = () => {
                 </div>
               )}
             </div>
+            <div
+              style={{
+                padding: '10px 12px',
+                borderBottom: '1px solid #1e293b',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
+              }}
+            >
+              <div style={sectionLabelStyle}>Audit filter</div>
+              <div
+                style={{
+                  display: 'flex',
+                  border: '1px solid #334155',
+                  borderRadius: 4,
+                  overflow: 'hidden',
+                  fontFamily: 'system-ui, sans-serif',
+                  fontSize: 12,
+                }}
+              >
+                {(
+                  [
+                    { mode: 'off' as const, label: 'Off', count: totalFiles, accent: '#475569' },
+                    {
+                      mode: 'uncovered' as const,
+                      label: 'Uncovered',
+                      count: uncoveredCount,
+                      accent: '#dc2626',
+                    },
+                    {
+                      mode: 'covered' as const,
+                      label: 'Covered',
+                      count: coveredCount,
+                      accent: '#16a34a',
+                    },
+                  ]
+                ).map(({ mode, label, count, accent }, i) => {
+                  const active = auditMode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      onClick={() => setAuditMode(mode)}
+                      style={{
+                        flex: 1,
+                        padding: '6px 4px',
+                        background: active ? accent : 'transparent',
+                        border: 'none',
+                        borderLeft: i === 0 ? 'none' : '1px solid #334155',
+                        color: active ? '#ffffff' : '#cbd5e1',
+                        fontWeight: active ? 500 : 400,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                        minWidth: 0,
+                      }}
+                    >
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          color: active ? '#fef3c7' : '#64748b',
+                          fontWeight: 400,
+                        }}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <FileTree
               model={treeModel}
               style={
@@ -1567,7 +1636,7 @@ const SingleScopeTemplate: React.FC = () => {
           linearScale={0.5}
           focusDirectory={focusDirectory}
           highlightLayers={cityHighlightLayers}
-          elevatedScopePanels={cityElevatedPanels}
+          elevatedScopePanels={cityElevatedPanels ?? folderElevatedPanels}
           animation={{
             startFlat: true,
             autoStartDelay: null,
@@ -1578,75 +1647,7 @@ const SingleScopeTemplate: React.FC = () => {
           showControls={true}
         />
 
-        {/* Audit segmented control — only meaningful on the files tab */}
-        {activeTab === 'files' && <div
-          style={{
-            position: 'absolute',
-            top: 16,
-            left: 16,
-            zIndex: 100,
-            display: 'flex',
-            gap: 0,
-            background: 'rgba(15, 23, 42, 0.96)',
-            border: '1px solid #334155',
-            borderRadius: 6,
-            overflow: 'hidden',
-            boxShadow: '0 6px 20px rgba(0,0,0,0.3)',
-            fontFamily: 'system-ui, sans-serif',
-            fontSize: 13,
-          }}
-        >
-          {(
-            [
-              { mode: 'off' as const, label: 'Off', count: totalFiles, accent: '#475569' },
-              {
-                mode: 'uncovered' as const,
-                label: 'Uncovered',
-                count: uncoveredCount,
-                accent: '#dc2626',
-              },
-              {
-                mode: 'covered' as const,
-                label: 'Covered',
-                count: coveredCount,
-                accent: '#16a34a',
-              },
-            ]
-          ).map(({ mode, label, count, accent }, i) => {
-            const active = auditMode === mode;
-            return (
-              <button
-                key={mode}
-                onClick={() => setAuditMode(mode)}
-                style={{
-                  padding: '10px 14px',
-                  background: active ? accent : 'transparent',
-                  border: 'none',
-                  borderLeft: i === 0 ? 'none' : '1px solid #334155',
-                  color: active ? '#ffffff' : '#cbd5e1',
-                  fontWeight: active ? 500 : 400,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                }}
-              >
-                {label}
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: active ? '#fef3c7' : '#64748b',
-                    fontWeight: 400,
-                  }}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>}
-
-      {/* Info overlay — driven by scope tree selection */}
+        {/* Info overlay — driven by scope tree selection */}
       {scopeInfo && <ScopeInfoOverlay info={scopeInfo} />}
       </div>
 

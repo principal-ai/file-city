@@ -88,6 +88,11 @@ export interface ElevatedScopePanel {
   label?: string;
   /** Hex color for the label (default white). */
   labelColor?: string;
+  /**
+   * Absolute label font size in world units. When omitted, falls back to a
+   * size derived from the panel's footprint. Always clamped to fit the tile.
+   */
+  labelSize?: number;
   /** Click handler. When set, the slab becomes interactive and shows a pointer cursor. */
   onClick?: () => void;
 }
@@ -2666,8 +2671,11 @@ function CityScene({
           const topY = y + t / 2;
           // Size text to the panel: roughly fit longest reasonable label,
           // clamped so tiny tiles still render legibly and huge ones don't
-          // get absurd.
-          const labelSize = Math.max(4, Math.min(24, Math.min(w, d) / 6));
+          // get absurd. Callers may override via panel.labelSize, but we
+          // still cap to the tile footprint so the label fits.
+          const tileMax = Math.min(w, d) / 2;
+          const requested = panel.labelSize ?? Math.min(w, d) / 6;
+          const labelSize = Math.max(4, Math.min(tileMax, requested));
 
           const handleClick = panel.onClick
             ? (e: ThreeEvent<MouseEvent>) => {
@@ -2715,12 +2723,14 @@ function CityScene({
                   maxWidth={w * 0.9}
                   textAlign="center"
                   renderOrder={11}
+                  frustumCulled={false}
                 >
                   {panel.label}
                   <meshBasicMaterial
                     attach="material"
                     color={panel.labelColor ?? '#ffffff'}
                     depthWrite={false}
+                    depthTest={false}
                   />
                 </Text>
               )}
