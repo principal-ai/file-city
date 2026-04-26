@@ -88,6 +88,8 @@ export interface ElevatedScopePanel {
   label?: string;
   /** Hex color for the label (default white). */
   labelColor?: string;
+  /** Click handler. When set, the slab becomes interactive and shows a pointer cursor. */
+  onClick?: () => void;
 }
 
 /** Pattern for files that should render flat (e.g., lock files, generated files) */
@@ -2667,9 +2669,33 @@ function CityScene({
           // get absurd.
           const labelSize = Math.max(4, Math.min(24, Math.min(w, d) / 6));
 
+          const handleClick = panel.onClick
+            ? (e: ThreeEvent<MouseEvent>) => {
+                e.stopPropagation();
+                panel.onClick!();
+              }
+            : undefined;
+          const handlePointerOver = panel.onClick
+            ? (e: ThreeEvent<PointerEvent>) => {
+                e.stopPropagation();
+                document.body.style.cursor = 'pointer';
+              }
+            : undefined;
+          const handlePointerOut = panel.onClick
+            ? () => {
+                document.body.style.cursor = '';
+              }
+            : undefined;
+
           return (
             <group key={panel.id}>
-              <mesh position={[cx, y, cz]} renderOrder={10}>
+              <mesh
+                position={[cx, y, cz]}
+                renderOrder={10}
+                onClick={handleClick}
+                onPointerOver={handlePointerOver}
+                onPointerOut={handlePointerOut}
+              >
                 <boxGeometry args={[w, t, d]} />
                 <meshBasicMaterial
                   color={panel.color}

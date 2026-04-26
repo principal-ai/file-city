@@ -80,6 +80,7 @@ export type {
   IsolationMode,
   HeightScaling,
   FlatPattern,
+  ElevatedScopePanel,
 } from './components/FileCity3D';
 
 // Re-export HighlightLayer from FileCity3D with distinct name to avoid conflict
