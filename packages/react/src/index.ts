@@ -87,6 +87,14 @@ export type {
 // with the 2D HighlightLayer from drawLayeredBuildings
 export type { HighlightLayer as FileCity3DHL } from './components/FileCity3D';
 
+// Folder-driven elevated panels (file-tree expansion → 3D umbrella tiles)
+export {
+  buildFolderElevatedPanels,
+  buildFolderIndex,
+  hashFolderColor,
+} from './utils/folderElevatedPanels';
+export type { BuildFolderElevatedPanelsOptions } from './utils/folderElevatedPanels';
+
 // Visualization resolution utilities
 // See docs/VISUALIZATION_STATE_RESOLUTION.md for documentation
 export { resolveVisualizationIntent } from './utils/visualizationResolution';

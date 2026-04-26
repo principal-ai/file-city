@@ -14,6 +14,7 @@ import {
   type HighlightLayer,
 } from '../components/FileCity3D';
 import { createFileColorHighlightLayers } from '../utils/fileColorHighlightLayers';
+import { buildFolderElevatedPanels, buildFolderIndex } from '../utils/folderElevatedPanels';
 
 import electronAppCityData from '../../../../assets/electron-app-city-data.json';
 
@@ -117,97 +118,11 @@ const ELECTRON_DISTRICTS_BY_PATH: Map<string, CityDistrict> = new Map(
 );
 
 /**
- * Parent directory → list of immediate child directories. Top-level folders
- * (e.g. `electron-app`) live under the empty-string parent. Used to walk the
- * folder hierarchy when generating elevated panels for the file-tree tab.
+ * Pre-built folder index (children, bounds, file counts) for the static
+ * electron-app city. Cached once at module load so the story doesn't
+ * recompute on every render.
  */
-const ELECTRON_FOLDER_CHILDREN: Map<string, string[]> = (() => {
-  const m = new Map<string, string[]>();
-  const dirs = Array.from(ELECTRON_DIRECTORIES).sort();
-  for (const dir of dirs) {
-    const slash = dir.lastIndexOf('/');
-    const parent = slash >= 0 ? dir.slice(0, slash) : '';
-    const arr = m.get(parent);
-    if (arr) arr.push(dir);
-    else m.set(parent, [dir]);
-  }
-  return m;
-})();
-
-/**
- * Folder path → world bounds spanning every descendant district (including
- * the folder itself, when it is a district). A collapsed folder uses these
- * unioned bounds for its umbrella panel.
- */
-const ELECTRON_FOLDER_BOUNDS: Map<
-  string,
-  { minX: number; maxX: number; minZ: number; maxZ: number }
-> = (() => {
-  const m = new Map<
-    string,
-    { minX: number; maxX: number; minZ: number; maxZ: number }
-  >();
-  for (const district of (electronAppCityData as CityData).districts) {
-    const b = district.worldBounds;
-    let path = district.path;
-    while (path) {
-      const cur = m.get(path);
-      if (!cur) {
-        m.set(path, { minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ });
-      } else {
-        if (b.minX < cur.minX) cur.minX = b.minX;
-        if (b.maxX > cur.maxX) cur.maxX = b.maxX;
-        if (b.minZ < cur.minZ) cur.minZ = b.minZ;
-        if (b.maxZ > cur.maxZ) cur.maxZ = b.maxZ;
-      }
-      const slash = path.lastIndexOf('/');
-      if (slash < 0) break;
-      path = path.slice(0, slash);
-    }
-  }
-  return m;
-})();
-
-/**
- * Folder path → number of descendant files. Used to scale folder-panel
- * label text so larger folders read first when scanning the city.
- */
-const ELECTRON_FOLDER_FILE_COUNTS: Map<string, number> = (() => {
-  const m = new Map<string, number>();
-  for (const b of (electronAppCityData as CityData).buildings) {
-    let path = b.path;
-    const slash = path.lastIndexOf('/');
-    path = slash >= 0 ? path.slice(0, slash) : '';
-    while (path) {
-      m.set(path, (m.get(path) ?? 0) + 1);
-      const s = path.lastIndexOf('/');
-      if (s < 0) break;
-      path = path.slice(0, s);
-    }
-  }
-  return m;
-})();
-
-const FOLDER_PALETTE = [
-  '#3b82f6',
-  '#22c55e',
-  '#f59e0b',
-  '#ec4899',
-  '#8b5cf6',
-  '#06b6d4',
-  '#ef4444',
-  '#14b8a6',
-  '#a855f7',
-  '#eab308',
-];
-
-function hashFolderColor(path: string): string {
-  let h = 0;
-  for (let i = 0; i < path.length; i++) {
-    h = (h * 31 + path.charCodeAt(i)) | 0;
-  }
-  return FOLDER_PALETTE[Math.abs(h) % FOLDER_PALETTE.length];
-}
+const ELECTRON_FOLDER_INDEX = buildFolderIndex(electronAppCityData as CityData);
 
 // ---------------------------------------------------------------------------
 // Scope tree paths
@@ -1194,40 +1109,17 @@ const SingleScopeTemplate: React.FC = () => {
   );
 
   // Elevated folder panels — driven by the file tree's expansion state.
-  // Recursively walks from the top-level folders: an expanded folder
-  // descends into its child folders; a collapsed folder emits one panel
-  // covering the union of all descendant district bounds.
   const folderElevatedPanels = React.useMemo<ElevatedScopePanel[] | undefined>(() => {
     if (activeTab !== 'files') return undefined;
-    const panels: ElevatedScopePanel[] = [];
-    const walk = (folderPath: string): void => {
-      if (folderTreeExpansion.expanded.has(folderPath)) {
-        const children = ELECTRON_FOLDER_CHILDREN.get(folderPath) ?? [];
-        for (const child of children) walk(child);
-        return;
-      }
-      const bounds = ELECTRON_FOLDER_BOUNDS.get(folderPath);
-      if (!bounds) return;
-      const label = folderPath.split('/').pop() ?? folderPath;
-      const fileCount = ELECTRON_FOLDER_FILE_COUNTS.get(folderPath) ?? 0;
-      // sqrt growth keeps ~10x file deltas inside a ~3x label-size delta;
-      // the renderer still clamps to the tile footprint.
-      const labelSize = Math.max(12, Math.min(240, 8 + Math.sqrt(fileCount) * 5));
-      panels.push({
-        id: `folder::${folderPath}`,
-        color: hashFolderColor(folderPath),
-        height: 4,
-        thickness: 2,
-        bounds,
-        label,
-        labelSize,
-        onClick: () => {
-          const item = treeModel.getItem(folderPath);
-          if (item?.isDirectory()) item.toggle();
-        },
-      });
-    };
-    for (const top of ELECTRON_FOLDER_CHILDREN.get('') ?? []) walk(top);
+    const panels = buildFolderElevatedPanels({
+      cityData: electronAppCityData as CityData,
+      expandedFolders: folderTreeExpansion.expanded,
+      onToggleFolder: (folderPath) => {
+        const item = treeModel.getItem(folderPath);
+        if (item?.isDirectory()) item.toggle();
+      },
+      index: ELECTRON_FOLDER_INDEX,
+    });
     return panels.length > 0 ? panels : undefined;
   }, [activeTab, treeModel, folderTreeExpansion]);
 
@@ -1646,6 +1538,37 @@ const SingleScopeTemplate: React.FC = () => {
           }}
           showControls={true}
         />
+
+        {/* Debug overlay — current focusDirectory */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 16,
+            left: 16,
+            padding: '8px 12px',
+            background: 'rgba(15, 23, 42, 0.92)',
+            border: '1px solid #334155',
+            borderRadius: 6,
+            color: '#e2e8f0',
+            fontFamily: 'system-ui, sans-serif',
+            fontSize: 12,
+            zIndex: 100,
+            maxWidth: 480,
+          }}
+        >
+          <div style={sectionLabelStyle}>focusDirectory</div>
+          <div
+            style={{
+              marginTop: 4,
+              fontFamily: 'monospace',
+              fontSize: 12,
+              color: focusDirectory ? '#fde68a' : '#64748b',
+              wordBreak: 'break-all',
+            }}
+          >
+            {focusDirectory ?? '(null)'}
+          </div>
+        </div>
 
         {/* Info overlay — driven by scope tree selection */}
       {scopeInfo && <ScopeInfoOverlay info={scopeInfo} />}
