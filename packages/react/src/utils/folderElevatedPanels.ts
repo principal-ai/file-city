@@ -105,7 +105,9 @@ export interface BuildFolderElevatedPanelsOptions {
    */
   expandedFolders: ReadonlySet<string>;
   /** Toggle handler invoked when an umbrella tile is clicked. */
-  onToggleFolder?: (folderPath: string) => void;
+  onToggleFolder?: (folderPath: string, event: MouseEvent) => void;
+  /** Double-click handler for an umbrella tile. */
+  onDoubleClickFolder?: (folderPath: string, event: MouseEvent) => void;
   /**
    * Scale label font size by descendant file count. Default true. When false,
    * the renderer's auto-sized label is used (size derived from tile footprint).
@@ -134,6 +136,7 @@ export function buildFolderElevatedPanels(
     cityData,
     expandedFolders,
     onToggleFolder,
+    onDoubleClickFolder,
     scaleLabelByFileCount = true,
   } = options;
   const index = options.index ?? buildFolderIndex(cityData);
@@ -161,7 +164,10 @@ export function buildFolderElevatedPanels(
       bounds,
       label,
       labelSize,
-      onClick: onToggleFolder ? () => onToggleFolder(folderPath) : undefined,
+      onClick: onToggleFolder ? (event: MouseEvent) => onToggleFolder(folderPath, event) : undefined,
+      onDoubleClick: onDoubleClickFolder
+        ? (event: MouseEvent) => onDoubleClickFolder(folderPath, event)
+        : undefined,
     });
   };
 

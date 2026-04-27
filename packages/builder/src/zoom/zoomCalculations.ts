@@ -5,7 +5,7 @@
  * between web (Canvas 2D) and mobile (React Native Skia) implementations.
  */
 
-import type { CityData, CityBuilding, CityDistrict, Bounds2D } from '../types/cityData';
+import type { CityData } from '../types/cityData';
 
 /**
  * Target bounds for zoom calculation

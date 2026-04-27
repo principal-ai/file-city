@@ -187,8 +187,8 @@ export function drawDistricts(
   fullSize?: boolean,
   selectedPaths?: Set<string>,
   changedFiles?: Map<string, 'added' | 'modified' | 'deleted' | 'renamed'>,
-  theme?: ColorTheme,
-  customColorFn?: ColorFunction,
+  _theme?: ColorTheme,
+  _customColorFn?: ColorFunction,
   defaultDirectoryColor?: string,
   showDirectoryLabels: boolean = true,
 ) {

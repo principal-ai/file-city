@@ -5,7 +5,23 @@ import {
   useFileTree,
   useFileTreeSelection,
   useFileTreeSelector,
+  type UseFileTreeResult,
 } from '@pierre/trees/react';
+import type { FileTreeDirectoryHandle, FileTreeItemHandle } from '@pierre/trees';
+
+type FileTreeModel = UseFileTreeResult['model'];
+
+/**
+ * Narrow a `FileTreeItemHandle` to its directory variant. The library's
+ * `isDirectory()` method returns `true`/`false` literals but isn't a
+ * `this is X` predicate, so callers can't use it to access directory-only
+ * methods (`expand`, `collapse`, `toggle`) without help.
+ */
+function asDir(
+  handle: FileTreeItemHandle | null | undefined,
+): FileTreeDirectoryHandle | null {
+  return handle && handle.isDirectory() ? (handle as FileTreeDirectoryHandle) : null;
+}
 import {
   FileCity3D,
   type CityData,
@@ -99,6 +115,55 @@ function saveScopesToStorage(scopes: readonly MockScope[]): void {
   }
 }
 
+/**
+ * MockArea mirrors `ProjectArea` from `@principal-ai/principal-view-core`'s
+ * auxiliary manifest: a named, described region of the repo that is *not*
+ * covered by an OTEL scope (docs, infra, build config, etc.). Areas live in
+ * a parallel layer to scopes and never overlap them.
+ */
+interface MockArea {
+  name: string;
+  description: string;
+  /** Repo-relative paths claimed by the area. */
+  paths: string[];
+}
+
+const AREAS_STORAGE_KEY = 'file-city.scope-overlay.areas';
+
+const DEFAULT_AREAS: MockArea[] = [
+  {
+    name: 'Documentation',
+    description: 'Project docs, READMEs, and design notes — not OTEL-instrumented.',
+    paths: ['docs'],
+  },
+  {
+    name: 'Build & tooling',
+    description: 'Build scripts, bundler config, and developer tooling.',
+    paths: ['scripts', 'build'],
+  },
+];
+
+function loadAreasFromStorage(): MockArea[] {
+  if (typeof window === 'undefined') return DEFAULT_AREAS;
+  try {
+    const raw = window.localStorage.getItem(AREAS_STORAGE_KEY);
+    if (!raw) return DEFAULT_AREAS;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as MockArea[]) : DEFAULT_AREAS;
+  } catch {
+    return DEFAULT_AREAS;
+  }
+}
+
+function saveAreasToStorage(areas: readonly MockArea[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(AREAS_STORAGE_KEY, JSON.stringify(areas));
+  } catch {
+    // ignore quota / serialization errors in the story
+  }
+}
+
 // ---------------------------------------------------------------------------
 // File tree paths (extracted once from city data)
 // ---------------------------------------------------------------------------
@@ -180,6 +245,60 @@ function parseScopeTreePath(path: string): ScopeTreeSelection {
 }
 
 // ---------------------------------------------------------------------------
+// Area tree paths
+// ---------------------------------------------------------------------------
+
+interface AreaTreeSelection {
+  areaName: string;
+  /** Selected sub-path leaf (repo-relative), if any. */
+  pathSelected?: string;
+}
+
+const EMPTY_AREA_PATHS_SENTINEL = '(no paths)';
+
+/**
+ * Areas tree paths: `<area.name>/<repo-path>`. Each area is a top-level
+ * directory whose leaves are the paths it claims. Empty areas emit a sentinel
+ * so they still appear.
+ *
+ * Repo paths use '/' internally — we encode them as a single leaf segment by
+ * replacing '/' with a non-printable separator on the way in and decoding on
+ * the way out. This avoids creating spurious sub-directories in the tree.
+ */
+const AREA_PATH_SEP = '␟'; // visible "␟" if ever leaked, but practically unused
+
+function encodeAreaPath(p: string): string {
+  return p.split('/').join(AREA_PATH_SEP);
+}
+
+function decodeAreaPath(p: string): string {
+  return p.split(AREA_PATH_SEP).join('/');
+}
+
+function buildAreaTreePaths(areas: readonly MockArea[]): string[] {
+  const out: string[] = [];
+  for (const area of areas) {
+    if (area.paths.length === 0) {
+      out.push(`${area.name}/${EMPTY_AREA_PATHS_SENTINEL}`);
+      continue;
+    }
+    for (const p of area.paths) {
+      out.push(`${area.name}/${encodeAreaPath(p)}`);
+    }
+  }
+  return out;
+}
+
+function parseAreaTreePath(path: string): AreaTreeSelection {
+  const slash = path.indexOf('/');
+  if (slash < 0) return { areaName: path };
+  const areaName = path.slice(0, slash);
+  const rest = path.slice(slash + 1);
+  if (!rest || rest === EMPTY_AREA_PATHS_SENTINEL) return { areaName };
+  return { areaName, pathSelected: decodeAreaPath(rest) };
+}
+
+// ---------------------------------------------------------------------------
 // Info overlay component
 // ---------------------------------------------------------------------------
 
@@ -192,11 +311,13 @@ const SEVERITY_BG: Record<MockEvent['severity'], string> = {
 const overlayStyle: React.CSSProperties = {
   position: 'absolute',
   top: 16,
-  right: 16,
+  left: 16,
   width: 360,
   maxHeight: 'calc(100vh - 32px)',
   overflowY: 'auto',
-  background: 'rgba(15, 23, 42, 0.96)',
+  background: 'rgba(15, 23, 42, 0.72)',
+  backdropFilter: 'blur(8px)',
+  WebkitBackdropFilter: 'blur(8px)',
   border: '1px solid #334155',
   borderRadius: 8,
   color: '#e2e8f0',
@@ -254,7 +375,7 @@ const ScopeInfoOverlay: React.FC<{
           </div>
           <div style={{ fontSize: 10, color: '#64748b', marginTop: 14, fontStyle: 'italic' }}>
             Files-per-event mapping not wired yet — for now the event highlights its parent
-            namespace's paths.
+            namespace&apos;s paths.
           </div>
         </div>
       </div>
@@ -421,6 +542,68 @@ const ScopeInfoOverlay: React.FC<{
               </div>
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Area info overlay
+// ---------------------------------------------------------------------------
+
+const AREA_PANEL_COLOR = '#64748b';
+
+const AreaInfoOverlay: React.FC<{
+  info: { area: MockArea; pathSelected: string | null };
+}> = ({ info }) => {
+  const { area, pathSelected } = info;
+  return (
+    <div style={overlayStyle}>
+      <div style={{ padding: '14px 16px', borderBottom: '1px solid #1e293b' }}>
+        <div style={sectionLabelStyle}>Area</div>
+        <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span
+            style={{
+              width: 12,
+              height: 12,
+              borderRadius: 3,
+              background: AREA_PANEL_COLOR,
+              border: '1px dashed #94a3b8',
+              flexShrink: 0,
+            }}
+          />
+          <span style={{ fontFamily: 'monospace', fontSize: 14 }}>{area.name}</span>
+        </div>
+        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 8, lineHeight: 1.5 }}>
+          {area.description}
+        </div>
+        <div style={{ fontSize: 10, color: '#64748b', marginTop: 8, fontStyle: 'italic' }}>
+          Non-instrumented region — not covered by any OTEL scope.
+        </div>
+      </div>
+      <div style={{ padding: '14px 16px' }}>
+        <div style={sectionLabelStyle}>Claimed paths ({area.paths.length})</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+          {area.paths.map(p => {
+            const isSelected = p === pathSelected;
+            return (
+              <code
+                key={p}
+                style={{
+                  fontSize: 11,
+                  color: isSelected ? '#fde68a' : '#cbd5e1',
+                  background: isSelected ? '#1e293b' : '#0b1220',
+                  padding: '4px 6px',
+                  borderRadius: 4,
+                  wordBreak: 'break-all',
+                  border: isSelected ? '1px solid #fbbf24' : '1px solid transparent',
+                }}
+              >
+                {p}
+              </code>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -740,6 +923,275 @@ const AddToScopeModal: React.FC<{
 };
 
 // ---------------------------------------------------------------------------
+// Add-to-area modal
+// ---------------------------------------------------------------------------
+
+const AddToAreaModal: React.FC<{
+  path: string;
+  areas: readonly MockArea[];
+  areaName: string;
+  description: string;
+  onAreaNameChange: (value: string) => void;
+  onDescriptionChange: (value: string) => void;
+  onPickExisting: (areaName: string) => void;
+  onSubmit: () => void;
+  onClose: () => void;
+}> = ({
+  path,
+  areas,
+  areaName,
+  description,
+  onAreaNameChange,
+  onDescriptionChange,
+  onPickExisting,
+  onSubmit,
+  onClose,
+}) => {
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const trimmedName = areaName.trim();
+  const canSubmit = trimmedName.length > 0;
+  const targetArea = areas.find(a => a.name === trimmedName);
+  const alreadyClaimed = targetArea?.paths.includes(path) ?? false;
+
+  let actionLabel = 'Add';
+  if (alreadyClaimed) actionLabel = 'Already added';
+  else if (!targetArea) actionLabel = 'Create area';
+  else actionLabel = 'Add path';
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.55)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        fontFamily: 'system-ui, sans-serif',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: 520,
+          maxHeight: 'min(80vh, 700px)',
+          display: 'flex',
+          flexDirection: 'column',
+          background: '#0f172a',
+          color: '#e2e8f0',
+          borderRadius: 8,
+          border: '1px solid #334155',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            padding: '14px 18px',
+            borderBottom: '1px solid #1e293b',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: 12,
+          }}
+        >
+          <div>
+            <div style={sectionLabelStyle}>Add to area</div>
+            <div
+              style={{
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: '#94a3b8',
+                marginTop: 6,
+                wordBreak: 'break-all',
+              }}
+            >
+              {path}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#64748b',
+              fontSize: 20,
+              cursor: 'pointer',
+              lineHeight: 1,
+              padding: 0,
+            }}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+
+        <div
+          style={{
+            padding: '14px 18px',
+            borderBottom: '1px solid #1e293b',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+          }}
+        >
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={sectionLabelStyle}>Area</span>
+            <input
+              type="text"
+              value={areaName}
+              list="area-name-options"
+              autoFocus
+              placeholder="e.g. Documentation"
+              onChange={e => onAreaNameChange(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && canSubmit && !alreadyClaimed) onSubmit();
+              }}
+              style={{
+                padding: '8px 10px',
+                background: '#0b1220',
+                color: '#e2e8f0',
+                border: '1px solid #334155',
+                borderRadius: 4,
+                fontFamily: 'monospace',
+                fontSize: 13,
+              }}
+            />
+            <datalist id="area-name-options">
+              {areas.map(a => (
+                <option key={a.name} value={a.name} />
+              ))}
+            </datalist>
+          </label>
+
+          {!targetArea && trimmedName.length > 0 && (
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={sectionLabelStyle}>Description (optional)</span>
+              <input
+                type="text"
+                value={description}
+                placeholder="Why this area exists, what it covers"
+                onChange={e => onDescriptionChange(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && canSubmit) onSubmit();
+                }}
+                style={{
+                  padding: '8px 10px',
+                  background: '#0b1220',
+                  color: '#e2e8f0',
+                  border: '1px solid #334155',
+                  borderRadius: 4,
+                  fontSize: 13,
+                }}
+              />
+            </label>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <button
+              onClick={onClose}
+              style={{
+                padding: '8px 14px',
+                background: 'transparent',
+                color: '#cbd5e1',
+                border: '1px solid #334155',
+                borderRadius: 4,
+                cursor: 'pointer',
+                fontSize: 13,
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onSubmit}
+              disabled={!canSubmit || alreadyClaimed}
+              style={{
+                padding: '8px 14px',
+                background: !canSubmit || alreadyClaimed ? '#1e293b' : '#94a3b8',
+                color: !canSubmit || alreadyClaimed ? '#475569' : '#0f172a',
+                border: '1px solid #334155',
+                borderRadius: 4,
+                cursor: !canSubmit || alreadyClaimed ? 'not-allowed' : 'pointer',
+                fontSize: 13,
+                fontWeight: 500,
+              }}
+            >
+              {actionLabel}
+            </button>
+          </div>
+        </div>
+
+        <div style={{ padding: '14px 18px', overflowY: 'auto', flex: 1 }}>
+          <div style={sectionLabelStyle}>Existing areas (click to prefill)</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+            {areas.length === 0 && (
+              <div style={{ fontSize: 11, color: '#64748b', fontStyle: 'italic' }}>
+                No areas yet. Type a name above to create the first one.
+              </div>
+            )}
+            {areas.map(area => {
+              const claims = area.paths.includes(path);
+              return (
+                <button
+                  key={area.name}
+                  onClick={() => onPickExisting(area.name)}
+                  title={claims ? 'Area already claims this path' : 'Prefill the area name'}
+                  style={{
+                    fontSize: 12,
+                    padding: '6px 10px',
+                    background: claims ? '#0f172a' : '#1e293b',
+                    color: claims ? '#475569' : '#e2e8f0',
+                    border: '1px solid #334155',
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    opacity: claims ? 0.6 : 1,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: 2,
+                      background: AREA_PANEL_COLOR,
+                      border: '1px dashed #94a3b8',
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span style={{ fontFamily: 'monospace' }}>{area.name}</span>
+                  <span
+                    style={{
+                      marginLeft: 'auto',
+                      fontSize: 10,
+                      color: '#64748b',
+                    }}
+                  >
+                    {area.paths.length} path{area.paths.length === 1 ? '' : 's'}
+                  </span>
+                  {claims && <span style={{ marginLeft: 4, fontSize: 9 }}>✓</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // Single-scope explorer
 // ---------------------------------------------------------------------------
 
@@ -825,17 +1277,74 @@ function buildLayersForScope(scope: MockScope): HighlightLayer[] {
 
 const SingleScopeTemplate: React.FC = () => {
   const [scopes, setScopes] = React.useState<MockScope[]>(loadScopesFromStorage);
+  const [areas, setAreas] = React.useState<MockArea[]>(loadAreasFromStorage);
 
   React.useEffect(() => {
     saveScopesToStorage(scopes);
   }, [scopes]);
+  React.useEffect(() => {
+    saveAreasToStorage(areas);
+  }, [areas]);
   const [focusDirectory, setFocusDirectory] = React.useState<string | null>(null);
+  const [focusPinned, setFocusPinned] = React.useState(false);
+  // While pinned, tree/scope selections must not change focusDirectory.
+  // Wrapping the setter (rather than gating each call site) keeps the pin
+  // honoured even from event handlers we add later.
+  const focusPinnedRef = React.useRef(focusPinned);
+  React.useEffect(() => {
+    focusPinnedRef.current = focusPinned;
+  }, [focusPinned]);
+  const setFocusDirectoryIfUnpinned = React.useCallback(
+    (next: string | null) => {
+      if (focusPinnedRef.current) return;
+      setFocusDirectory(next);
+    },
+    [],
+  );
+  const [selectedPanelFolder, setSelectedPanelFolder] = React.useState<string | null>(null);
+  const [showPanelFolderContents, setShowPanelFolderContents] = React.useState(false);
+  // Anchor for the top-right "Hidden parent layers" panel: tracks the
+  // most-recently-interacted folder so the panel always shows the chain of
+  // expanded ancestors up from the user's current focus. Updated by
+  // umbrella clicks, building clicks, and file tree selections.
+  const [parentLayersAnchor, setParentLayersAnchor] = React.useState<string | null>(null);
+  // When true, the panel is hidden until the next folder interaction.
+  const [parentLayersDismissed, setParentLayersDismissed] = React.useState(false);
+
+  // Sub-tree of paths under the currently selected panel folder. Computed
+  // on demand so we only rebuild when the user actually opens the contents
+  // view. Paths are stripped of the folder prefix so the tree renders rooted
+  // at the folder itself.
+  const panelFolderContentsPaths = React.useMemo(() => {
+    if (!selectedPanelFolder || !showPanelFolderContents) return [] as string[];
+    const prefix = selectedPanelFolder + '/';
+    return ELECTRON_PATHS.filter(p => p.startsWith(prefix))
+      .map(p => p.slice(prefix.length))
+      .sort();
+  }, [selectedPanelFolder, showPanelFolderContents]);
+
+  const initialPanelFolderPaths = React.useRef<string[]>([]);
+  const { model: panelFolderContentsTreeModel } = useFileTree({
+    paths: initialPanelFolderPaths.current,
+    search: true,
+  });
+
+  // Keep the sub-tree in sync as the selected folder or visibility changes.
+  React.useEffect(() => {
+    panelFolderContentsTreeModel.resetPaths(panelFolderContentsPaths);
+  }, [panelFolderContentsTreeModel, panelFolderContentsPaths]);
   const [scopeSelection, setScopeSelection] = React.useState<ScopeTreeSelection | null>(null);
+  const [areaSelection, setAreaSelection] = React.useState<AreaTreeSelection | null>(null);
   const [auditMode, setAuditMode] = React.useState<AuditMode>('off');
   const [showAddModal, setShowAddModal] = React.useState(false);
+  const [scopeModalTargetPath, setScopeModalTargetPath] = React.useState<string | null>(null);
   const [modalScopeId, setModalScopeId] = React.useState('');
   const [modalNamespaceName, setModalNamespaceName] = React.useState('');
-  const [activeTab, setActiveTab] = React.useState<'files' | 'scopes'>('files');
+  const [showAddAreaModal, setShowAddAreaModal] = React.useState(false);
+  const [areaModalTargetPath, setAreaModalTargetPath] = React.useState<string | null>(null);
+  const [modalAreaName, setModalAreaName] = React.useState('');
+  const [modalAreaDescription, setModalAreaDescription] = React.useState('');
+  const [activeTab, setActiveTab] = React.useState<'files' | 'scopes' | 'areas'>('files');
 
   // Coverage derived from current scope state.
   const claimedPaths = React.useMemo(
@@ -870,6 +1379,15 @@ const SingleScopeTemplate: React.FC = () => {
     return undefined;
   }, [auditMode, uncoveredFiles, coveredFiles]);
 
+  // City data narrowed by audit mode — render only the matching buildings so
+  // the 3D view mirrors the (already-filtered) file tree. Districts are kept
+  // intact for spatial context; empty ones simply have no buildings inside.
+  const auditedCityData = React.useMemo<CityData>(() => {
+    if (auditMode === 'off') return electronAppCityData as CityData;
+    const buildings = auditMode === 'uncovered' ? uncoveredFiles : coveredFiles;
+    return { ...(electronAppCityData as CityData), buildings };
+  }, [auditMode, uncoveredFiles, coveredFiles]);
+
   const totalFiles = ALL_BUILDINGS.length;
   const uncoveredCount = uncoveredFiles.length;
   const coveredCount = coveredFiles.length;
@@ -881,13 +1399,15 @@ const SingleScopeTemplate: React.FC = () => {
     onSelectionChange: paths => {
       const selected = paths[0];
       if (!selected) {
-        setFocusDirectory(null);
+        setFocusDirectoryIfUnpinned(null);
         return;
       }
       // Selecting a directory focuses the city on it; selecting a file focuses
       // the file's parent directory (closest ancestor that exists as a district).
       if (ELECTRON_DIRECTORIES.has(selected)) {
-        setFocusDirectory(selected);
+        setFocusDirectoryIfUnpinned(selected);
+        setParentLayersAnchor(selected);
+        setParentLayersDismissed(false);
         return;
       }
       const parts = selected.split('/');
@@ -895,11 +1415,13 @@ const SingleScopeTemplate: React.FC = () => {
         parts.pop();
         const candidate = parts.join('/');
         if (ELECTRON_DIRECTORIES.has(candidate)) {
-          setFocusDirectory(candidate);
+          setFocusDirectoryIfUnpinned(candidate);
+          setParentLayersAnchor(selected);
+          setParentLayersDismissed(false);
           return;
         }
       }
-      setFocusDirectory(null);
+      setFocusDirectoryIfUnpinned(null);
     },
   });
   const selectedPaths = useFileTreeSelection(treeModel);
@@ -941,9 +1463,9 @@ const SingleScopeTemplate: React.FC = () => {
       if (parsed.namespaceName) {
         const scope = scopes.find(s => s.id === parsed.scopeId);
         const ns = scope?.namespaces.find(n => n.name === parsed.namespaceName);
-        if (ns?.paths[0]) setFocusDirectory(toCityPath(ns.paths[0]));
+        if (ns?.paths[0]) setFocusDirectoryIfUnpinned(toCityPath(ns.paths[0]));
       } else {
-        setFocusDirectory(null);
+        setFocusDirectoryIfUnpinned(null);
       }
     },
   });
@@ -959,8 +1481,7 @@ const SingleScopeTemplate: React.FC = () => {
     }
     scopeTreeModel.resetPaths(scopeTreePaths);
     for (const dirPath of pendingExpand.current) {
-      const item = scopeTreeModel.getItem(dirPath);
-      if (item && item.isDirectory()) item.expand();
+      asDir(scopeTreeModel.getItem(dirPath))?.expand();
     }
     pendingExpand.current = [];
   }, [scopeTreeModel, scopeTreePaths]);
@@ -972,17 +1493,17 @@ const SingleScopeTemplate: React.FC = () => {
   const treeExpansion = useFileTreeSelector(
     scopeTreeModel,
     React.useCallback(
-      (model: FileTree) => {
+      (model: FileTreeModel) => {
         const expandedScopes = new Set<string>();
         const expandedNamespaces = new Set<string>();
         for (const scope of scopes) {
-          const scopeItem = model.getItem(scope.id);
-          if (scopeItem?.isDirectory() && scopeItem.isExpanded()) {
+          const scopeItem = asDir(model.getItem(scope.id));
+          if (scopeItem && scopeItem.isExpanded()) {
             expandedScopes.add(scope.id);
             for (const ns of scope.namespaces) {
               const nsKey = `${scope.id}/${ns.name}`;
-              const nsItem = model.getItem(nsKey);
-              if (nsItem?.isDirectory() && nsItem.isExpanded()) {
+              const nsItem = asDir(model.getItem(nsKey));
+              if (nsItem && nsItem.isExpanded()) {
                 expandedNamespaces.add(nsKey);
               }
             }
@@ -992,14 +1513,64 @@ const SingleScopeTemplate: React.FC = () => {
       },
       [scopes],
     ),
-    React.useCallback((prev, next) => {
-      if (prev.expandedScopes.size !== next.expandedScopes.size) return false;
-      for (const k of prev.expandedScopes) if (!next.expandedScopes.has(k)) return false;
-      if (prev.expandedNamespaces.size !== next.expandedNamespaces.size) return false;
-      for (const k of prev.expandedNamespaces) if (!next.expandedNamespaces.has(k)) return false;
-      return true;
-    }, []),
+    React.useCallback(
+      (
+        prev: { expandedScopes: Set<string>; expandedNamespaces: Set<string> },
+        next: { expandedScopes: Set<string>; expandedNamespaces: Set<string> },
+      ) => {
+        if (prev.expandedScopes.size !== next.expandedScopes.size) return false;
+        for (const k of prev.expandedScopes) if (!next.expandedScopes.has(k)) return false;
+        if (prev.expandedNamespaces.size !== next.expandedNamespaces.size) return false;
+        for (const k of prev.expandedNamespaces) if (!next.expandedNamespaces.has(k)) return false;
+        return true;
+      },
+      [],
+    ),
   );
+
+  // ---- Areas tree --------------------------------------------------------
+  const areaTreePaths = React.useMemo(() => buildAreaTreePaths(areas), [areas]);
+  const initialAreaTreePaths = React.useRef(areaTreePaths);
+  const initialExpandedAreaNames = React.useRef(areas.map(a => a.name));
+  const { model: areaTreeModel } = useFileTree({
+    paths: initialAreaTreePaths.current,
+    search: true,
+    initialExpandedPaths: initialExpandedAreaNames.current,
+    onSelectionChange: paths => {
+      const selected = paths[0];
+      if (!selected) {
+        setAreaSelection(null);
+        return;
+      }
+      const parsed = parseAreaTreePath(selected);
+      setAreaSelection(parsed);
+
+      // Selecting an area path leaf focuses the city on it; selecting a bare
+      // area clears focus.
+      if (parsed.pathSelected) {
+        setFocusDirectoryIfUnpinned(toCityPath(parsed.pathSelected));
+      } else {
+        setFocusDirectoryIfUnpinned(null);
+      }
+    },
+  });
+
+  const isFirstAreaTreeSync = React.useRef(true);
+  React.useEffect(() => {
+    if (isFirstAreaTreeSync.current) {
+      isFirstAreaTreeSync.current = false;
+      return;
+    }
+    areaTreeModel.resetPaths(areaTreePaths);
+  }, [areaTreeModel, areaTreePaths]);
+
+  // Resolve the current area tree selection into the underlying objects.
+  const areaInfo = React.useMemo(() => {
+    if (!areaSelection) return null;
+    const area = areas.find(a => a.name === areaSelection.areaName);
+    if (!area) return null;
+    return { area, pathSelected: areaSelection.pathSelected ?? null };
+  }, [areaSelection, areas]);
 
   // Resolve the current scope tree selection into the underlying objects.
   const scopeInfo = React.useMemo(() => {
@@ -1040,10 +1611,7 @@ const SingleScopeTemplate: React.FC = () => {
       const isScopeExpanded = treeExpansion.expandedScopes.has(scope.id);
 
       if (!isScopeExpanded) {
-        const onClick = () => {
-          const item = scopeTreeModel.getItem(scope.id);
-          if (item?.isDirectory()) item.toggle();
-        };
+        const onClick = () => asDir(scopeTreeModel.getItem(scope.id))?.toggle();
         for (const sp of scope.paths) {
           const district = ELECTRON_DISTRICTS_BY_PATH.get(toCityPath(sp));
           if (!district) continue;
@@ -1064,10 +1632,7 @@ const SingleScopeTemplate: React.FC = () => {
         const nsKey = `${scope.id}/${ns.name}`;
         if (treeExpansion.expandedNamespaces.has(nsKey)) continue;
 
-        const onClick = () => {
-          const item = scopeTreeModel.getItem(nsKey);
-          if (item?.isDirectory()) item.toggle();
-        };
+        const onClick = () => asDir(scopeTreeModel.getItem(nsKey))?.toggle();
         for (const np of ns.paths) {
           const district = ELECTRON_DISTRICTS_BY_PATH.get(toCityPath(np));
           if (!district) continue;
@@ -1087,47 +1652,173 @@ const SingleScopeTemplate: React.FC = () => {
     return panels.length > 0 ? panels : undefined;
   }, [activeTab, scopes, scopeTreeModel, treeExpansion]);
 
+  // Elevated panels for the Areas layer — one muted tile per claimed path.
+  // Areas have no sub-structure (paths are leaves directly under the area),
+  // so expansion in the sidebar doesn't change the panel set; clicking a
+  // panel toggles the area node's expansion to mirror the scopes UX.
+  const areasElevatedPanels = React.useMemo<ElevatedScopePanel[] | undefined>(() => {
+    if (activeTab !== 'areas') return undefined;
+    const panels: ElevatedScopePanel[] = [];
+
+    for (const area of areas) {
+      const onClick = () => asDir(areaTreeModel.getItem(area.name))?.toggle();
+      for (const ap of area.paths) {
+        const district = ELECTRON_DISTRICTS_BY_PATH.get(toCityPath(ap));
+        if (!district) continue;
+        panels.push({
+          id: `area::${area.name}::${ap}`,
+          color: AREA_PANEL_COLOR,
+          height: 4,
+          thickness: 2,
+          bounds: district.worldBounds,
+          label: area.name,
+          onClick,
+        });
+      }
+    }
+
+    return panels.length > 0 ? panels : undefined;
+  }, [activeTab, areas, areaTreeModel]);
+
   // Track which folders are expanded in the file tree. The file-tree tab's
   // elevated panels mirror this: a collapsed folder shows one umbrella tile
   // covering every descendant district; expanding the folder reveals its
   // sub-folder tiles (or the buildings themselves at the leaves).
   const folderTreeExpansion = useFileTreeSelector(
     treeModel,
-    React.useCallback((model: FileTree) => {
+    React.useCallback((model: FileTreeModel) => {
       const expanded = new Set<string>();
       for (const dir of ELECTRON_DIRECTORIES) {
-        const item = model.getItem(dir);
-        if (item?.isDirectory() && item.isExpanded()) expanded.add(dir);
+        const item = asDir(model.getItem(dir));
+        if (item && item.isExpanded()) expanded.add(dir);
       }
       return { expanded };
     }, []),
-    React.useCallback((prev, next) => {
-      if (prev.expanded.size !== next.expanded.size) return false;
-      for (const k of prev.expanded) if (!next.expanded.has(k)) return false;
-      return true;
-    }, []),
+    React.useCallback(
+      (prev: { expanded: Set<string> }, next: { expanded: Set<string> }) => {
+        if (prev.expanded.size !== next.expanded.size) return false;
+        for (const k of prev.expanded) if (!next.expanded.has(k)) return false;
+        return true;
+      },
+      [],
+    ),
   );
 
   // Elevated folder panels — driven by the file tree's expansion state.
+  // Hidden during audit modes so the filtered buildings aren't obscured by
+  // umbrella tiles for folders that may now be empty or partially shown.
   const folderElevatedPanels = React.useMemo<ElevatedScopePanel[] | undefined>(() => {
     if (activeTab !== 'files') return undefined;
+    if (auditMode !== 'off') return undefined;
     const panels = buildFolderElevatedPanels({
       cityData: electronAppCityData as CityData,
       expandedFolders: folderTreeExpansion.expanded,
       onToggleFolder: (folderPath) => {
-        const item = treeModel.getItem(folderPath);
-        if (item?.isDirectory()) item.toggle();
+        // Plain click → surface the clicked folder in the panel-selection
+        // card (with an "Open" button) instead of expanding immediately,
+        // so the umbrella tile doesn't vanish out from under the click.
+        // showPanelFolderContents is intentionally not reset here: if the
+        // user already opted into the contents view, switching folders
+        // keeps the contents view active for the new folder.
+        setSelectedPanelFolder(folderPath);
+        setParentLayersAnchor(folderPath);
+        setParentLayersDismissed(false);
+      },
+      onDoubleClickFolder: (folderPath) => {
+        // Double-click → focus the camera on this folder.
+        setSelectedPanelFolder(folderPath);
+        setFocusDirectoryIfUnpinned(folderPath);
+        setParentLayersAnchor(folderPath);
+        setParentLayersDismissed(false);
       },
       index: ELECTRON_FOLDER_INDEX,
     });
-    return panels.length > 0 ? panels : undefined;
-  }, [activeTab, treeModel, folderTreeExpansion]);
+    // While the user is inspecting a folder's contents, hide just that
+    // folder's umbrella so the buildings inside become visible. Sibling
+    // folders keep their umbrellas.
+    const filtered = showPanelFolderContents && selectedPanelFolder
+      ? panels.filter(p => p.id !== `folder::${selectedPanelFolder}`)
+      : panels;
 
-  const openAddModal = React.useCallback((prefillScopeId?: string) => {
-    setModalScopeId(prefillScopeId ?? '');
-    setModalNamespaceName('');
-    setShowAddModal(true);
-  }, []);
+    // Selection indicator: render a thin, slightly-larger panel underneath
+    // the selected folder's umbrella so an accent ring peeks out around its
+    // edges. Inserted *before* the umbrella in the list so the umbrella
+    // draws on top — only the inflated rim shows.
+    if (selectedPanelFolder && !showPanelFolderContents) {
+      const idx = filtered.findIndex(p => p.id === `folder::${selectedPanelFolder}`);
+      if (idx >= 0) {
+        const target = filtered[idx];
+        const inflate = 4;
+        const border: ElevatedScopePanel = {
+          id: `folder-border::${selectedPanelFolder}`,
+          color: '#fbbf24',
+          height: (target.height ?? 4) - 2,
+          thickness: 1,
+          bounds: {
+            minX: target.bounds.minX - inflate,
+            maxX: target.bounds.maxX + inflate,
+            minZ: target.bounds.minZ - inflate,
+            maxZ: target.bounds.maxZ + inflate,
+          },
+        };
+        const next = [...filtered];
+        next.splice(idx, 0, border);
+        return next;
+      }
+    }
+
+    return filtered.length > 0 ? filtered : undefined;
+  }, [
+    activeTab,
+    auditMode,
+    showPanelFolderContents,
+    selectedPanelFolder,
+    treeModel,
+    folderTreeExpansion,
+    setFocusDirectoryIfUnpinned,
+  ]);
+
+  // Cmd-click on a building → surface the chain of expanded ancestor folders
+  // (their umbrellas are currently hidden because they're expanded). Each
+  // entry in the popup can be clicked to collapse that ancestor, which
+  // restores its umbrella so the user can navigate back up.
+  const parentLayers = React.useMemo<string[]>(() => {
+    if (!parentLayersAnchor) return [];
+    const parts = parentLayersAnchor.split('/');
+    const out: string[] = [];
+    // Walk shallowest → deepest so the list reads outermost-first.
+    // Include the anchor itself: if it's expanded, its umbrella is hidden
+    // (children took its place), so the user should be able to collapse it
+    // back from the panel.
+    for (let i = 1; i <= parts.length; i++) {
+      const ancestor = parts.slice(0, i).join('/');
+      if (folderTreeExpansion.expanded.has(ancestor)) out.push(ancestor);
+    }
+    return out;
+  }, [parentLayersAnchor, folderTreeExpansion]);
+
+  const handleBuildingClick = React.useCallback(
+    (building: { path: string }) => {
+      setParentLayersAnchor(building.path);
+      setParentLayersDismissed(false);
+    },
+    [],
+  );
+
+  const collapseFolder = React.useCallback(
+    (folderPath: string) => asDir(treeModel.getItem(folderPath))?.collapse(),
+    [treeModel],
+  );
+
+  const openAddModal = React.useCallback(
+    (targetPath: string, prefillScopeId?: string) => {
+      setScopeModalTargetPath(targetPath);
+      setModalScopeId(prefillScopeId ?? '');
+      setModalNamespaceName('');
+      setShowAddModal(true);
+    },
+    [],
+  );
 
   // Scopes that already cover the selected file-tree path (via scope-level
   // paths or any namespace path).
@@ -1142,9 +1833,28 @@ const SingleScopeTemplate: React.FC = () => {
     });
   }, [selectedFilePath, scopes]);
 
+  // Coverage lookup for the city-panel-clicked folder. Returns scope hits
+  // (with the most specific covering namespace, if any) and area hits.
+  const panelFolderCoverage = React.useMemo(() => {
+    if (!selectedPanelFolder) return null;
+    const sp = toScopePath(selectedPanelFolder);
+    const covers = (claim: string) => sp === claim || sp.startsWith(claim + '/');
+
+    const scopeHits: { scope: MockScope; namespace: MockNamespace | null }[] = [];
+    for (const scope of scopes) {
+      const ns = scope.namespaces.find(n => n.paths.some(covers)) ?? null;
+      const scopeLevel = scope.paths.some(covers);
+      if (ns || scopeLevel) scopeHits.push({ scope, namespace: ns });
+    }
+
+    const areaHits = areas.filter(a => a.paths.some(covers));
+
+    return { scopeHits, areaHits };
+  }, [selectedPanelFolder, scopes, areas]);
+
   const submitAddToScope = React.useCallback(() => {
-    if (!selectedFilePath) return;
-    const path = toScopePath(selectedFilePath);
+    if (!scopeModalTargetPath) return;
+    const path = toScopePath(scopeModalTargetPath);
     const scopeId = modalScopeId.trim();
     const namespaceName = modalNamespaceName.trim();
     if (!scopeId) return;
@@ -1240,7 +1950,41 @@ const SingleScopeTemplate: React.FC = () => {
     });
 
     setShowAddModal(false);
-  }, [selectedFilePath, modalScopeId, modalNamespaceName]);
+    setScopeModalTargetPath(null);
+  }, [scopeModalTargetPath, modalScopeId, modalNamespaceName]);
+
+  const openAddAreaModal = React.useCallback((targetPath: string) => {
+    setAreaModalTargetPath(targetPath);
+    setModalAreaName('');
+    setModalAreaDescription('');
+    setShowAddAreaModal(true);
+  }, []);
+
+  const submitAddToArea = React.useCallback(() => {
+    if (!areaModalTargetPath) return;
+    const path = toScopePath(areaModalTargetPath);
+    const name = modalAreaName.trim();
+    const desc = modalAreaDescription.trim();
+    if (!name) return;
+
+    setAreas(prev => {
+      const idx = prev.findIndex(a => a.name === name);
+      if (idx >= 0) {
+        const area = prev[idx];
+        if (area.paths.includes(path)) return prev;
+        const next = [...prev];
+        next[idx] = { ...area, paths: [...area.paths, path] };
+        return next;
+      }
+      return [
+        ...prev,
+        { name, description: desc || '(new area)', paths: [path] },
+      ];
+    });
+
+    setShowAddAreaModal(false);
+    setAreaModalTargetPath(null);
+  }, [areaModalTargetPath, modalAreaName, modalAreaDescription]);
 
   return (
     <div style={{ height: '100vh', display: 'flex', background: '#0f172a' }}>
@@ -1269,6 +2013,7 @@ const SingleScopeTemplate: React.FC = () => {
             [
               { id: 'files' as const, label: 'File tree', accent: '#3b82f6' },
               { id: 'scopes' as const, label: 'Scopes', accent: '#a855f7' },
+              { id: 'areas' as const, label: 'Areas', accent: '#94a3b8' },
             ]
           ).map(tab => {
             const active = activeTab === tab.id;
@@ -1352,7 +2097,7 @@ const SingleScopeTemplate: React.FC = () => {
                     {coveringScopes.map(scope => (
                       <button
                         key={scope.id}
-                        onClick={() => openAddModal(scope.id)}
+                        onClick={() => selectedFilePath && openAddModal(selectedFilePath, scope.id)}
                         style={{
                           fontSize: 11,
                           padding: '4px 10px',
@@ -1368,7 +2113,7 @@ const SingleScopeTemplate: React.FC = () => {
                       </button>
                     ))}
                     <button
-                      onClick={() => openAddModal()}
+                      onClick={() => selectedFilePath && openAddModal(selectedFilePath)}
                       style={{
                         fontSize: 11,
                         padding: '4px 10px',
@@ -1475,7 +2220,7 @@ const SingleScopeTemplate: React.FC = () => {
               }
             />
           </>
-        ) : (
+        ) : activeTab === 'scopes' ? (
           <>
             <div
               style={{
@@ -1515,20 +2260,64 @@ const SingleScopeTemplate: React.FC = () => {
               }
             />
           </>
+        ) : (
+          <>
+            <div
+              style={{
+                padding: '12px 16px',
+                borderBottom: '1px solid #1e293b',
+                fontSize: 11,
+                color: '#64748b',
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+              }}
+            >
+              Project areas
+              <div
+                style={{
+                  marginTop: 6,
+                  fontSize: 11,
+                  color: '#94a3b8',
+                  textTransform: 'none',
+                  letterSpacing: 0,
+                  lineHeight: 1.4,
+                }}
+              >
+                Non-instrumented regions of the repo (docs, tooling). Sourced from the
+                auxiliary manifest in principal-view-core.
+              </div>
+            </div>
+            <FileTree
+              model={areaTreeModel}
+              style={
+                {
+                  flex: 1,
+                  minHeight: 0,
+                  '--trees-theme-list-active-selection-bg':
+                    'color-mix(in oklab, #94a3b8 28%, transparent)',
+                  '--trees-theme-list-hover-bg':
+                    'color-mix(in oklab, #94a3b8 14%, transparent)',
+                } as React.CSSProperties
+              }
+            />
+          </>
         )}
       </div>
 
       {/* Right pane — city + scope panel */}
       <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
         <FileCity3D
-          cityData={electronAppCityData as CityData}
+          cityData={auditedCityData}
           height="100%"
           width="100%"
           heightScaling="linear"
           linearScale={0.5}
           focusDirectory={focusDirectory}
           highlightLayers={cityHighlightLayers}
-          elevatedScopePanels={cityElevatedPanels ?? folderElevatedPanels}
+          elevatedScopePanels={
+            cityElevatedPanels ?? areasElevatedPanels ?? folderElevatedPanels
+          }
+          onBuildingClick={handleBuildingClick}
           animation={{
             startFlat: true,
             autoStartDelay: null,
@@ -1539,45 +2328,540 @@ const SingleScopeTemplate: React.FC = () => {
           showControls={true}
         />
 
-        {/* Debug overlay — current focusDirectory */}
+        {/* Focus directory overlay — pinnable */}
         <div
           style={{
             position: 'absolute',
-            top: 16,
-            left: 16,
+            top: 8,
+            right: 8,
             padding: '8px 12px',
-            background: 'rgba(15, 23, 42, 0.92)',
-            border: '1px solid #334155',
+            background: 'rgba(15, 23, 42, 0.72)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            border: `1px solid ${focusPinned ? '#fbbf24' : '#334155'}`,
             borderRadius: 6,
             color: '#e2e8f0',
             fontFamily: 'system-ui, sans-serif',
             fontSize: 12,
             zIndex: 100,
             maxWidth: 480,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 10,
           }}
         >
-          <div style={sectionLabelStyle}>focusDirectory</div>
-          <div
-            style={{
-              marginTop: 4,
-              fontFamily: 'monospace',
-              fontSize: 12,
-              color: focusDirectory ? '#fde68a' : '#64748b',
-              wordBreak: 'break-all',
-            }}
-          >
-            {focusDirectory ?? '(null)'}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={sectionLabelStyle}>
+              focusDirectory{focusPinned ? ' (pinned)' : ''}
+            </div>
+            {focusDirectory ? (
+              // Breadcrumb: each ancestor segment that exists as a district
+              // is a button. Clicking moves focus to that segment, even
+              // while pinned (bypasses the pin guard intentionally).
+              (() => {
+                const parts = focusDirectory.split('/');
+                const segments: { label: string; path: string }[] = [];
+                for (let i = 0; i < parts.length; i++) {
+                  const path = parts.slice(0, i + 1).join('/');
+                  if (ELECTRON_DIRECTORIES.has(path)) {
+                    segments.push({ label: parts[i], path });
+                  }
+                }
+                return (
+                  <div
+                    style={{
+                      marginTop: 4,
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      gap: 2,
+                    }}
+                  >
+                    {segments.map((seg, i) => {
+                      const isCurrent = seg.path === focusDirectory;
+                      return (
+                        <React.Fragment key={seg.path}>
+                          {i > 0 && (
+                            <span style={{ color: '#475569', fontFamily: 'monospace' }}>
+                              /
+                            </span>
+                          )}
+                          <button
+                            onClick={() => setFocusDirectory(seg.path)}
+                            disabled={isCurrent}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              padding: '2px 4px',
+                              borderRadius: 3,
+                              fontFamily: 'monospace',
+                              fontSize: 12,
+                              color: isCurrent ? '#fde68a' : '#94a3b8',
+                              fontWeight: isCurrent ? 600 : 400,
+                              cursor: isCurrent ? 'default' : 'pointer',
+                              textDecoration: isCurrent ? 'none' : 'underline',
+                              textDecorationColor: '#475569',
+                            }}
+                          >
+                            {seg.label}
+                          </button>
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                );
+              })()
+            ) : (
+              <div
+                style={{
+                  marginTop: 4,
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  color: '#64748b',
+                  wordBreak: 'break-all',
+                }}
+              >
+                None
+              </div>
+            )}
           </div>
+          {focusDirectory && (
+            <button
+              onClick={() => setFocusPinned(p => !p)}
+              title={
+                focusPinned
+                  ? 'Unpin — selections will move the focus again'
+                  : 'Pin — keep this focus while navigating the trees'
+              }
+              style={{
+                background: focusPinned ? '#fbbf24' : 'transparent',
+                color: focusPinned ? '#0f172a' : '#cbd5e1',
+                border: `1px solid ${focusPinned ? '#fbbf24' : '#334155'}`,
+                borderRadius: 4,
+                padding: '4px 8px',
+                fontSize: 12,
+                cursor: 'pointer',
+                fontWeight: 500,
+                flexShrink: 0,
+              }}
+            >
+              {focusPinned ? 'Pinned' : 'Pin'}
+            </button>
+          )}
+          {focusDirectory && (
+            <button
+              onClick={() => {
+                setFocusPinned(false);
+                setFocusDirectory(null);
+              }}
+              title="Clear focus"
+              style={{
+                background: 'transparent',
+                color: '#94a3b8',
+                border: '1px solid #334155',
+                borderRadius: 4,
+                padding: '4px 8px',
+                fontSize: 12,
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              Clear
+            </button>
+          )}
         </div>
 
-        {/* Info overlay — driven by scope tree selection */}
-      {scopeInfo && <ScopeInfoOverlay info={scopeInfo} />}
+        {/* Selected-folder card — driven by clicks on city folder panels.
+            Renders below the focus overlay; an "Open" button expands the
+            folder in the file tree (which removes the umbrella tile). */}
+        {activeTab === 'files' && selectedPanelFolder && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 72,
+              right: 8,
+              padding: '8px 12px',
+              background: 'rgba(15, 23, 42, 0.72)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              border: '1px solid #334155',
+              borderRadius: 6,
+              color: '#e2e8f0',
+              fontFamily: 'system-ui, sans-serif',
+              fontSize: 12,
+              zIndex: 100,
+              maxWidth: 480,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={sectionLabelStyle}>Selected folder</div>
+                <div
+                  style={{
+                    marginTop: 4,
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    color: '#cbd5e1',
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {selectedPanelFolder}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedPanelFolder(null);
+                  setShowPanelFolderContents(false);
+                }}
+                title="Dismiss"
+                style={{
+                  background: 'transparent',
+                  color: '#94a3b8',
+                  border: '1px solid #334155',
+                  borderRadius: 4,
+                  padding: '4px 8px',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            {panelFolderCoverage && (panelFolderCoverage.scopeHits.length > 0 ||
+              panelFolderCoverage.areaHits.length > 0) && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {panelFolderCoverage.areaHits.map(area => (
+                  <div
+                    key={area.name}
+                    style={{
+                      padding: '6px 8px',
+                      background: '#0b1220',
+                      border: '1px dashed #334155',
+                      borderRadius: 4,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span
+                        style={{
+                          fontSize: 9,
+                          color: '#94a3b8',
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5,
+                          fontWeight: 600,
+                        }}
+                      >
+                        Area
+                      </span>
+                      <span
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: 2,
+                          background: AREA_PANEL_COLOR,
+                          border: '1px dashed #94a3b8',
+                          flexShrink: 0,
+                        }}
+                      />
+                      <code style={{ fontSize: 11, color: '#cbd5e1' }}>{area.name}</code>
+                    </div>
+                    <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.4 }}>
+                      {area.description}
+                    </div>
+                  </div>
+                ))}
+                {panelFolderCoverage.scopeHits.map(({ scope, namespace }) => (
+                  <div
+                    key={scope.id}
+                    style={{
+                      padding: '6px 8px',
+                      background: '#0b1220',
+                      border: '1px solid #1e293b',
+                      borderRadius: 4,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span
+                        style={{
+                          fontSize: 9,
+                          color: '#a855f7',
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5,
+                          fontWeight: 600,
+                        }}
+                      >
+                        Scope
+                      </span>
+                      <code style={{ fontSize: 11, color: '#cbd5e1' }}>{scope.id}</code>
+                      {namespace && (
+                        <>
+                          <span style={{ color: '#475569' }}>/</span>
+                          <span
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: 2,
+                              background: namespace.color,
+                              flexShrink: 0,
+                            }}
+                          />
+                          <code style={{ fontSize: 11, color: '#cbd5e1' }}>{namespace.name}</code>
+                        </>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.4 }}>
+                      {namespace ? namespace.description : scope.description}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setFocusDirectoryIfUnpinned(selectedPanelFolder)}
+                disabled={focusDirectory === selectedPanelFolder}
+                title={
+                  focusPinned
+                    ? 'Focus is pinned — unpin first'
+                    : 'Focus the camera on this folder'
+                }
+                style={{
+                  background: 'transparent',
+                  color: focusDirectory === selectedPanelFolder ? '#64748b' : '#cbd5e1',
+                  border: '1px solid #334155',
+                  borderRadius: 4,
+                  padding: '4px 10px',
+                  fontSize: 12,
+                  cursor: focusDirectory === selectedPanelFolder ? 'default' : 'pointer',
+                  fontWeight: 500,
+                }}
+              >
+                Focus
+              </button>
+              {(() => {
+                const isOpen = folderTreeExpansion.expanded.has(selectedPanelFolder);
+                return (
+                  <button
+                    onClick={() => {
+                      const item = asDir(treeModel.getItem(selectedPanelFolder));
+                      if (!item) return;
+                      if (isOpen) item.collapse();
+                      else item.expand();
+                    }}
+                    title={
+                      isOpen
+                        ? 'Collapse this folder in the file tree'
+                        : 'Expand this folder in the file tree'
+                    }
+                    style={{
+                      background: isOpen ? 'transparent' : '#3b82f6',
+                      color: isOpen ? '#cbd5e1' : '#ffffff',
+                      border: '1px solid #3b82f6',
+                      borderRadius: 4,
+                      padding: '4px 10px',
+                      fontSize: 12,
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                    }}
+                  >
+                    {isOpen ? 'Close' : 'Open'}
+                  </button>
+                );
+              })()}
+              <button
+                onClick={() => openAddModal(selectedPanelFolder)}
+                title="Add this folder to an OTEL scope"
+                style={{
+                  background: 'transparent',
+                  color: '#cbd5e1',
+                  border: '1px solid #a855f7',
+                  borderRadius: 4,
+                  padding: '4px 10px',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                }}
+              >
+                + Scope
+              </button>
+              <button
+                onClick={() => openAddAreaModal(selectedPanelFolder)}
+                title="Tag this folder as a project area (auxiliary manifest)"
+                style={{
+                  background: 'transparent',
+                  color: '#cbd5e1',
+                  border: '1px dashed #94a3b8',
+                  borderRadius: 4,
+                  padding: '4px 10px',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                }}
+              >
+                + Area
+              </button>
+              <button
+                onClick={() => setShowPanelFolderContents(v => !v)}
+                title="Show files inside this folder"
+                style={{
+                  background: showPanelFolderContents ? '#1e293b' : 'transparent',
+                  color: '#cbd5e1',
+                  border: '1px solid #334155',
+                  borderRadius: 4,
+                  padding: '4px 10px',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                }}
+              >
+                {showPanelFolderContents ? 'Hide contents' : 'Show contents'}
+              </button>
+            </div>
+            {showPanelFolderContents && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  borderTop: '1px solid #1e293b',
+                  paddingTop: 8,
+                  marginTop: 2,
+                  minWidth: 320,
+                }}
+              >
+                <div style={{ ...sectionLabelStyle, marginBottom: 4 }}>
+                  Contents ({panelFolderContentsPaths.length}{' '}
+                  {panelFolderContentsPaths.length === 1 ? 'file' : 'files'})
+                </div>
+                {panelFolderContentsPaths.length === 0 ? (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: '#64748b',
+                      fontStyle: 'italic',
+                      padding: '4px 0',
+                    }}
+                  >
+                    No files in this folder.
+                  </div>
+                ) : (
+                  <div style={{ height: 320, display: 'flex', flexDirection: 'column' }}>
+                    <FileTree
+                      model={panelFolderContentsTreeModel}
+                      style={
+                        {
+                          flex: 1,
+                          minHeight: 0,
+                          '--trees-theme-list-active-selection-bg':
+                            'color-mix(in oklab, #3b82f6 28%, transparent)',
+                          '--trees-theme-list-hover-bg':
+                            'color-mix(in oklab, #3b82f6 14%, transparent)',
+                        } as React.CSSProperties
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Parent-layers popup — surfaces ancestor folders whose umbrellas
+            are currently hidden (because they're expanded). Triggered by
+            Cmd/Ctrl-click on a building. Each entry collapses that
+            ancestor on click so its umbrella reappears. */}
+        {parentLayersAnchor && !parentLayersDismissed && parentLayers.length > 0 && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 16,
+              left: 16,
+              padding: '10px 12px',
+              background: 'rgba(15, 23, 42, 0.72)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              border: '1px solid #334155',
+              borderRadius: 6,
+              color: '#e2e8f0',
+              fontFamily: 'system-ui, sans-serif',
+              fontSize: 12,
+              zIndex: 100,
+              maxWidth: 240,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ ...sectionLabelStyle, flex: 1, minWidth: 0 }}>
+                Hidden parent layers
+              </div>
+              <button
+                onClick={() => setParentLayersDismissed(true)}
+                title="Dismiss (reappears on next folder interaction)"
+                style={{
+                  background: 'transparent',
+                  color: '#94a3b8',
+                  border: '1px solid #334155',
+                  borderRadius: 4,
+                  padding: '4px 8px',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {parentLayers.map(folderPath => {
+                const label = folderPath.split('/').pop() ?? folderPath;
+                return (
+                  <button
+                    key={folderPath}
+                    onClick={() => collapseFolder(folderPath)}
+                    title={`Collapse ${folderPath} — restores its umbrella tile`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '6px 8px',
+                      background: '#1e293b',
+                      color: '#e2e8f0',
+                      border: '1px solid #334155',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontFamily: 'system-ui, sans-serif',
+                      fontSize: 12,
+                    }}
+                  >
+                    <span style={{ fontFamily: 'monospace', fontWeight: 500 }}>{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Info overlay — driven by scope or area tree selection */}
+        {activeTab === 'scopes' && scopeInfo && <ScopeInfoOverlay info={scopeInfo} />}
+        {activeTab === 'areas' && areaInfo && <AreaInfoOverlay info={areaInfo} />}
       </div>
 
       {/* Add-to-scope modal */}
-      {showAddModal && selectedFilePath && (
+      {showAddModal && scopeModalTargetPath && (
         <AddToScopeModal
-          path={toScopePath(selectedFilePath)}
+          path={toScopePath(scopeModalTargetPath)}
           scopes={scopes}
           scopeId={modalScopeId}
           namespaceName={modalNamespaceName}
@@ -1588,7 +2872,28 @@ const SingleScopeTemplate: React.FC = () => {
             setModalNamespaceName(n);
           }}
           onSubmit={submitAddToScope}
-          onClose={() => setShowAddModal(false)}
+          onClose={() => {
+            setShowAddModal(false);
+            setScopeModalTargetPath(null);
+          }}
+        />
+      )}
+
+      {/* Add-to-area modal */}
+      {showAddAreaModal && areaModalTargetPath && (
+        <AddToAreaModal
+          path={toScopePath(areaModalTargetPath)}
+          areas={areas}
+          areaName={modalAreaName}
+          description={modalAreaDescription}
+          onAreaNameChange={setModalAreaName}
+          onDescriptionChange={setModalAreaDescription}
+          onPickExisting={name => setModalAreaName(name)}
+          onSubmit={submitAddToArea}
+          onClose={() => {
+            setShowAddAreaModal(false);
+            setAreaModalTargetPath(null);
+          }}
         />
       )}
     </div>

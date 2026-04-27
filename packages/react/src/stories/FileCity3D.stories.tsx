@@ -18,6 +18,7 @@ import {
   type HighlightLayer,
   type IsolationMode,
 } from '../components/FileCity3D';
+import { createFileColorHighlightLayers } from '../utils/fileColorHighlightLayers';
 
 const meta: Meta<typeof FileCity3D> = {
   title: 'Components/FileCity3D',
@@ -421,8 +422,9 @@ export const IsolationTransparent: Story = {
         id: 'focus',
         name: 'Focus Layer',
         enabled: true,
+        priority: 0,
         color: '#22c55e',
-        items: [{ path: 'src', type: 'directory' as const }],
+        items: [{ path: 'src', type: 'directory' as const, renderStrategy: 'fill' as const }],
       },
     ],
   },
@@ -441,8 +443,9 @@ export const IsolationCollapse: Story = {
         id: 'focus',
         name: 'Focus Layer',
         enabled: true,
+        priority: 0,
         color: '#3b82f6',
-        items: [{ path: 'src/components', type: 'directory' as const }],
+        items: [{ path: 'src/components', type: 'directory' as const, renderStrategy: 'fill' as const }],
       },
     ],
   },
@@ -461,8 +464,9 @@ export const IsolationHide: Story = {
         id: 'focus',
         name: 'Focus Layer',
         enabled: true,
+        priority: 0,
         color: '#f59e0b',
-        items: [{ path: 'tests', type: 'directory' as const }],
+        items: [{ path: 'tests', type: 'directory' as const, renderStrategy: 'fill' as const }],
       },
     ],
   },
@@ -482,15 +486,76 @@ export const MultipleHighlights: Story = {
         id: 'src',
         name: 'Source',
         enabled: true,
+        priority: 0,
         color: '#22c55e',
-        items: [{ path: 'src', type: 'directory' as const }],
+        items: [{ path: 'src', type: 'directory' as const, renderStrategy: 'fill' as const }],
       },
       {
         id: 'tests',
         name: 'Tests',
         enabled: true,
+        priority: 0,
         color: '#ef4444',
-        items: [{ path: 'tests', type: 'directory' as const }],
+        items: [{ path: 'tests', type: 'directory' as const, renderStrategy: 'fill' as const }],
+      },
+    ],
+  },
+};
+
+/**
+ * Layered Highlights - Multiple overlapping highlight layers
+ * Tests priority-based rendering with fill + border strategies
+ * Starts flat (2D) - click "Grow" button to see in 3D
+ */
+export const LayeredHighlights: Story = {
+  args: {
+    cityData: sampleCityData,
+    height: '100vh',
+    isolationMode: 'transparent',
+    dimOpacity: 0.05,
+    animation: {
+      startFlat: true,
+      autoStartDelay: null, // Stay in 2D, use button to grow
+    },
+    showControls: true,
+    highlightLayers: [
+      {
+        id: 'base-fill',
+        name: 'Base Fill (src)',
+        enabled: true,
+        color: '#3b82f6',
+        opacity: 0.7,
+        priority: 1,
+        items: [{ path: 'src', type: 'directory' as const, renderStrategy: 'fill' as const }],
+      },
+      {
+        id: 'components-fill',
+        name: 'Components Fill (src/components)',
+        enabled: true,
+        color: '#facc15',
+        opacity: 1.0,
+        priority: 2,
+        items: [{ path: 'src/components', type: 'directory' as const, renderStrategy: 'fill' as const }],
+      },
+      {
+        id: 'components-border',
+        name: 'Components Border (src/components)',
+        enabled: true,
+        color: '#ef4444',
+        opacity: 1.0,
+        priority: 3,
+        borderWidth: 6,
+        items: [{ path: 'src/components', type: 'directory' as const, renderStrategy: 'border' as const }],
+      },
+      {
+        id: 'utils-border',
+        name: 'Utils Border (src/utils)',
+        enabled: true,
+        color: '#22c55e',
+        opacity: 1.0,
+        priority: 4,
+        borderWidth: 4,
+        items: [{ path: 'src/utils', type: 'directory' as const, renderStrategy: 'border' as const }],
       },
     ],
   },
@@ -515,8 +580,9 @@ export const AnimatedWithHighlight: Story = {
         id: 'components',
         name: 'Components',
         enabled: true,
+        priority: 0,
         color: '#8b5cf6',
-        items: [{ path: 'src/components', type: 'directory' as const }],
+        items: [{ path: 'src/components', type: 'directory' as const, renderStrategy: 'fill' as const }],
       },
     ],
   },
@@ -567,6 +633,7 @@ const authServerTourSteps: TourStep[] = [
         id: 'workos',
         name: 'WorkOS Auth',
         enabled: true,
+        priority: 0,
         color: '#22c55e',
         items: [{ path: 'auth-server/src/app/api/auth/workos', type: 'directory' as const }],
       },
@@ -582,6 +649,7 @@ const authServerTourSteps: TourStep[] = [
         id: 'browser',
         name: 'Browser Tokens',
         enabled: true,
+        priority: 0,
         color: '#3b82f6',
         items: [{ path: 'auth-server/src/app/api/auth/browser', type: 'directory' as const }],
       },
@@ -589,6 +657,7 @@ const authServerTourSteps: TourStep[] = [
         id: 'cli',
         name: 'CLI Tokens',
         enabled: true,
+        priority: 0,
         color: '#f59e0b',
         items: [{ path: 'auth-server/src/app/api/auth/cli', type: 'directory' as const }],
       },
@@ -604,6 +673,7 @@ const authServerTourSteps: TourStep[] = [
         id: 'lib',
         name: 'Libraries',
         enabled: true,
+        priority: 0,
         color: '#8b5cf6',
         items: [{ path: 'auth-server/src/lib', type: 'directory' as const }],
       },
@@ -619,6 +689,7 @@ const authServerTourSteps: TourStep[] = [
         id: 'bruno',
         name: 'Bruno Tests',
         enabled: true,
+        priority: 0,
         color: '#ef4444',
         items: [{ path: 'auth-server/bruno', type: 'directory' as const }],
       },
@@ -634,6 +705,7 @@ const authServerTourSteps: TourStep[] = [
         id: 'views',
         name: 'Principal Views',
         enabled: true,
+        priority: 0,
         color: '#ec4899',
         items: [{ path: 'auth-server/.principal-views', type: 'directory' as const }],
       },
@@ -1076,6 +1148,7 @@ const testScenarios: TestScenario[] = [
         id: 'api-layer',
         name: 'API Routes',
         enabled: true,
+        priority: 0,
         color: '#22c55e',
         items: [{ path: 'auth-server/src/app/api', type: 'directory' as const }],
       },
@@ -1092,6 +1165,7 @@ const testScenarios: TestScenario[] = [
         id: 'api-layer',
         name: 'API Routes',
         enabled: true,
+        priority: 0,
         color: '#3b82f6',
         items: [{ path: 'auth-server/src/app/api', type: 'directory' as const }],
       },
@@ -1108,6 +1182,7 @@ const testScenarios: TestScenario[] = [
         id: 'lib-layer',
         name: 'Libraries',
         enabled: true,
+        priority: 0,
         color: '#8b5cf6',
         items: [{ path: 'auth-server/src/lib', type: 'directory' as const }],
       },
@@ -1124,6 +1199,7 @@ const testScenarios: TestScenario[] = [
         id: 'api-layer',
         name: 'API Routes',
         enabled: true,
+        priority: 0,
         color: '#22c55e',
         items: [{ path: 'auth-server/src/app/api', type: 'directory' as const }],
       },
@@ -1131,6 +1207,7 @@ const testScenarios: TestScenario[] = [
         id: 'lib-layer',
         name: 'Libraries',
         enabled: true,
+        priority: 0,
         color: '#f59e0b',
         items: [{ path: 'auth-server/src/lib', type: 'directory' as const }],
       },
@@ -1147,6 +1224,7 @@ const testScenarios: TestScenario[] = [
         id: 'api-layer',
         name: 'API Routes',
         enabled: true,
+        priority: 0,
         color: '#3b82f6',
         items: [{ path: 'auth-server/src/app/api', type: 'directory' as const }],
       },
@@ -1154,6 +1232,7 @@ const testScenarios: TestScenario[] = [
         id: 'bruno-layer',
         name: 'Bruno Tests',
         enabled: true,
+        priority: 0,
         color: '#ef4444',
         items: [{ path: 'auth-server/bruno', type: 'directory' as const }],
       },
@@ -1171,6 +1250,7 @@ const testScenarios: TestScenario[] = [
         id: 'src-layer',
         name: 'All Source',
         enabled: true,
+        priority: 0,
         color: '#22c55e',
         items: [{ path: 'auth-server/src', type: 'directory' as const }],
       },
@@ -1178,6 +1258,7 @@ const testScenarios: TestScenario[] = [
         id: 'api-layer',
         name: 'API Only',
         enabled: true,
+        priority: 0,
         color: '#ef4444',
         items: [{ path: 'auth-server/src/app/api', type: 'directory' as const }],
       },
@@ -1194,6 +1275,7 @@ const testScenarios: TestScenario[] = [
         id: 'api-layer',
         name: 'All API',
         enabled: true,
+        priority: 0,
         color: '#8b5cf6',
         items: [{ path: 'auth-server/src/app/api', type: 'directory' as const }],
       },
@@ -2146,6 +2228,673 @@ export const FlatToGrownTransition: Story = {
           'Tests the camera angle adjustment when transitioning between flat (2D) and grown (3D) states. ' +
           'The camera should start with a top-down view when buildings are flat, then animate to an angled view when buildings grow. ' +
           'Use "Simulate 2D→3D Transition" to test the full transition sequence as it happens in CodeCityPanel.',
+      },
+    },
+  },
+};
+
+/**
+ * Repository Profile - Simulates how FileCity3D is used in the electron-app's RepositoryProfilePanel
+ *
+ * Features:
+ * - File suffix color layers (TypeScript, JavaScript, Python, etc.) using createFileColorHighlightLayers
+ * - Git status overlays with borders (staged=green, modified=orange, untracked=blue, deleted=red)
+ * - Toggle controls for layers
+ * - Linear height scaling
+ * - Background color theming
+ * - Starts flat with manual grow button
+ * - Uses real electron-app city data
+ */
+const RepositoryProfileTemplate: React.FC = () => {
+  const [showSuffixLayers, setShowSuffixLayers] = React.useState(true);
+  const [showGitStatus, setShowGitStatus] = React.useState(true);
+  const [gitStatusType, setGitStatusType] = React.useState<'clean' | 'working' | 'all'>('working');
+
+  // Sample git status files from electron-app
+  const gitStatusFiles = {
+    staged: ['src/renderer/panels/RepositoryProfilePanel.tsx', 'src/renderer/components/FileCity3D/FileCity3D.tsx'],
+    modified: ['src/renderer/principal-window/index.tsx', 'src/main/stores/initialization.ts', 'src/renderer/App.tsx'],
+    untracked: ['src/renderer/components/NewFeature.tsx', 'docs/NEW_ARCHITECTURE.md'],
+    deleted: ['src/renderer/components/OldComponent.tsx'],
+  };
+
+  // Create highlight layers
+  const highlightLayers = React.useMemo(() => {
+    const layers: HighlightLayer[] = [];
+    const hasGitChanges = showGitStatus && gitStatusType !== 'clean';
+
+    // 1. File suffix color layers (higher priority = rendered underneath)
+    if (showSuffixLayers) {
+      const fileSuffixLayers = createFileColorHighlightLayers((electronAppCityData as CityData).buildings);
+
+      // Dim suffix layers when git changes are present to help focus on git status
+      const adjustedSuffixLayers = hasGitChanges
+        ? fileSuffixLayers.map(layer => ({
+            ...layer,
+            opacity: (layer.opacity ?? 1.0) * 0.2,
+            priority: layer.priority + 100,
+          }))
+        : fileSuffixLayers.map(layer => ({
+            ...layer,
+            priority: layer.priority + 100,
+          }));
+
+      layers.push(...adjustedSuffixLayers);
+    }
+
+    // 2. Git status layers with borders (lower priority = rendered on top)
+    if (showGitStatus && gitStatusType !== 'clean') {
+      // Staged files - green border
+      if ((gitStatusType === 'all' || gitStatusType === 'working') && gitStatusFiles.staged.length > 0) {
+        layers.push({
+          id: 'git-staged',
+          name: 'Staged Files',
+          enabled: true,
+          color: '#22c55e', // green-500
+          priority: 4,
+          items: gitStatusFiles.staged.map(path => ({
+            type: 'file' as const,
+            path,
+            renderStrategy: 'border' as const
+          })),
+          opacity: 0.8,
+          borderWidth: 4,
+        });
+      }
+
+      // Modified files - orange border
+      if (gitStatusFiles.modified.length > 0) {
+        layers.push({
+          id: 'git-modified',
+          name: 'Modified Files',
+          enabled: true,
+          color: '#f59e0b', // amber-500
+          priority: 3,
+          items: gitStatusFiles.modified.map(path => ({
+            type: 'file' as const,
+            path,
+            renderStrategy: 'border' as const
+          })),
+          opacity: 0.8,
+          borderWidth: 4,
+        });
+      }
+
+      // Untracked files - blue border
+      if (gitStatusFiles.untracked.length > 0) {
+        layers.push({
+          id: 'git-untracked',
+          name: 'Untracked Files',
+          enabled: true,
+          color: '#3b82f6', // blue-500
+          priority: 2,
+          items: gitStatusFiles.untracked.map(path => ({
+            type: 'file' as const,
+            path,
+            renderStrategy: 'border' as const
+          })),
+          opacity: 0.8,
+          borderWidth: 4,
+        });
+      }
+
+      // Deleted files - red border
+      if (gitStatusType === 'all' && gitStatusFiles.deleted.length > 0) {
+        layers.push({
+          id: 'git-deleted',
+          name: 'Deleted Files',
+          enabled: true,
+          color: '#ef4444', // red-500
+          priority: 1,
+          items: gitStatusFiles.deleted.map(path => ({
+            type: 'file' as const,
+            path,
+            renderStrategy: 'border' as const
+          })),
+          opacity: 0.8,
+          borderWidth: 4,
+        });
+      }
+    }
+
+    return layers;
+  }, [showSuffixLayers, showGitStatus, gitStatusType]);
+
+  return (
+    <div
+      style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#0f172a' }}
+    >
+      {/* Header area */}
+      <div style={{ padding: 16, borderBottom: '1px solid #334155' }}>
+        <h2 style={{ margin: 0, color: '#e2e8f0', fontSize: 18, fontFamily: 'system-ui, sans-serif' }}>
+          Repository Profile Panel Layout
+        </h2>
+      </div>
+
+      {/* Main content area - split layout */}
+      <div style={{ flex: 1, display: 'flex', gap: 16, padding: 16, overflow: 'hidden' }}>
+        {/* Left side - Stats panel with controls */}
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            background: '#1e293b',
+            border: '1px solid #334155',
+            borderRadius: 8,
+            padding: 16,
+            overflow: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+          }}
+        >
+          <div>
+            <h3 style={{ margin: '0 0 16px', color: '#e2e8f0', fontSize: 14, fontFamily: 'system-ui, sans-serif', fontWeight: 600 }}>
+              Repository Profile View
+            </h3>
+
+            {/* File Type Colors Toggle */}
+            <div style={{ marginBottom: 16 }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  color: '#e2e8f0',
+                  fontFamily: 'system-ui, sans-serif',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={showSuffixLayers}
+                  onChange={e => setShowSuffixLayers(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                <span>Show File Type Colors</span>
+              </label>
+              <div style={{ fontSize: 11, color: '#64748b', marginLeft: 28, marginTop: 4, fontFamily: 'system-ui, sans-serif' }}>
+                Color-codes files by extension (TS, JS, Python, etc.)
+              </div>
+            </div>
+
+            {/* Git Status Toggle */}
+            <div style={{ marginBottom: 16 }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  marginBottom: 8,
+                  color: '#e2e8f0',
+                  fontFamily: 'system-ui, sans-serif',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={showGitStatus}
+                  onChange={e => setShowGitStatus(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                <span>Show Git Status</span>
+              </label>
+
+              {showGitStatus && (
+                <div style={{ marginLeft: 28 }}>
+                  <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6, fontFamily: 'system-ui, sans-serif' }}>
+                    Status Type:
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer', color: '#e2e8f0', fontFamily: 'system-ui, sans-serif' }}>
+                      <input
+                        type="radio"
+                        checked={gitStatusType === 'clean'}
+                        onChange={() => setGitStatusType('clean')}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      Clean (no changes)
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer', color: '#e2e8f0', fontFamily: 'system-ui, sans-serif' }}>
+                      <input
+                        type="radio"
+                        checked={gitStatusType === 'working'}
+                        onChange={() => setGitStatusType('working')}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      Working Changes
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer', color: '#e2e8f0', fontFamily: 'system-ui, sans-serif' }}>
+                      <input
+                        type="radio"
+                        checked={gitStatusType === 'all'}
+                        onChange={() => setGitStatusType('all')}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      All Status (+ staged & deleted)
+                    </label>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Legend */}
+            {showGitStatus && gitStatusType !== 'clean' && (
+              <div
+                style={{
+                  marginTop: 16,
+                  paddingTop: 16,
+                  borderTop: '1px solid #334155',
+                }}
+              >
+                <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8, fontFamily: 'system-ui, sans-serif' }}>
+                  Git Status Legend:
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {gitStatusType === 'all' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#e2e8f0', fontFamily: 'system-ui, sans-serif' }}>
+                      <div
+                        style={{
+                          width: 16,
+                          height: 16,
+                          border: '3px solid #22c55e',
+                          borderRadius: 2,
+                        }}
+                      />
+                      <span>Staged ({gitStatusFiles.staged.length})</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#e2e8f0', fontFamily: 'system-ui, sans-serif' }}>
+                    <div
+                      style={{
+                        width: 16,
+                        height: 16,
+                        border: '3px solid #f59e0b',
+                        borderRadius: 2,
+                      }}
+                    />
+                    <span>Modified ({gitStatusFiles.modified.length})</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#e2e8f0', fontFamily: 'system-ui, sans-serif' }}>
+                    <div
+                      style={{
+                        width: 16,
+                        height: 16,
+                        border: '3px solid #3b82f6',
+                        borderRadius: 2,
+                      }}
+                    />
+                    <span>Untracked ({gitStatusFiles.untracked.length})</span>
+                  </div>
+                  {gitStatusType === 'all' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#e2e8f0', fontFamily: 'system-ui, sans-serif' }}>
+                      <div
+                        style={{
+                          width: 16,
+                          height: 16,
+                          border: '3px solid #ef4444',
+                          borderRadius: 2,
+                        }}
+                      />
+                      <span>Deleted ({gitStatusFiles.deleted.length})</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Active layers count */}
+            <div
+              style={{
+                marginTop: 16,
+                paddingTop: 16,
+                borderTop: '1px solid #334155',
+                fontSize: 11,
+                color: '#64748b',
+                fontFamily: 'system-ui, sans-serif',
+              }}
+            >
+              Active Layers: {highlightLayers.length}
+            </div>
+          </div>
+
+          {/* Additional info */}
+          <div
+            style={{
+              marginTop: 'auto',
+              paddingTop: 16,
+              borderTop: '1px solid #334155',
+            }}
+          >
+            <div style={{ color: '#64748b', fontSize: 12, fontFamily: 'system-ui, sans-serif', lineHeight: 1.6 }}>
+              <p style={{ margin: '0 0 8px' }}>In the actual RepositoryProfilePanel, this section also displays:</p>
+              <ul style={{ margin: 0, paddingLeft: 20 }}>
+                <li>Activity heatmap</li>
+                <li>Contributor list</li>
+                <li>Changed files details</li>
+                <li>Commit playback controls</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Right side - File City 3D (constrained to square-ish aspect ratio) */}
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            height: '100%',
+            borderRadius: 8,
+            overflow: 'hidden',
+            border: '1px solid #334155',
+            backgroundColor: '#1e293b',
+            position: 'relative',
+          }}
+        >
+          <FileCity3D
+            cityData={electronAppCityData as CityData}
+            height="100%"
+            width="100%"
+            heightScaling="linear"
+            linearScale={0.5}
+            animation={{
+              startFlat: true,
+              autoStartDelay: null, // Manual control like in RepositoryProfilePanel
+            }}
+            showControls={true}
+            backgroundColor="#1e293b" // slate-800
+            highlightLayers={highlightLayers}
+            style={{
+              width: '100%',
+              height: '100%',
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Info banner - bottom */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 100,
+          background: 'rgba(15, 23, 42, 0.95)',
+          borderTop: '1px solid #334155',
+          padding: '12px 24px',
+          color: '#94a3b8',
+          fontFamily: 'system-ui, sans-serif',
+          fontSize: 12,
+          textAlign: 'center',
+        }}
+      >
+        This story replicates how FileCity3D is used in the electron-app&apos;s RepositoryProfilePanel:
+        file type colors + git status overlays with borders
+      </div>
+    </div>
+  );
+};
+
+export const RepositoryProfile: Story = {
+  render: () => <RepositoryProfileTemplate />,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Simulates how FileCity3D is used in the electron-app\'s RepositoryProfilePanel. ' +
+          'Shows file suffix color layers (using createFileColorHighlightLayers) and git status overlays with borders. ' +
+          'Demonstrates the layering system where git status borders render on top of dimmed file type colors.',
+      },
+    },
+  },
+};
+
+/**
+ * Repository Profile - Async Data Loading Test
+ *
+ * Tests the camera initialization bug that caused electron-app to switch to 2D view.
+ * Simulates the actual RepositoryProfilePanel behavior where city data loads asynchronously
+ * after component mount (file tree fetch -> build city data -> setState).
+ *
+ * The bug: Camera would initialize at (0,0,0) before city bounds were calculated,
+ * resulting in a black screen or wrong view position.
+ */
+const AsyncDataLoadingTemplate: React.FC = () => {
+  const [cityData, setCityData] = React.useState<CityData | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [showSuffixLayers, setShowSuffixLayers] = React.useState(true);
+
+  // Simulate async data loading like RepositoryProfilePanel
+  React.useEffect(() => {
+    setIsLoading(true);
+
+    // Simulate network delay + processing time
+    const timer = setTimeout(() => {
+      console.log('[AsyncTest] Loading city data...');
+      setCityData(electronAppCityData as CityData);
+      setIsLoading(false);
+      console.log('[AsyncTest] City data loaded, bounds:', (electronAppCityData as CityData).bounds);
+    }, 1500); // 1.5s delay simulates file tree fetch + build time
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Create highlight layers
+  const highlightLayers = React.useMemo(() => {
+    if (!cityData) return [];
+
+    const layers: HighlightLayer[] = [];
+
+    if (showSuffixLayers) {
+      const fileSuffixLayers = createFileColorHighlightLayers(cityData.buildings);
+      layers.push(...fileSuffixLayers.map(layer => ({
+        ...layer,
+        priority: layer.priority + 100,
+      })));
+    }
+
+    return layers;
+  }, [cityData, showSuffixLayers]);
+
+  return (
+    <div
+      style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#0f172a' }}
+    >
+      {/* Header */}
+      <div style={{ padding: 16, borderBottom: '1px solid #334155' }}>
+        <h2 style={{ margin: 0, color: '#e2e8f0', fontSize: 18, fontFamily: 'system-ui, sans-serif' }}>
+          Async Data Loading Test - Camera Initialization Bug
+        </h2>
+        <p style={{ margin: '8px 0 0', color: '#94a3b8', fontSize: 13, fontFamily: 'system-ui, sans-serif' }}>
+          Tests the camera bug that caused electron-app to switch from 3D to 2D view
+        </p>
+      </div>
+
+      {/* Main content */}
+      <div style={{ flex: 1, display: 'flex', gap: 16, padding: 16, overflow: 'hidden' }}>
+        {/* Left panel */}
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            background: '#1e293b',
+            border: '1px solid #334155',
+            borderRadius: 8,
+            padding: 16,
+            overflow: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+          }}
+        >
+          <div>
+            <h3 style={{ margin: '0 0 16px', color: '#e2e8f0', fontSize: 14, fontFamily: 'system-ui, sans-serif', fontWeight: 600 }}>
+              Test Status
+            </h3>
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 13, color: '#e2e8f0', marginBottom: 8, fontFamily: 'system-ui, sans-serif' }}>
+                Loading State: <strong style={{ color: isLoading ? '#f59e0b' : '#22c55e' }}>
+                  {isLoading ? 'LOADING' : 'LOADED'}
+                </strong>
+              </div>
+              <div style={{ fontSize: 13, color: '#e2e8f0', marginBottom: 8, fontFamily: 'system-ui, sans-serif' }}>
+                City Data: <strong style={{ color: cityData ? '#22c55e' : '#64748b' }}>
+                  {cityData ? 'READY' : 'NULL'}
+                </strong>
+              </div>
+              {cityData && (
+                <div style={{ fontSize: 11, color: '#64748b', marginTop: 8, fontFamily: 'monospace' }}>
+                  Bounds: [{cityData.bounds.minX}, {cityData.bounds.maxX}] x [{cityData.bounds.minZ}, {cityData.bounds.maxZ}]
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginBottom: 16, paddingTop: 16, borderTop: '1px solid #334155' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  color: '#e2e8f0',
+                  fontFamily: 'system-ui, sans-serif',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={showSuffixLayers}
+                  onChange={e => setShowSuffixLayers(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                <span>Show File Type Colors</span>
+              </label>
+            </div>
+
+            <button
+              onClick={() => {
+                setCityData(null);
+                setIsLoading(true);
+                setTimeout(() => {
+                  setCityData(electronAppCityData as CityData);
+                  setIsLoading(false);
+                }, 1500);
+              }}
+              style={{
+                padding: '8px 16px',
+                background: '#3b82f6',
+                color: 'white',
+                border: '1px solid #334155',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontSize: 13,
+                fontFamily: 'system-ui, sans-serif',
+              }}
+            >
+              Reload Data (Test Again)
+            </button>
+          </div>
+
+          {/* Bug description */}
+          <div
+            style={{
+              marginTop: 'auto',
+              paddingTop: 16,
+              borderTop: '1px solid #334155',
+            }}
+          >
+            <div style={{ fontSize: 12, color: '#e2e8f0', marginBottom: 8, fontFamily: 'system-ui, sans-serif', fontWeight: 600 }}>
+              The Bug:
+            </div>
+            <div style={{ color: '#94a3b8', fontSize: 12, fontFamily: 'system-ui, sans-serif', lineHeight: 1.6 }}>
+              <p style={{ margin: '0 0 8px' }}>
+                When FileCity3D mounts before cityData is available (or while it&apos;s null),
+                the camera may initialize at position (0,0,0) instead of calculating the
+                proper viewing position from city bounds.
+              </p>
+              <p style={{ margin: '8px 0 0' }}>
+                This caused electron-app&apos;s RepositoryProfilePanel to show a black screen
+                or wrong camera position, leading to a switch to the 2D view.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Right panel - 3D view */}
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            height: '100%',
+            borderRadius: 8,
+            overflow: 'hidden',
+            border: '1px solid #334155',
+            backgroundColor: '#1e293b',
+            position: 'relative',
+          }}
+        >
+          {isLoading || !cityData ? (
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#94a3b8',
+                gap: 16,
+              }}
+            >
+              <div style={{ fontSize: 14, fontFamily: 'system-ui, sans-serif' }}>
+                {isLoading ? 'Loading city data...' : 'No data'}
+              </div>
+              {isLoading && (
+                <div style={{ fontSize: 12, color: '#64748b', fontFamily: 'system-ui, sans-serif' }}>
+                  Simulating async file tree fetch + build
+                </div>
+              )}
+            </div>
+          ) : (
+            <FileCity3D
+              cityData={cityData}
+              height="100%"
+              width="100%"
+              heightScaling="linear"
+              linearScale={0.5}
+              animation={{
+                startFlat: true,
+                autoStartDelay: null,
+              }}
+              showControls={true}
+              backgroundColor="#1e293b"
+              highlightLayers={highlightLayers}
+              style={{
+                width: '100%',
+                height: '100%',
+              }}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const AsyncDataLoadingTest: Story = {
+  render: () => <AsyncDataLoadingTemplate />,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Tests the camera initialization bug that caused electron-app to switch from FileCity3D to 2D view. ' +
+          'Simulates async data loading (file tree fetch -> build city data -> setState) to reproduce the race condition ' +
+          'where the camera would initialize at (0,0,0) before city bounds were available. ' +
+          'Click "Reload Data" to test the initialization sequence multiple times.',
       },
     },
   },

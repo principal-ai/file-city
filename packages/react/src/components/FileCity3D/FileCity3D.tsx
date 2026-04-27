@@ -27,10 +27,11 @@ import type { ThreeElements } from '@react-three/fiber';
 import { resolveVisualizationIntent } from '../../utils/visualizationResolution';
 
 // Extend JSX with Three.js elements
+/* eslint-disable react/no-unknown-property */
 declare module 'react' {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace JSX {
-    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+    // eslint-disable-next-line @typescript-eslint/no-empty-interface
     interface IntrinsicElements extends ThreeElements {}
   }
 }
@@ -94,7 +95,9 @@ export interface ElevatedScopePanel {
    */
   labelSize?: number;
   /** Click handler. When set, the slab becomes interactive and shows a pointer cursor. */
-  onClick?: () => void;
+  onClick?: (event: MouseEvent) => void;
+  /** Double-click handler. The slab becomes interactive (pointer cursor) when either onClick or onDoubleClick is set. */
+  onDoubleClick?: (event: MouseEvent) => void;
 }
 
 /** Pattern for files that should render flat (e.g., lock files, generated files) */
@@ -640,7 +643,7 @@ function BorderHighlights({
     const animStartTime = startTimeRef.current ?? currentTime;
 
     borderEdgeData.forEach((edge, idx) => {
-      const { x, z, fullHeight, staggerDelayMs, buildingIndex, color, opacity, borderWidth, edgeType, width, depth } = edge;
+      const { x, z, fullHeight, staggerDelayMs, buildingIndex, color, borderWidth, edgeType, width, depth } = edge;
 
       // Get height multiplier from shared ref (for collapse animation)
       const heightMultiplier = heightMultipliersRef.current?.[buildingIndex] ?? 1;
@@ -715,7 +718,7 @@ interface InstancedBuildingsProps {
   buildings: CityBuilding[];
   centerOffset: { x: number; z: number };
   onHover?: (building: CityBuilding | null) => void;
-  onClick?: (building: CityBuilding) => void;
+  onClick?: (building: CityBuilding, event: MouseEvent) => void;
   hoveredIndex: number | null;
   selectedIndex: number | null;
   growProgress: number;
@@ -1013,7 +1016,7 @@ function InstancedBuildings({
       e.stopPropagation();
       if (e.instanceId !== undefined && e.instanceId < buildingData.length) {
         const data = buildingData[e.instanceId];
-        onClick?.(data.building);
+        onClick?.(data.building, e.nativeEvent);
       }
     },
     [buildingData, onClick],
@@ -1707,6 +1710,75 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFlat]); // Only animate when isFlat changes, not when focusTarget/citySize/etc change
 
+  // Animate the camera when focusTarget changes (works in both 2D and 3D).
+  // - 3D + target:  frame the directory using the same math as the 2D→3D path
+  // - 3D + null:    ease back to the overview position
+  // - 2D + target:  pan top-down camera over the directory and zoom to fit it
+  // - 2D + null:    return to the centered top-down overview
+  useEffect(() => {
+    if (!hasAppliedInitial.current) return;
+
+    let newPos: {
+      x: number;
+      y: number;
+      z: number;
+      targetX: number;
+      targetY: number;
+      targetZ: number;
+    };
+
+    if (isFlat) {
+      if (focusTarget) {
+        const perspCam = camera as THREE.PerspectiveCamera;
+        const aspect = perspCam.aspect || 1;
+        const fovRad = (50 * Math.PI) / 180;
+        const tanHalfFov = Math.tan(fovRad / 2);
+        const effectiveAspect = Math.min(1, aspect);
+        // Same framing math as calculateFlatCameraHeight, but using the focus
+        // region's size instead of citySize so the directory fills the view.
+        const height = (focusTarget.size / (2 * tanHalfFov * effectiveAspect)) * 1.08;
+        newPos = {
+          x: focusTarget.x,
+          y: height,
+          z: focusTarget.z + 0.001,
+          targetX: focusTarget.x,
+          targetY: 0,
+          targetZ: focusTarget.z,
+        };
+      } else {
+        newPos = getInitial2DPosition();
+      }
+    } else if (focusTarget) {
+      newPos = {
+        x: focusTarget.x,
+        y: Math.max(focusTarget.size * 1.5, 40),
+        z: focusTarget.z + Math.max(focusTarget.size * 2, 50),
+        targetX: focusTarget.x,
+        targetY: 0,
+        targetZ: focusTarget.z,
+      };
+    } else {
+      newPos = {
+        x: 0,
+        y: maxBuildingHeight > 0 ? Math.max(citySize * 1.1, maxBuildingHeight * 2.5) : citySize * 1.1,
+        z: citySize * 1.3,
+        targetX: 0,
+        targetY: 0,
+        targetZ: 0,
+      };
+    }
+
+    api.start({
+      camX: newPos.x,
+      camY: newPos.y,
+      camZ: newPos.z,
+      lookX: newPos.targetX,
+      lookY: newPos.targetY,
+      lookZ: newPos.targetZ,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusTarget, isFlat]);
+
   // Update camera each frame
   useFrame(() => {
     frameCount.current++;
@@ -1814,11 +1886,6 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     }
     // Handle position animation
     else if (isAnimatingRef.current) {
-      const springY = camY.get();
-      const currentY = camera.position.y;
-      if (Math.abs(springY - currentY) > 1) {
-        console.log('[useFrame] Spring animating - springY:', springY, 'currentY:', currentY);
-      }
       camera.position.set(camX.get(), camY.get(), camZ.get());
       controlsRef.current.target.set(lookX.get(), lookY.get(), lookZ.get());
       controlsRef.current.update();
@@ -2188,13 +2255,15 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     </>
   );
 }, (prevProps, nextProps) => {
-  // Custom comparison: only re-render if isFlat, citySize, maxBuildingHeight, or cameraControls changes
-  // Skip re-render when only focusTarget changes (handled internally by useEffect on isFlat)
+  // Custom comparison: re-render when isFlat, citySize, maxBuildingHeight,
+  // cameraControls, or focusTarget change. focusTarget is included so the
+  // useEffect that animates the camera on focus changes actually fires.
   return (
     prevProps.isFlat === nextProps.isFlat &&
     prevProps.citySize === nextProps.citySize &&
     prevProps.maxBuildingHeight === nextProps.maxBuildingHeight &&
-    prevProps.cameraControls === nextProps.cameraControls
+    prevProps.cameraControls === nextProps.cameraControls &&
+    prevProps.focusTarget === nextProps.focusTarget
   );
 });
 
@@ -2273,31 +2342,18 @@ function ControlsOverlay({ isFlat, onToggle, onResetCamera, onLookDown }: Contro
 
   return (
     <>
-      {/* 2D/3D Toggle - Top Left */}
+      {/* 2D/3D Toggle - Bottom Right (moved from top-left to leave room
+         for story-level overlays like the focus-directory readout). */}
       <button
         onClick={onToggle}
         style={{
           ...buttonStyle,
           position: 'absolute',
-          top: 8,
-          left: 8,
+          bottom: 8,
+          right: 8,
         }}
       >
         {isFlat ? '3D' : '2D'}
-      </button>
-
-      {/* Reset Camera - Top Right */}
-      <button
-        onClick={onResetCamera}
-        style={{
-          ...buttonStyle,
-          position: 'absolute',
-          top: 8,
-          right: 8,
-        }}
-        title="Reset View"
-      >
-        ↻
       </button>
 
       {/* Look Down - Bottom Left */}
@@ -2313,6 +2369,20 @@ function ControlsOverlay({ isFlat, onToggle, onResetCamera, onLookDown }: Contro
       >
         ⬇
       </button>
+
+      {/* Reset Camera - Bottom Left (right of Look Down) */}
+      <button
+        onClick={onResetCamera}
+        style={{
+          ...buttonStyle,
+          position: 'absolute',
+          bottom: 8,
+          left: 56,
+        }}
+        title="Reset View"
+      >
+        ↻
+      </button>
     </>
   );
 }
@@ -2321,7 +2391,7 @@ function ControlsOverlay({ isFlat, onToggle, onResetCamera, onLookDown }: Contro
 interface CitySceneProps {
   cityData: CityData;
   onBuildingHover?: (building: CityBuilding | null) => void;
-  onBuildingClick?: (building: CityBuilding) => void;
+  onBuildingClick?: (building: CityBuilding, event: MouseEvent) => void;
   hoveredBuilding: CityBuilding | null;
   selectedBuilding: CityBuilding | null;
   growProgress: number;
@@ -2472,14 +2542,32 @@ function CityScene({
 
     // Case 3: Switching between directories (dirA -> dirB)
     if (prevFocus !== null && focusDirectory !== null) {
-      // Phase 1: Zoom camera out
+      // Direct transition when the two directories are visually adjacent:
+      //   - parent ↔ child (one is a prefix of the other)
+      //   - immediate siblings (same parent folder)
+      // In both cases the new directory is already in or near the current
+      // view, so a zoom-out detour would feel like extra travel.
+      const isDescendant = focusDirectory.startsWith(prevFocus + '/');
+      const isAncestor = prevFocus.startsWith(focusDirectory + '/');
+      const parentOf = (p: string) => {
+        const i = p.lastIndexOf('/');
+        return i >= 0 ? p.slice(0, i) : '';
+      };
+      const isSibling = parentOf(prevFocus) === parentOf(focusDirectory);
+      if (isDescendant || isAncestor || isSibling) {
+        setBuildingFocusDirectory(focusDirectory);
+        setBuildingFocusColor(focusColor ?? null);
+        setCameraFocusDirectory(focusDirectory);
+        return;
+      }
+
+      // Unrelated branches — keep the 3-phase out/in transition so the
+      // long camera flight stays legible.
       setCameraFocusDirectory(null);
-      // Phase 2: After zoom-out, collapse/expand buildings with new color
       const timer1 = setTimeout(() => {
         setBuildingFocusDirectory(focusDirectory);
         setBuildingFocusColor(focusColor ?? null);
       }, 500);
-      // Phase 3: After collapse settles, zoom camera into new directory
       const timer2 = setTimeout(() => {
         setCameraFocusDirectory(focusDirectory);
       }, 1100); // 500ms zoom-out + 600ms collapse
@@ -2677,19 +2765,26 @@ function CityScene({
           const requested = panel.labelSize ?? Math.min(w, d) / 6;
           const labelSize = Math.max(4, Math.min(tileMax, requested));
 
+          const interactive = Boolean(panel.onClick || panel.onDoubleClick);
           const handleClick = panel.onClick
             ? (e: ThreeEvent<MouseEvent>) => {
                 e.stopPropagation();
-                panel.onClick!();
+                panel.onClick!(e.nativeEvent);
               }
             : undefined;
-          const handlePointerOver = panel.onClick
+          const handleDoubleClick = panel.onDoubleClick
+            ? (e: ThreeEvent<MouseEvent>) => {
+                e.stopPropagation();
+                panel.onDoubleClick!(e.nativeEvent);
+              }
+            : undefined;
+          const handlePointerOver = interactive
             ? (e: ThreeEvent<PointerEvent>) => {
                 e.stopPropagation();
                 document.body.style.cursor = 'pointer';
               }
             : undefined;
-          const handlePointerOut = panel.onClick
+          const handlePointerOut = interactive
             ? () => {
                 document.body.style.cursor = '';
               }
@@ -2701,6 +2796,7 @@ function CityScene({
                 position={[cx, y, cz]}
                 renderOrder={10}
                 onClick={handleClick}
+                onDoubleClick={handleDoubleClick}
                 onPointerOver={handlePointerOver}
                 onPointerOut={handlePointerOut}
               >
@@ -2753,7 +2849,7 @@ export interface FileCity3DProps {
   /** Height of the container */
   height?: number | string;
   /** Callback when a building is clicked */
-  onBuildingClick?: (building: CityBuilding) => void;
+  onBuildingClick?: (building: CityBuilding, event: MouseEvent) => void;
   /** CSS class name */
   className?: string;
   /** Inline styles */

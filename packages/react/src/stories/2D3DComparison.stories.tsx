@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 
 import { ArchitectureMapHighlightLayers } from '../components/ArchitectureMapHighlightLayers';
-import { FileCity3D, type HighlightLayer, type IsolationMode, type CityData } from '../components/FileCity3D';
+import { FileCity3D, type HighlightLayer, type CityData } from '../components/FileCity3D';
 import { createFileColorHighlightLayers } from '../utils/fileColorHighlightLayers';
 import authServerCityData from '../../../../assets/auth-server-city-data.json';
 
@@ -53,6 +53,7 @@ export const ViewModeSwitch: StoryObj = {
         setHideOverlay(false);
         setOverlayOpacity(1);
       }
+      return undefined;
     }, [viewMode]);
 
     return (
@@ -201,7 +202,7 @@ export const SideBySide: StoryObj = {
                 fontWeight: 500,
               }}
             >
-              3D FLAT
+              3D FLAT (with test border)
             </div>
             <div style={{ flex: 1, backgroundColor: '#0f1419' }}>
               <FileCity3D
@@ -210,7 +211,7 @@ export const SideBySide: StoryObj = {
                 width="100%"
                 height="100%"
                 isGrown={false}
-                showControls={false}
+                showControls={true}
                 backgroundColor="#0f1419"
               />
             </div>
@@ -266,6 +267,7 @@ const testScenarios: TestScenario[] = [
         id: 'api-layer',
         name: 'API Routes',
         enabled: true,
+        priority: 0,
         color: '#22c55e',
         items: [{ path: 'auth-server/src/app/api', type: 'directory' as const }],
       },
@@ -282,6 +284,7 @@ const testScenarios: TestScenario[] = [
         id: 'api-layer',
         name: 'API Routes',
         enabled: true,
+        priority: 0,
         color: '#3b82f6',
         items: [{ path: 'auth-server/src/app/api', type: 'directory' as const }],
       },
@@ -298,6 +301,7 @@ const testScenarios: TestScenario[] = [
         id: 'lib-layer',
         name: 'Libraries',
         enabled: true,
+        priority: 0,
         color: '#8b5cf6',
         items: [{ path: 'auth-server/src/lib', type: 'directory' as const }],
       },
@@ -314,6 +318,7 @@ const testScenarios: TestScenario[] = [
         id: 'api-layer',
         name: 'API Routes',
         enabled: true,
+        priority: 0,
         color: '#22c55e',
         items: [{ path: 'auth-server/src/app/api', type: 'directory' as const }],
       },
@@ -321,6 +326,7 @@ const testScenarios: TestScenario[] = [
         id: 'lib-layer',
         name: 'Libraries',
         enabled: true,
+        priority: 0,
         color: '#f59e0b',
         items: [{ path: 'auth-server/src/lib', type: 'directory' as const }],
       },
@@ -336,6 +342,7 @@ const testScenarios: TestScenario[] = [
         id: 'api-layer',
         name: 'API Routes',
         enabled: true,
+        priority: 0,
         color: '#3b82f6',
         items: [{ path: 'auth-server/src/app/api', type: 'directory' as const }],
       },
@@ -343,6 +350,7 @@ const testScenarios: TestScenario[] = [
         id: 'bruno-layer',
         name: 'Bruno Tests',
         enabled: true,
+        priority: 0,
         color: '#ef4444',
         items: [{ path: 'auth-server/bruno', type: 'directory' as const }],
       },
@@ -358,6 +366,7 @@ const testScenarios: TestScenario[] = [
         id: 'single-file-layer',
         name: 'Single File',
         enabled: true,
+        priority: 0,
         color: '#ec4899',
         items: [{ path: 'auth-server/src/app/api/auth/workos/callback/route.ts', type: 'file' as const }],
       },
@@ -373,6 +382,7 @@ const testScenarios: TestScenario[] = [
         id: 'files-layer',
         name: 'Selected Files',
         enabled: true,
+        priority: 0,
         color: '#14b8a6',
         items: [
           { path: 'auth-server/src/app/api/auth/workos/callback/route.ts', type: 'file' as const },
@@ -658,6 +668,7 @@ export const PanelTransitionTest: StoryObj = {
         setOverlayOpacity(1);
         setHideOverlay(true);
       }
+      return undefined;
     }, [viewMode]);
 
     return (
