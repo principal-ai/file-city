@@ -3,7 +3,6 @@ import type { Meta, StoryObj } from '@storybook/react';
 import {
   FileTree,
   useFileTree,
-  useFileTreeSelection,
   useFileTreeSelector,
   type UseFileTreeResult,
 } from '@pierre/trees/react';
@@ -29,12 +28,26 @@ import {
   type ElevatedScopePanel,
   type HighlightLayer,
 } from '../components/FileCity3D';
-import { createFileColorHighlightLayers } from '../utils/fileColorHighlightLayers';
 import { buildFolderElevatedPanels, buildFolderIndex } from '../utils/folderElevatedPanels';
+import type { EventNamespaceNode, ProjectArea } from '@principal-ai/principal-view-core';
 
 import electronAppCityData from '../../../../assets/electron-app-city-data.json';
 
 /**
+ * @deprecated FROZEN — do not modify.
+ *
+ * This is the original prototype-as-story implementation of the explorer.
+ * It has been extracted into a real component at
+ * `packages/react/src/components/FileCityExplorer/`, exercised via
+ * `FileCityExplorerComponent.stories.tsx`. This file is kept only for
+ * side-by-side comparison while the new component is shaken out.
+ *
+ * Slated for deletion once the extracted component is confirmed equivalent
+ * (see "Pending cleanup" in `docs/file-city-explorer.md`). Make changes to
+ * the new component, not here.
+ *
+ * --- Original notes ---
+ *
  * Scope / Namespace Overlay experiments
  *
  * Prototypes the mapping described in docs/scope-namespace-overlay.md:
@@ -49,7 +62,7 @@ import electronAppCityData from '../../../../assets/electron-app-city-data.json'
  */
 
 const meta: Meta<typeof FileCity3D> = {
-  title: 'Experiments/ScopeOverlay',
+  title: 'Deprecated/FileCityExplorer (legacy story)',
   component: FileCity3D,
   parameters: { layout: 'fullscreen' },
 };
@@ -58,55 +71,53 @@ export default meta;
 type Story = StoryObj<typeof FileCity3D>;
 
 // ---------------------------------------------------------------------------
-// Mock scope / namespace model
+// Scope / namespace model
+//
+// `Event` and `Namespace` are derived from the upstream
+// `EventNamespaceNode['namespace']` shape in `@principal-ai/principal-view-core`.
+// `Namespace` adds a UI-required `color` (palette pick); `Event` is unchanged.
+//
+// `Scope` stays local: it flattens namespaces inline (`scope.namespaces[]`),
+// which the upstream canvas-node split (`OtelScopeNode` + per-scope
+// `*.events.canvas`) doesn't model. Treat as an explorer view-model.
+//
+// `ProjectArea` is imported directly from upstream.
 // ---------------------------------------------------------------------------
 
-interface MockEvent {
-  /** Action portion of the event name — full name is `${namespace}.${action}`. */
-  action: string;
-  severity: 'info' | 'warn' | 'error';
-  description: string;
-}
+type Event = EventNamespaceNode['namespace']['events'][number];
 
-interface MockNamespace {
-  name: string;
-  description: string;
+type Namespace = EventNamespaceNode['namespace'] & {
+  /** UI palette pick — not part of the upstream canvas-node shape. */
   color: string;
+  /** Required here even though upstream allows `paths?` — explorer always sets it. */
   paths: string[];
-  /**
-   * Events on this namespace. Per the doc, events are namespace-level metadata —
-   * they don't claim files at this level. (Files-per-event is a future layer.)
-   */
-  events: MockEvent[];
-}
+};
 
-interface MockScope {
+interface Scope {
+  /** Maps to `OtelScopeNode.otel.scope` upstream. */
   id: string;
   name: string;
   description: string;
-  /**
-   * Scope-level paths (mirrors planned addition in principal-view-core-library).
-   * Cover everything not claimed by a more specific namespace.
-   */
+  /** Scope-level paths — corresponds to optional `OtelScopeNode.paths` upstream. */
   paths: string[];
-  namespaces: MockNamespace[];
+  namespaces: Namespace[];
 }
 
 const SCOPES_STORAGE_KEY = 'file-city.scope-overlay.scopes';
 
-function loadScopesFromStorage(): MockScope[] {
+function loadScopesFromStorage(): Scope[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = window.localStorage.getItem(SCOPES_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as MockScope[]) : [];
+    return Array.isArray(parsed) ? (parsed as Scope[]) : [];
   } catch {
     return [];
   }
 }
 
-function saveScopesToStorage(scopes: readonly MockScope[]): void {
+function saveScopesToStorage(scopes: readonly Scope[]): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(SCOPES_STORAGE_KEY, JSON.stringify(scopes));
@@ -115,22 +126,9 @@ function saveScopesToStorage(scopes: readonly MockScope[]): void {
   }
 }
 
-/**
- * MockArea mirrors `ProjectArea` from `@principal-ai/principal-view-core`'s
- * auxiliary manifest: a named, described region of the repo that is *not*
- * covered by an OTEL scope (docs, infra, build config, etc.). Areas live in
- * a parallel layer to scopes and never overlap them.
- */
-interface MockArea {
-  name: string;
-  description: string;
-  /** Repo-relative paths claimed by the area. */
-  paths: string[];
-}
-
 const AREAS_STORAGE_KEY = 'file-city.scope-overlay.areas';
 
-const DEFAULT_AREAS: MockArea[] = [
+const DEFAULT_AREAS: ProjectArea[] = [
   {
     name: 'Documentation',
     description: 'Project docs, READMEs, and design notes — not OTEL-instrumented.',
@@ -143,19 +141,19 @@ const DEFAULT_AREAS: MockArea[] = [
   },
 ];
 
-function loadAreasFromStorage(): MockArea[] {
+function loadAreasFromStorage(): ProjectArea[] {
   if (typeof window === 'undefined') return DEFAULT_AREAS;
   try {
     const raw = window.localStorage.getItem(AREAS_STORAGE_KEY);
     if (!raw) return DEFAULT_AREAS;
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as MockArea[]) : DEFAULT_AREAS;
+    return Array.isArray(parsed) ? (parsed as ProjectArea[]) : DEFAULT_AREAS;
   } catch {
     return DEFAULT_AREAS;
   }
 }
 
-function saveAreasToStorage(areas: readonly MockArea[]): void {
+function saveAreasToStorage(areas: readonly ProjectArea[]): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(AREAS_STORAGE_KEY, JSON.stringify(areas));
@@ -196,7 +194,7 @@ const ELECTRON_FOLDER_INDEX = buildFolderIndex(electronAppCityData as CityData);
 interface ScopeTreeSelection {
   scopeId: string;
   namespaceName?: string;
-  eventAction?: string;
+  eventName?: string;
 }
 
 /**
@@ -208,11 +206,11 @@ const EMPTY_NS_SENTINEL = '(no namespaces)';
 const EMPTY_EVENTS_SENTINEL = '(no events)';
 
 /**
- * Build canonical paths for the scope tree: `<scope.id>/<namespace.name>/<event.action>`.
+ * Build canonical paths for the scope tree: `<scope.id>/<namespace.name>/<event.name>`.
  * Scopes are top-level directories, namespaces children, events leaves.
  * Empty scopes/namespaces emit a sentinel leaf so they still appear.
  */
-function buildScopeTreePaths(scopes: readonly MockScope[]): string[] {
+function buildScopeTreePaths(scopes: readonly Scope[]): string[] {
   const out: string[] = [];
   for (const scope of scopes) {
     if (scope.namespaces.length === 0) {
@@ -225,7 +223,7 @@ function buildScopeTreePaths(scopes: readonly MockScope[]): string[] {
         continue;
       }
       for (const ev of ns.events) {
-        out.push(`${scope.id}/${ns.name}/${ev.action}`);
+        out.push(`${scope.id}/${ns.name}/${ev.name}`);
       }
     }
   }
@@ -233,80 +231,27 @@ function buildScopeTreePaths(scopes: readonly MockScope[]): string[] {
 }
 
 function parseScopeTreePath(path: string): ScopeTreeSelection {
-  const [scopeId, namespaceName, eventAction] = path.split('/');
+  const [scopeId, namespaceName, eventName] = path.split('/');
   const result: ScopeTreeSelection = { scopeId };
   if (namespaceName && namespaceName !== EMPTY_NS_SENTINEL) {
     result.namespaceName = namespaceName;
   }
-  if (eventAction && eventAction !== EMPTY_EVENTS_SENTINEL) {
-    result.eventAction = eventAction;
+  if (eventName && eventName !== EMPTY_EVENTS_SENTINEL) {
+    result.eventName = eventName;
   }
   return result;
-}
-
-// ---------------------------------------------------------------------------
-// Area tree paths
-// ---------------------------------------------------------------------------
-
-interface AreaTreeSelection {
-  areaName: string;
-  /** Selected sub-path leaf (repo-relative), if any. */
-  pathSelected?: string;
-}
-
-const EMPTY_AREA_PATHS_SENTINEL = '(no paths)';
-
-/**
- * Areas tree paths: `<area.name>/<repo-path>`. Each area is a top-level
- * directory whose leaves are the paths it claims. Empty areas emit a sentinel
- * so they still appear.
- *
- * Repo paths use '/' internally — we encode them as a single leaf segment by
- * replacing '/' with a non-printable separator on the way in and decoding on
- * the way out. This avoids creating spurious sub-directories in the tree.
- */
-const AREA_PATH_SEP = '␟'; // visible "␟" if ever leaked, but practically unused
-
-function encodeAreaPath(p: string): string {
-  return p.split('/').join(AREA_PATH_SEP);
-}
-
-function decodeAreaPath(p: string): string {
-  return p.split(AREA_PATH_SEP).join('/');
-}
-
-function buildAreaTreePaths(areas: readonly MockArea[]): string[] {
-  const out: string[] = [];
-  for (const area of areas) {
-    if (area.paths.length === 0) {
-      out.push(`${area.name}/${EMPTY_AREA_PATHS_SENTINEL}`);
-      continue;
-    }
-    for (const p of area.paths) {
-      out.push(`${area.name}/${encodeAreaPath(p)}`);
-    }
-  }
-  return out;
-}
-
-function parseAreaTreePath(path: string): AreaTreeSelection {
-  const slash = path.indexOf('/');
-  if (slash < 0) return { areaName: path };
-  const areaName = path.slice(0, slash);
-  const rest = path.slice(slash + 1);
-  if (!rest || rest === EMPTY_AREA_PATHS_SENTINEL) return { areaName };
-  return { areaName, pathSelected: decodeAreaPath(rest) };
 }
 
 // ---------------------------------------------------------------------------
 // Info overlay component
 // ---------------------------------------------------------------------------
 
-const SEVERITY_BG: Record<MockEvent['severity'], string> = {
-  error: '#7f1d1d',
-  warn: '#78350f',
-  info: '#1e3a8a',
+const SEVERITY_BG: Record<NonNullable<Event['severity']>, string> = {
+  ERROR: '#7f1d1d',
+  WARN: '#78350f',
+  INFO: '#1e3a8a',
 };
+const DEFAULT_SEVERITY_BG = '#1e293b';
 
 const overlayStyle: React.CSSProperties = {
   position: 'absolute',
@@ -322,20 +267,20 @@ const overlayStyle: React.CSSProperties = {
   borderRadius: 8,
   color: '#e2e8f0',
   fontFamily: 'system-ui, sans-serif',
-  fontSize: 13,
+  fontSize: 14,
   zIndex: 100,
   boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
 };
 
 const sectionLabelStyle: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: 12,
   color: '#64748b',
   textTransform: 'uppercase',
   letterSpacing: 0.5,
 };
 
 const ScopeInfoOverlay: React.FC<{
-  info: { scope: MockScope; ns: MockNamespace | null; ev: MockEvent | null };
+  info: { scope: Scope; ns: Namespace | null; ev: Event | null };
 }> = ({ info }) => {
   const { scope, ns, ev } = info;
 
@@ -346,24 +291,28 @@ const ScopeInfoOverlay: React.FC<{
         <div style={{ padding: '14px 16px', borderBottom: '1px solid #1e293b' }}>
           <div style={sectionLabelStyle}>Event</div>
           <div style={{ fontFamily: 'monospace', fontSize: 14, marginTop: 6 }}>
-            {ns.name}.{ev.action}
+            {ev.name}
           </div>
-          <div
-            style={{
-              display: 'inline-block',
-              fontSize: 10,
-              marginTop: 8,
-              padding: '2px 6px',
-              borderRadius: 3,
-              background: SEVERITY_BG[ev.severity],
-              color: '#fde68a',
-            }}
-          >
-            {ev.severity}
-          </div>
-          <div style={{ fontSize: 12, color: '#cbd5e1', marginTop: 10, lineHeight: 1.5 }}>
-            {ev.description}
-          </div>
+          {ev.severity && (
+            <div
+              style={{
+                display: 'inline-block',
+                fontSize: 12,
+                marginTop: 8,
+                padding: '2px 6px',
+                borderRadius: 3,
+                background: SEVERITY_BG[ev.severity] ?? DEFAULT_SEVERITY_BG,
+                color: '#fde68a',
+              }}
+            >
+              {ev.severity}
+            </div>
+          )}
+          {ev.description && (
+            <div style={{ fontSize: 12, color: '#cbd5e1', marginTop: 10, lineHeight: 1.5 }}>
+              {ev.description}
+            </div>
+          )}
         </div>
         <div style={{ padding: '14px 16px' }}>
           <div style={sectionLabelStyle}>Owning namespace</div>
@@ -371,9 +320,9 @@ const ScopeInfoOverlay: React.FC<{
             <span
               style={{ width: 12, height: 12, borderRadius: 3, background: ns.color, flexShrink: 0 }}
             />
-            <span style={{ fontFamily: 'monospace', fontSize: 13 }}>{ns.name}</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 14 }}>{ns.name}</span>
           </div>
-          <div style={{ fontSize: 10, color: '#64748b', marginTop: 14, fontStyle: 'italic' }}>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 14, fontStyle: 'italic' }}>
             Files-per-event mapping not wired yet — for now the event highlights its parent
             namespace&apos;s paths.
           </div>
@@ -394,10 +343,10 @@ const ScopeInfoOverlay: React.FC<{
             />
             <span style={{ fontFamily: 'monospace', fontSize: 14 }}>{ns.name}</span>
           </div>
-          <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 8, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 8, lineHeight: 1.5 }}>
             {ns.description}
           </div>
-          <div style={{ fontSize: 11, color: '#64748b', marginTop: 8 }}>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 8 }}>
             in <span style={{ fontFamily: 'monospace' }}>{scope.id}</span>
           </div>
         </div>
@@ -408,7 +357,7 @@ const ScopeInfoOverlay: React.FC<{
               <code
                 key={p}
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   color: '#cbd5e1',
                   background: '#0b1220',
                   padding: '4px 6px',
@@ -426,7 +375,7 @@ const ScopeInfoOverlay: React.FC<{
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
             {ns.events.map(e => (
               <div
-                key={e.action}
+                key={e.name}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -436,20 +385,22 @@ const ScopeInfoOverlay: React.FC<{
                   borderRadius: 4,
                 }}
               >
-                <span
-                  style={{
-                    fontSize: 9,
-                    padding: '1px 4px',
-                    borderRadius: 2,
-                    background: SEVERITY_BG[e.severity],
-                    color: '#fde68a',
-                    flexShrink: 0,
-                  }}
-                >
-                  {e.severity}
-                </span>
-                <code style={{ fontSize: 11, color: '#cbd5e1' }}>
-                  {ns.name}.{e.action}
+                {e.severity && (
+                  <span
+                    style={{
+                      fontSize: 12,
+                      padding: '1px 4px',
+                      borderRadius: 2,
+                      background: SEVERITY_BG[e.severity] ?? DEFAULT_SEVERITY_BG,
+                      color: '#fde68a',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {e.severity}
+                  </span>
+                )}
+                <code style={{ fontSize: 12, color: '#cbd5e1' }}>
+                  {e.name}
                 </code>
               </div>
             ))}
@@ -466,10 +417,10 @@ const ScopeInfoOverlay: React.FC<{
       <div style={{ padding: '14px 16px', borderBottom: '1px solid #1e293b' }}>
         <div style={sectionLabelStyle}>Scope</div>
         <div style={{ fontFamily: 'monospace', fontSize: 14, marginTop: 6 }}>{scope.id}</div>
-        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 8, lineHeight: 1.5 }}>
+        <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 8, lineHeight: 1.5 }}>
           {scope.description}
         </div>
-        <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 11, color: '#64748b' }}>
+        <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 12, color: '#64748b' }}>
           <div>
             <div>{scope.paths.length}</div>
             <div style={sectionLabelStyle}>scope paths</div>
@@ -492,7 +443,7 @@ const ScopeInfoOverlay: React.FC<{
               <code
                 key={p}
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   color: '#cbd5e1',
                   background: '#0b1220',
                   padding: '4px 6px',
@@ -525,13 +476,13 @@ const ScopeInfoOverlay: React.FC<{
                   }}
                 />
                 <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{n.name}</span>
-                <span style={{ fontSize: 10, color: '#64748b', marginLeft: 'auto' }}>
+                <span style={{ fontSize: 12, color: '#64748b', marginLeft: 'auto' }}>
                   {n.events.length} event{n.events.length === 1 ? '' : 's'}
                 </span>
               </div>
               <div
                 style={{
-                  fontSize: 10,
+                  fontSize: 12,
                   color: '#64748b',
                   fontFamily: 'monospace',
                   marginTop: 4,
@@ -548,67 +499,7 @@ const ScopeInfoOverlay: React.FC<{
   );
 };
 
-// ---------------------------------------------------------------------------
-// Area info overlay
-// ---------------------------------------------------------------------------
-
 const AREA_PANEL_COLOR = '#64748b';
-
-const AreaInfoOverlay: React.FC<{
-  info: { area: MockArea; pathSelected: string | null };
-}> = ({ info }) => {
-  const { area, pathSelected } = info;
-  return (
-    <div style={overlayStyle}>
-      <div style={{ padding: '14px 16px', borderBottom: '1px solid #1e293b' }}>
-        <div style={sectionLabelStyle}>Area</div>
-        <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span
-            style={{
-              width: 12,
-              height: 12,
-              borderRadius: 3,
-              background: AREA_PANEL_COLOR,
-              border: '1px dashed #94a3b8',
-              flexShrink: 0,
-            }}
-          />
-          <span style={{ fontFamily: 'monospace', fontSize: 14 }}>{area.name}</span>
-        </div>
-        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 8, lineHeight: 1.5 }}>
-          {area.description}
-        </div>
-        <div style={{ fontSize: 10, color: '#64748b', marginTop: 8, fontStyle: 'italic' }}>
-          Non-instrumented region — not covered by any OTEL scope.
-        </div>
-      </div>
-      <div style={{ padding: '14px 16px' }}>
-        <div style={sectionLabelStyle}>Claimed paths ({area.paths.length})</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
-          {area.paths.map(p => {
-            const isSelected = p === pathSelected;
-            return (
-              <code
-                key={p}
-                style={{
-                  fontSize: 11,
-                  color: isSelected ? '#fde68a' : '#cbd5e1',
-                  background: isSelected ? '#1e293b' : '#0b1220',
-                  padding: '4px 6px',
-                  borderRadius: 4,
-                  wordBreak: 'break-all',
-                  border: isSelected ? '1px solid #fbbf24' : '1px solid transparent',
-                }}
-              >
-                {p}
-              </code>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // ---------------------------------------------------------------------------
 // Add-to-scope modal
@@ -616,7 +507,7 @@ const AreaInfoOverlay: React.FC<{
 
 const AddToScopeModal: React.FC<{
   path: string;
-  scopes: readonly MockScope[];
+  scopes: readonly Scope[];
   scopeId: string;
   namespaceName: string;
   onScopeIdChange: (value: string) => void;
@@ -762,7 +653,7 @@ const AddToScopeModal: React.FC<{
                 border: '1px solid #334155',
                 borderRadius: 4,
                 fontFamily: 'monospace',
-                fontSize: 13,
+                fontSize: 14,
               }}
             />
             <datalist id="scope-id-options">
@@ -789,7 +680,7 @@ const AddToScopeModal: React.FC<{
                 border: '1px solid #334155',
                 borderRadius: 4,
                 fontFamily: 'monospace',
-                fontSize: 13,
+                fontSize: 14,
               }}
             />
           </label>
@@ -804,7 +695,7 @@ const AddToScopeModal: React.FC<{
                 border: '1px solid #334155',
                 borderRadius: 4,
                 cursor: 'pointer',
-                fontSize: 13,
+                fontSize: 14,
               }}
             >
               Cancel
@@ -819,7 +710,7 @@ const AddToScopeModal: React.FC<{
                 border: '1px solid #334155',
                 borderRadius: 4,
                 cursor: !canSubmit || alreadyClaimed ? 'not-allowed' : 'pointer',
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: 500,
               }}
             >
@@ -858,7 +749,7 @@ const AddToScopeModal: React.FC<{
                         : 'Prefill (scope-level)'
                     }
                     style={{
-                      fontSize: 11,
+                      fontSize: 12,
                       padding: '3px 7px',
                       background: scope.paths.includes(path) ? '#0f172a' : '#1e293b',
                       color: scope.paths.includes(path) ? '#475569' : '#cbd5e1',
@@ -874,7 +765,7 @@ const AddToScopeModal: React.FC<{
                   >
                     (scope-level)
                     {scope.paths.includes(path) && (
-                      <span style={{ marginLeft: 4, fontSize: 9 }}>✓</span>
+                      <span style={{ marginLeft: 4, fontSize: 12 }}>✓</span>
                     )}
                   </button>
                   {scope.namespaces.map(ns => {
@@ -885,7 +776,7 @@ const AddToScopeModal: React.FC<{
                         onClick={() => onPickExisting(scope.id, ns.name)}
                         title={claims ? 'Already claims this path' : 'Prefill inputs'}
                         style={{
-                          fontSize: 11,
+                          fontSize: 12,
                           padding: '3px 7px',
                           background: claims ? '#0f172a' : '#1e293b',
                           color: claims ? '#475569' : '#e2e8f0',
@@ -908,7 +799,7 @@ const AddToScopeModal: React.FC<{
                           }}
                         />
                         {ns.name}
-                        {claims && <span style={{ marginLeft: 4, fontSize: 9 }}>✓</span>}
+                        {claims && <span style={{ marginLeft: 4, fontSize: 12 }}>✓</span>}
                       </button>
                     );
                   })}
@@ -928,7 +819,7 @@ const AddToScopeModal: React.FC<{
 
 const AddToAreaModal: React.FC<{
   path: string;
-  areas: readonly MockArea[];
+  areas: readonly ProjectArea[];
   areaName: string;
   description: string;
   onAreaNameChange: (value: string) => void;
@@ -1063,7 +954,7 @@ const AddToAreaModal: React.FC<{
                 border: '1px solid #334155',
                 borderRadius: 4,
                 fontFamily: 'monospace',
-                fontSize: 13,
+                fontSize: 14,
               }}
             />
             <datalist id="area-name-options">
@@ -1090,7 +981,7 @@ const AddToAreaModal: React.FC<{
                   color: '#e2e8f0',
                   border: '1px solid #334155',
                   borderRadius: 4,
-                  fontSize: 13,
+                  fontSize: 14,
                 }}
               />
             </label>
@@ -1106,7 +997,7 @@ const AddToAreaModal: React.FC<{
                 border: '1px solid #334155',
                 borderRadius: 4,
                 cursor: 'pointer',
-                fontSize: 13,
+                fontSize: 14,
               }}
             >
               Cancel
@@ -1121,7 +1012,7 @@ const AddToAreaModal: React.FC<{
                 border: '1px solid #334155',
                 borderRadius: 4,
                 cursor: !canSubmit || alreadyClaimed ? 'not-allowed' : 'pointer',
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: 500,
               }}
             >
@@ -1134,7 +1025,7 @@ const AddToAreaModal: React.FC<{
           <div style={sectionLabelStyle}>Existing areas (click to prefill)</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
             {areas.length === 0 && (
-              <div style={{ fontSize: 11, color: '#64748b', fontStyle: 'italic' }}>
+              <div style={{ fontSize: 12, color: '#64748b', fontStyle: 'italic' }}>
                 No areas yet. Type a name above to create the first one.
               </div>
             )}
@@ -1174,13 +1065,13 @@ const AddToAreaModal: React.FC<{
                   <span
                     style={{
                       marginLeft: 'auto',
-                      fontSize: 10,
+                      fontSize: 12,
                       color: '#64748b',
                     }}
                   >
                     {area.paths.length} path{area.paths.length === 1 ? '' : 's'}
                   </span>
-                  {claims && <span style={{ marginLeft: 4, fontSize: 9 }}>✓</span>}
+                  {claims && <span style={{ marginLeft: 4, fontSize: 12 }}>✓</span>}
                 </button>
               );
             })}
@@ -1194,10 +1085,6 @@ const AddToAreaModal: React.FC<{
 // ---------------------------------------------------------------------------
 // Single-scope explorer
 // ---------------------------------------------------------------------------
-
-type AuditMode = 'off' | 'uncovered' | 'covered';
-
-const ALL_BUILDINGS = (electronAppCityData as CityData).buildings;
 
 /**
  * The electron-app city is rooted at `electron-app/` in the JSON data, but
@@ -1230,7 +1117,7 @@ const NAMESPACE_PALETTE = [
   '#eab308',
 ];
 
-function pickNamespaceColor(scopes: readonly MockScope[]): string {
+function pickNamespaceColor(scopes: readonly Scope[]): string {
   const used = new Set(scopes.flatMap(s => s.namespaces.map(n => n.color)));
   return NAMESPACE_PALETTE.find(c => !used.has(c)) ?? NAMESPACE_PALETTE[scopes.length % NAMESPACE_PALETTE.length];
 }
@@ -1240,7 +1127,7 @@ function pickNamespaceColor(scopes: readonly MockScope[]): string {
  * border-only layer for scope-level paths. Priority is path depth (longest-
  * prefix wins) per the partition convention in docs/scope-namespace-overlay.md.
  */
-function buildLayersForScope(scope: MockScope): HighlightLayer[] {
+function buildLayersForScope(scope: Scope): HighlightLayer[] {
   const layers: HighlightLayer[] = scope.namespaces.map(ns => {
     const maxDepth = Math.max(1, ...ns.paths.map(p => p.split('/').length));
     return {
@@ -1275,11 +1162,9 @@ function buildLayersForScope(scope: MockScope): HighlightLayer[] {
   return layers;
 }
 
-const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
-  showLeftPanel = true,
-}) => {
-  const [scopes, setScopes] = React.useState<MockScope[]>(loadScopesFromStorage);
-  const [areas, setAreas] = React.useState<MockArea[]>(loadAreasFromStorage);
+const FileCityExplorerTemplate: React.FC = () => {
+  const [scopes, setScopes] = React.useState<Scope[]>(loadScopesFromStorage);
+  const [areas, setAreas] = React.useState<ProjectArea[]>(loadAreasFromStorage);
 
   React.useEffect(() => {
     saveScopesToStorage(scopes);
@@ -1356,9 +1241,8 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
   React.useEffect(() => {
     panelFolderContentsTreeModel.resetPaths(panelFolderContentsPaths);
   }, [panelFolderContentsTreeModel, panelFolderContentsPaths]);
+
   const [scopeSelection, setScopeSelection] = React.useState<ScopeTreeSelection | null>(null);
-  const [areaSelection, setAreaSelection] = React.useState<AreaTreeSelection | null>(null);
-  const [auditMode, setAuditMode] = React.useState<AuditMode>('off');
   const [showAddModal, setShowAddModal] = React.useState(false);
   const [scopeModalTargetPath, setScopeModalTargetPath] = React.useState<string | null>(null);
   const [modalScopeId, setModalScopeId] = React.useState('');
@@ -1367,58 +1251,12 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
   const [areaModalTargetPath, setAreaModalTargetPath] = React.useState<string | null>(null);
   const [modalAreaName, setModalAreaName] = React.useState('');
   const [modalAreaDescription, setModalAreaDescription] = React.useState('');
-  const [activeTab, setActiveTab] = React.useState<'files' | 'scopes' | 'areas'>('files');
-
-  // Coverage derived from current scope state.
-  const claimedPaths = React.useMemo(
-    () =>
-      Array.from(
-        new Set(
-          scopes.flatMap(s => [...s.paths, ...s.namespaces.flatMap(ns => ns.paths)]),
-        ),
-      ),
-    [scopes],
-  );
-  const isPathCovered = React.useCallback(
-    (cityPath: string) => {
-      const candidate = toScopePath(cityPath);
-      for (const claimed of claimedPaths) {
-        if (candidate === claimed || candidate.startsWith(claimed + '/')) return true;
-      }
-      return false;
-    },
-    [claimedPaths],
-  );
-  const { uncoveredFiles, coveredFiles } = React.useMemo(() => {
-    const u: typeof ALL_BUILDINGS = [];
-    const c: typeof ALL_BUILDINGS = [];
-    for (const b of ALL_BUILDINGS) (isPathCovered(b.path) ? c : u).push(b);
-    return { uncoveredFiles: u, coveredFiles: c };
-  }, [isPathCovered]);
-
-  const auditHighlightLayers = React.useMemo(() => {
-    if (auditMode === 'uncovered') return createFileColorHighlightLayers(uncoveredFiles);
-    if (auditMode === 'covered') return createFileColorHighlightLayers(coveredFiles);
-    return undefined;
-  }, [auditMode, uncoveredFiles, coveredFiles]);
-
-  // City data narrowed by audit mode — render only the matching buildings so
-  // the 3D view mirrors the (already-filtered) file tree. Districts are kept
-  // intact for spatial context; empty ones simply have no buildings inside.
-  const auditedCityData = React.useMemo<CityData>(() => {
-    if (auditMode === 'off') return electronAppCityData as CityData;
-    const buildings = auditMode === 'uncovered' ? uncoveredFiles : coveredFiles;
-    return { ...(electronAppCityData as CityData), buildings };
-  }, [auditMode, uncoveredFiles, coveredFiles]);
-
-  const totalFiles = ALL_BUILDINGS.length;
-  const uncoveredCount = uncoveredFiles.length;
-  const coveredCount = coveredFiles.length;
+  const [activeTab, setActiveTab] = React.useState<'files' | 'scopes'>('files');
 
   const { model: treeModel } = useFileTree({
     paths: ELECTRON_PATHS,
     search: true,
-    initialExpandedPaths: ['electron-app', 'electron-app/src', 'electron-app/src/renderer'],
+    initialExpandedPaths: [],
     onSelectionChange: paths => {
       const selected = paths[0];
       if (!selected) {
@@ -1447,23 +1285,6 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
       setFocusDirectoryIfUnpinned(null);
     },
   });
-  const selectedPaths = useFileTreeSelection(treeModel);
-
-  // Filter the file tree by audit mode so the tree mirrors what's highlighted.
-  const filteredFilePaths = React.useMemo(() => {
-    if (auditMode === 'uncovered') return uncoveredFiles.map(b => b.path).sort();
-    if (auditMode === 'covered') return coveredFiles.map(b => b.path).sort();
-    return ELECTRON_PATHS;
-  }, [auditMode, uncoveredFiles, coveredFiles]);
-
-  const isFirstFileTreeSync = React.useRef(true);
-  React.useEffect(() => {
-    if (isFirstFileTreeSync.current) {
-      isFirstFileTreeSync.current = false;
-      return;
-    }
-    treeModel.resetPaths(filteredFilePaths);
-  }, [treeModel, filteredFilePaths]);
 
   const scopeTreePaths = React.useMemo(() => buildScopeTreePaths(scopes), [scopes]);
   const initialScopeTreePaths = React.useRef(scopeTreePaths);
@@ -1551,50 +1372,6 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
     ),
   );
 
-  // ---- Areas tree --------------------------------------------------------
-  const areaTreePaths = React.useMemo(() => buildAreaTreePaths(areas), [areas]);
-  const initialAreaTreePaths = React.useRef(areaTreePaths);
-  const initialExpandedAreaNames = React.useRef(areas.map(a => a.name));
-  const { model: areaTreeModel } = useFileTree({
-    paths: initialAreaTreePaths.current,
-    search: true,
-    initialExpandedPaths: initialExpandedAreaNames.current,
-    onSelectionChange: paths => {
-      const selected = paths[0];
-      if (!selected) {
-        setAreaSelection(null);
-        return;
-      }
-      const parsed = parseAreaTreePath(selected);
-      setAreaSelection(parsed);
-
-      // Selecting an area path leaf focuses the city on it; selecting a bare
-      // area clears focus.
-      if (parsed.pathSelected) {
-        setFocusDirectoryIfUnpinned(toCityPath(parsed.pathSelected));
-      } else {
-        setFocusDirectoryIfUnpinned(null);
-      }
-    },
-  });
-
-  const isFirstAreaTreeSync = React.useRef(true);
-  React.useEffect(() => {
-    if (isFirstAreaTreeSync.current) {
-      isFirstAreaTreeSync.current = false;
-      return;
-    }
-    areaTreeModel.resetPaths(areaTreePaths);
-  }, [areaTreeModel, areaTreePaths]);
-
-  // Resolve the current area tree selection into the underlying objects.
-  const areaInfo = React.useMemo(() => {
-    if (!areaSelection) return null;
-    const area = areas.find(a => a.name === areaSelection.areaName);
-    if (!area) return null;
-    return { area, pathSelected: areaSelection.pathSelected ?? null };
-  }, [areaSelection, areas]);
-
   // Resolve the current scope tree selection into the underlying objects.
   const scopeInfo = React.useMemo(() => {
     if (!scopeSelection) return null;
@@ -1604,23 +1381,21 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
       ? scope.namespaces.find(n => n.name === scopeSelection.namespaceName) ?? null
       : null;
     const ev =
-      ns && scopeSelection.eventAction
-        ? ns.events.find(e => e.action === scopeSelection.eventAction) ?? null
+      ns && scopeSelection.eventName
+        ? ns.events.find(e => e.name === scopeSelection.eventName) ?? null
         : null;
     return { scope, ns, ev };
   }, [scopeSelection, scopes]);
 
-  const selectedFilePath = selectedPaths[0] ?? null;
-
   // City highlight layers derive from the active tab:
-  //   files tab  → audit layers (uncovered / covered / off)
   //   scopes tab → selected scope's namespace fills (+ scope-level borders)
+  //   files tab  → none
   const cityHighlightLayers = React.useMemo(() => {
     if (activeTab === 'scopes') {
       return scopeInfo ? buildLayersForScope(scopeInfo.scope) : undefined;
     }
-    return auditHighlightLayers;
-  }, [activeTab, scopeInfo, auditHighlightLayers]);
+    return undefined;
+  }, [activeTab, scopeInfo]);
 
   // Elevated scope panels — driven by the scope tree's expansion state.
   // - Collapsed scope → one gray umbrella tile per scope path.
@@ -1675,34 +1450,6 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
     return panels.length > 0 ? panels : undefined;
   }, [activeTab, scopes, scopeTreeModel, treeExpansion]);
 
-  // Elevated panels for the Areas layer — one muted tile per claimed path.
-  // Areas have no sub-structure (paths are leaves directly under the area),
-  // so expansion in the sidebar doesn't change the panel set; clicking a
-  // panel toggles the area node's expansion to mirror the scopes UX.
-  const areasElevatedPanels = React.useMemo<ElevatedScopePanel[] | undefined>(() => {
-    if (activeTab !== 'areas') return undefined;
-    const panels: ElevatedScopePanel[] = [];
-
-    for (const area of areas) {
-      const onClick = () => asDir(areaTreeModel.getItem(area.name))?.toggle();
-      for (const ap of area.paths) {
-        const district = ELECTRON_DISTRICTS_BY_PATH.get(toCityPath(ap));
-        if (!district) continue;
-        panels.push({
-          id: `area::${area.name}::${ap}`,
-          color: AREA_PANEL_COLOR,
-          height: 4,
-          thickness: 2,
-          bounds: district.worldBounds,
-          label: area.name,
-          onClick,
-        });
-      }
-    }
-
-    return panels.length > 0 ? panels : undefined;
-  }, [activeTab, areas, areaTreeModel]);
-
   // Track which folders are expanded in the file tree. The file-tree tab's
   // elevated panels mirror this: a collapsed folder shows one umbrella tile
   // covering every descendant district; expanding the folder reveals its
@@ -1727,13 +1474,65 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
     ),
   );
 
-  // Elevated folder panels — driven by the file tree's expansion state.
-  // Hidden during audit modes so the filtered buildings aren't obscured by
-  // umbrella tiles for folders that may now be empty or partially shown.
+  // Mirror contents-tree expansion onto the main tree so the city's folder
+  // umbrellas hide for folders the user expands in the floating contents
+  // view. Contents-tree paths are stripped of the selected-folder prefix;
+  // we re-prefix them to address the same node in the main model.
+  const contentsFolderExpansion = useFileTreeSelector(
+    panelFolderContentsTreeModel,
+    React.useCallback(
+      (model: FileTreeModel) => {
+        const expanded = new Set<string>();
+        if (!selectedPanelFolder) return { expanded };
+        const prefix = selectedPanelFolder + '/';
+        for (const dir of ELECTRON_DIRECTORIES) {
+          if (!dir.startsWith(prefix)) continue;
+          const stripped = dir.slice(prefix.length);
+          const item = asDir(model.getItem(stripped));
+          if (item && item.isExpanded()) expanded.add(dir);
+        }
+        return { expanded };
+      },
+      [selectedPanelFolder],
+    ),
+    React.useCallback(
+      (prev: { expanded: Set<string> }, next: { expanded: Set<string> }) => {
+        if (prev.expanded.size !== next.expanded.size) return false;
+        for (const k of prev.expanded) if (!next.expanded.has(k)) return false;
+        return true;
+      },
+      [],
+    ),
+  );
+
+  // Diff against the prior mirror so collapses propagate without stomping
+  // folders the user expanded directly via city umbrella clicks.
+  const prevContentsExpansionRef = React.useRef<Set<string>>(new Set());
+  React.useEffect(() => {
+    const next = contentsFolderExpansion.expanded;
+    const prev = prevContentsExpansionRef.current;
+    for (const dir of next) {
+      if (!prev.has(dir)) asDir(treeModel.getItem(dir))?.expand();
+    }
+    for (const dir of prev) {
+      if (!next.has(dir)) asDir(treeModel.getItem(dir))?.collapse();
+    }
+    prevContentsExpansionRef.current = new Set(next);
+  }, [contentsFolderExpansion, treeModel]);
+
+  // Folder city-path → area display name. Lets folder umbrella tiles surface
+  // the human-readable area name above the technical path component.
+  const areaNameByCityPath = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const area of areas) {
+      for (const p of area.paths) m.set(toCityPath(p), area.name);
+    }
+    return m;
+  }, [areas]);
+
   const folderElevatedPanels = React.useMemo<ElevatedScopePanel[] | undefined>(() => {
     if (activeTab !== 'files') return undefined;
-    if (auditMode !== 'off') return undefined;
-    const panels = buildFolderElevatedPanels({
+    const rawPanels = buildFolderElevatedPanels({
       cityData: electronAppCityData as CityData,
       expandedFolders: folderTreeExpansion.expanded,
       onToggleFolder: (folderPath) => {
@@ -1765,6 +1564,11 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
         setParentLayersDismissed(false);
       },
       index: ELECTRON_FOLDER_INDEX,
+    });
+    const panels: ElevatedScopePanel[] = rawPanels.map(panel => {
+      const folderPath = panel.id.startsWith('folder::') ? panel.id.slice('folder::'.length) : null;
+      const displayLabel = folderPath ? areaNameByCityPath.get(folderPath) : undefined;
+      return displayLabel ? { ...panel, displayLabel } : panel;
     });
     // Selection indicator: render a thin, slightly-larger panel underneath
     // the selected folder's umbrella so an accent ring peeks out around its
@@ -1798,11 +1602,11 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
     return panels.length > 0 ? panels : undefined;
   }, [
     activeTab,
-    auditMode,
     selectedPanelFolder,
     treeModel,
     folderTreeExpansion,
     setFocusDirectoryIfUnpinned,
+    areaNameByCityPath,
   ]);
 
   // Cmd-click on a building → surface the chain of expanded ancestor folders
@@ -1847,19 +1651,6 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
     [],
   );
 
-  // Scopes that already cover the selected file-tree path (via scope-level
-  // paths or any namespace path).
-  const coveringScopes = React.useMemo(() => {
-    if (!selectedFilePath) return [] as MockScope[];
-    const sp = toScopePath(selectedFilePath);
-    return scopes.filter(scope => {
-      if (scope.paths.some(p => sp === p || sp.startsWith(p + '/'))) return true;
-      return scope.namespaces.some(ns =>
-        ns.paths.some(p => sp === p || sp.startsWith(p + '/')),
-      );
-    });
-  }, [selectedFilePath, scopes]);
-
   // Coverage lookup for the city-panel-clicked folder. Returns scope hits
   // (with the most specific covering namespace, if any) and area hits.
   const panelFolderCoverage = React.useMemo(() => {
@@ -1867,7 +1658,7 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
     const sp = toScopePath(selectedPanelFolder);
     const covers = (claim: string) => sp === claim || sp.startsWith(claim + '/');
 
-    const scopeHits: { scope: MockScope; namespace: MockNamespace | null }[] = [];
+    const scopeHits: { scope: Scope; namespace: Namespace | null }[] = [];
     for (const scope of scopes) {
       const ns = scope.namespaces.find(n => n.paths.some(covers)) ?? null;
       const scopeLevel = scope.paths.some(covers);
@@ -1892,7 +1683,7 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
     // Invariant: a scope's `paths` must cover every path claimed by any of
     // its namespaces. If `path` isn't already covered by scope.paths, we add
     // it.
-    const ensureScopePathCovers = (scope: MockScope): MockScope => {
+    const ensureScopePathCovers = (scope: Scope): Scope => {
       const covered = scope.paths.some(p => path === p || path.startsWith(p + '/'));
       if (covered) return scope;
       return { ...scope, paths: [...scope.paths, path] };
@@ -1928,7 +1719,7 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
         }
 
         // New namespace under existing scope.
-        const newNs: MockNamespace = {
+        const newNs: Namespace = {
           name: namespaceName,
           description: '(new namespace)',
           color: pickNamespaceColor(prev),
@@ -1957,7 +1748,7 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
           },
         ];
       }
-      const newNs: MockNamespace = {
+      const newNs: Namespace = {
         name: namespaceName,
         description: '(new namespace)',
         color: pickNamespaceColor(prev),
@@ -2015,325 +1806,6 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
 
   return (
     <div style={{ height: '100vh', display: 'flex', background: '#0f172a' }}>
-      {/* Left pane — tabbed: file tree | scopes tree */}
-      {showLeftPanel && (
-      <div
-        style={{
-          width: 320,
-          flexShrink: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          borderRight: '1px solid #1e293b',
-          background: '#0b1220',
-          color: '#e2e8f0',
-          fontFamily: 'system-ui, sans-serif',
-        }}
-      >
-        {/* Tab strip */}
-        <div
-          style={{
-            display: 'flex',
-            borderBottom: '1px solid #1e293b',
-            background: '#0f172a',
-          }}
-        >
-          {(
-            [
-              { id: 'files' as const, label: 'File tree', accent: '#3b82f6' },
-              { id: 'scopes' as const, label: 'Scopes', accent: '#a855f7' },
-              { id: 'areas' as const, label: 'Areas', accent: '#94a3b8' },
-            ]
-          ).map(tab => {
-            const active = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                style={{
-                  flex: 1,
-                  padding: '10px 12px',
-                  background: active ? '#0b1220' : 'transparent',
-                  color: active ? '#e2e8f0' : '#64748b',
-                  border: 'none',
-                  borderBottom: `2px solid ${active ? tab.accent : 'transparent'}`,
-                  cursor: 'pointer',
-                  fontSize: 12,
-                  fontWeight: active ? 600 : 400,
-                  fontFamily: 'system-ui, sans-serif',
-                }}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {activeTab === 'files' ? (
-          <>
-            <div
-              style={{
-                padding: '12px 16px',
-                borderBottom: '1px solid #1e293b',
-                fontSize: 11,
-                color: '#64748b',
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
-              }}
-            >
-              Selection
-              <div
-                style={{
-                  marginTop: 6,
-                  fontFamily: 'monospace',
-                  fontSize: 11,
-                  color: '#94a3b8',
-                  textTransform: 'none',
-                  letterSpacing: 0,
-                  minHeight: 14,
-                  wordBreak: 'break-all',
-                }}
-              >
-                {selectedFilePath ?? '(no selection)'}
-              </div>
-              {selectedFilePath && (
-                <div
-                  style={{
-                    marginTop: 8,
-                    textTransform: 'none',
-                    letterSpacing: 0,
-                    fontFamily: 'system-ui, sans-serif',
-                  }}
-                >
-                  {coveringScopes.length > 0 && (
-                    <div
-                      style={{
-                        fontSize: 11,
-                        color: '#94a3b8',
-                        marginBottom: 6,
-                      }}
-                    >
-                      In scope:{' '}
-                      {coveringScopes.map((s, i) => (
-                        <React.Fragment key={s.id}>
-                          {i > 0 && ', '}
-                          <code style={{ color: '#cbd5e1' }}>{s.id}</code>
-                        </React.Fragment>
-                      ))}
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {coveringScopes.map(scope => (
-                      <button
-                        key={scope.id}
-                        onClick={() => selectedFilePath && openAddModal(selectedFilePath, scope.id)}
-                        style={{
-                          fontSize: 11,
-                          padding: '4px 10px',
-                          background: '#1e293b',
-                          color: '#e2e8f0',
-                          border: '1px solid #334155',
-                          borderRadius: 4,
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                        }}
-                      >
-                        + Add event namespace to <code>{scope.id}</code>
-                      </button>
-                    ))}
-                    <button
-                      onClick={() => selectedFilePath && openAddModal(selectedFilePath)}
-                      style={{
-                        fontSize: 11,
-                        padding: '4px 10px',
-                        background: coveringScopes.length === 0 ? '#1e293b' : 'transparent',
-                        color: coveringScopes.length === 0 ? '#e2e8f0' : '#94a3b8',
-                        border: '1px solid #334155',
-                        borderRadius: 4,
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                      }}
-                    >
-                      {coveringScopes.length === 0
-                        ? '+ Add to scope'
-                        : '+ Add to a different scope'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div
-              style={{
-                padding: '10px 12px',
-                borderBottom: '1px solid #1e293b',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
-              }}
-            >
-              <div style={sectionLabelStyle}>Audit filter</div>
-              <div
-                style={{
-                  display: 'flex',
-                  border: '1px solid #334155',
-                  borderRadius: 4,
-                  overflow: 'hidden',
-                  fontFamily: 'system-ui, sans-serif',
-                  fontSize: 12,
-                }}
-              >
-                {(
-                  [
-                    { mode: 'off' as const, label: 'Off', count: totalFiles, accent: '#475569' },
-                    {
-                      mode: 'uncovered' as const,
-                      label: 'Uncovered',
-                      count: uncoveredCount,
-                      accent: '#dc2626',
-                    },
-                    {
-                      mode: 'covered' as const,
-                      label: 'Covered',
-                      count: coveredCount,
-                      accent: '#16a34a',
-                    },
-                  ]
-                ).map(({ mode, label, count, accent }, i) => {
-                  const active = auditMode === mode;
-                  return (
-                    <button
-                      key={mode}
-                      onClick={() => setAuditMode(mode)}
-                      style={{
-                        flex: 1,
-                        padding: '6px 4px',
-                        background: active ? accent : 'transparent',
-                        border: 'none',
-                        borderLeft: i === 0 ? 'none' : '1px solid #334155',
-                        color: active ? '#ffffff' : '#cbd5e1',
-                        fontWeight: active ? 500 : 400,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 6,
-                        minWidth: 0,
-                      }}
-                    >
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
-                      <span
-                        style={{
-                          fontSize: 10,
-                          color: active ? '#fef3c7' : '#64748b',
-                          fontWeight: 400,
-                        }}
-                      >
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <FileTree
-              model={treeModel}
-              style={
-                {
-                  flex: 1,
-                  minHeight: 0,
-                  '--trees-theme-list-active-selection-bg':
-                    'color-mix(in oklab, #3b82f6 28%, transparent)',
-                  '--trees-theme-list-hover-bg':
-                    'color-mix(in oklab, #3b82f6 14%, transparent)',
-                } as React.CSSProperties
-              }
-            />
-          </>
-        ) : activeTab === 'scopes' ? (
-          <>
-            <div
-              style={{
-                padding: '12px 16px',
-                borderBottom: '1px solid #1e293b',
-                fontSize: 11,
-                color: '#64748b',
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
-              }}
-            >
-              Scopes / namespaces / events
-              <div
-                style={{
-                  marginTop: 6,
-                  fontSize: 11,
-                  color: '#94a3b8',
-                  textTransform: 'none',
-                  letterSpacing: 0,
-                  lineHeight: 1.4,
-                }}
-              >
-                Selecting a scope highlights its namespace coverage on the map.
-              </div>
-            </div>
-            <FileTree
-              model={scopeTreeModel}
-              style={
-                {
-                  flex: 1,
-                  minHeight: 0,
-                  '--trees-theme-list-active-selection-bg':
-                    'color-mix(in oklab, #a855f7 28%, transparent)',
-                  '--trees-theme-list-hover-bg':
-                    'color-mix(in oklab, #a855f7 14%, transparent)',
-                } as React.CSSProperties
-              }
-            />
-          </>
-        ) : (
-          <>
-            <div
-              style={{
-                padding: '12px 16px',
-                borderBottom: '1px solid #1e293b',
-                fontSize: 11,
-                color: '#64748b',
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
-              }}
-            >
-              Project areas
-              <div
-                style={{
-                  marginTop: 6,
-                  fontSize: 11,
-                  color: '#94a3b8',
-                  textTransform: 'none',
-                  letterSpacing: 0,
-                  lineHeight: 1.4,
-                }}
-              >
-                Non-instrumented regions of the repo (docs, tooling). Sourced from the
-                auxiliary manifest in principal-view-core.
-              </div>
-            </div>
-            <FileTree
-              model={areaTreeModel}
-              style={
-                {
-                  flex: 1,
-                  minHeight: 0,
-                  '--trees-theme-list-active-selection-bg':
-                    'color-mix(in oklab, #94a3b8 28%, transparent)',
-                  '--trees-theme-list-hover-bg':
-                    'color-mix(in oklab, #94a3b8 14%, transparent)',
-                } as React.CSSProperties
-              }
-            />
-          </>
-        )}
-      </div>
-      )}
-
-      {/* Right pane — city + scope panel */}
       <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
         {/* Canvas wrapper — pushed down by HEADER_HEIGHT so the focus
             bar doesn't occlude the camera's framing area. The 3D camera
@@ -2349,16 +1821,14 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
           }}
         >
           <FileCity3D
-            cityData={auditedCityData}
+            cityData={electronAppCityData as CityData}
             height="100%"
             width="100%"
             heightScaling="linear"
             linearScale={0.5}
             focusDirectory={focusDirectory}
             highlightLayers={cityHighlightLayers}
-            elevatedScopePanels={
-              cityElevatedPanels ?? areasElevatedPanels ?? folderElevatedPanels
-            }
+            elevatedScopePanels={cityElevatedPanels ?? folderElevatedPanels}
             onBuildingClick={handleBuildingClick}
             animation={{
               startFlat: true,
@@ -2386,7 +1856,7 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
             borderRadius: 6,
             color: '#e2e8f0',
             fontFamily: 'system-ui, sans-serif',
-            fontSize: 12,
+            fontSize: 14,
             zIndex: 100,
             display: 'flex',
             alignItems: 'center',
@@ -2470,7 +1940,7 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
                               padding: '2px 4px',
                               borderRadius: 3,
                               fontFamily: 'monospace',
-                              fontSize: 12,
+                              fontSize: 14,
                               color,
                               fontWeight: isFocus || isSelectedLeaf ? 600 : 400,
                               cursor: 'pointer',
@@ -2490,7 +1960,7 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
               <div
                 style={{
                   fontFamily: 'monospace',
-                  fontSize: 12,
+                  fontSize: 14,
                   color: '#64748b',
                   wordBreak: 'break-all',
                 }}
@@ -2589,7 +2059,7 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span
                         style={{
-                          fontSize: 9,
+                          fontSize: 12,
                           color: '#94a3b8',
                           textTransform: 'uppercase',
                           letterSpacing: 0.5,
@@ -2608,9 +2078,9 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
                           flexShrink: 0,
                         }}
                       />
-                      <code style={{ fontSize: 11, color: '#cbd5e1' }}>{area.name}</code>
+                      <code style={{ fontSize: 12, color: '#cbd5e1' }}>{area.name}</code>
                     </div>
-                    <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.4 }}>
+                    <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.4 }}>
                       {area.description}
                     </div>
                   </div>
@@ -2631,7 +2101,7 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span
                         style={{
-                          fontSize: 9,
+                          fontSize: 12,
                           color: '#a855f7',
                           textTransform: 'uppercase',
                           letterSpacing: 0.5,
@@ -2640,7 +2110,7 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
                       >
                         Scope
                       </span>
-                      <code style={{ fontSize: 11, color: '#cbd5e1' }}>{scope.id}</code>
+                      <code style={{ fontSize: 12, color: '#cbd5e1' }}>{scope.id}</code>
                       {namespace && (
                         <>
                           <span style={{ color: '#475569' }}>/</span>
@@ -2653,11 +2123,11 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
                               flexShrink: 0,
                             }}
                           />
-                          <code style={{ fontSize: 11, color: '#cbd5e1' }}>{namespace.name}</code>
+                          <code style={{ fontSize: 12, color: '#cbd5e1' }}>{namespace.name}</code>
                         </>
                       )}
                     </div>
-                    <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.4 }}>
+                    <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.4 }}>
                       {namespace ? namespace.description : scope.description}
                     </div>
                   </div>
@@ -2782,14 +2252,10 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
                   minWidth: 320,
                 }}
               >
-                <div style={{ ...sectionLabelStyle, marginBottom: 4 }}>
-                  Contents ({panelFolderContentsPaths.length}{' '}
-                  {panelFolderContentsPaths.length === 1 ? 'file' : 'files'})
-                </div>
                 {panelFolderContentsPaths.length === 0 ? (
                   <div
                     style={{
-                      fontSize: 11,
+                      fontSize: 12,
                       color: '#64748b',
                       fontStyle: 'italic',
                       padding: '4px 0',
@@ -2798,13 +2264,16 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
                     No files in this folder.
                   </div>
                 ) : (
-                  <div style={{ height: 320, display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ height: 640, display: 'flex', flexDirection: 'column' }}>
                     <FileTree
                       model={panelFolderContentsTreeModel}
                       style={
                         {
                           flex: 1,
                           minHeight: 0,
+                          '--trees-bg-override': 'transparent',
+                          '--trees-search-bg-override': 'rgba(0, 0, 0, 0.25)',
+                          '--trees-padding-inline-override': '0',
                           '--trees-theme-list-active-selection-bg':
                             'color-mix(in oklab, #3b82f6 28%, transparent)',
                           '--trees-theme-list-hover-bg':
@@ -2898,9 +2367,55 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
           </div>
         )}
 
-        {/* Info overlay — driven by scope or area tree selection */}
+        {/* Mode switch — swap which feature layer the canvas renders */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 16,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            background: 'rgba(15, 23, 42, 0.92)',
+            border: '1px solid #1e293b',
+            borderRadius: 6,
+            overflow: 'hidden',
+            fontFamily: 'system-ui, sans-serif',
+            fontSize: 12,
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+            zIndex: 10,
+          }}
+        >
+          {(
+            [
+              { id: 'files' as const, label: 'Files', accent: '#3b82f6' },
+              { id: 'scopes' as const, label: 'Scopes', accent: '#a855f7' },
+            ]
+          ).map((opt, i) => {
+            const active = activeTab === opt.id;
+            return (
+              <button
+                key={opt.id}
+                onClick={() => setActiveTab(opt.id)}
+                style={{
+                  padding: '8px 16px',
+                  background: active ? opt.accent : 'transparent',
+                  color: active ? '#ffffff' : '#cbd5e1',
+                  border: 'none',
+                  borderLeft: i === 0 ? 'none' : '1px solid #1e293b',
+                  cursor: 'pointer',
+                  fontWeight: active ? 600 : 400,
+                  fontFamily: 'inherit',
+                  fontSize: 'inherit',
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Info overlay — driven by scope tree selection */}
         {activeTab === 'scopes' && scopeInfo && <ScopeInfoOverlay info={scopeInfo} />}
-        {activeTab === 'areas' && areaInfo && <AreaInfoOverlay info={areaInfo} />}
       </div>
 
       {/* Add-to-scope modal */}
@@ -2945,28 +2460,14 @@ const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
   );
 };
 
-export const SingleScope: Story = {
-  render: () => <SingleScopeTemplate />,
+export const Default: Story = {
+  render: () => <FileCityExplorerTemplate />,
   parameters: {
     docs: {
       description: {
         story:
-          'Story 1 from docs/scope-namespace-overlay.md — apply one scope at a time over the ' +
-          'electron-app city. Toggle namespaces in the legend, switch between scopes, and change ' +
-          'how uncovered (uninstrumented) files render.',
-      },
-    },
-  },
-};
-
-export const SingleScopeNoPanel: Story = {
-  render: () => <SingleScopeTemplate showLeftPanel={false} />,
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'Same as SingleScope but with the left tabbed panel (file tree / scopes / areas) hidden, ' +
-          'leaving only the 3D city and its in-canvas overlays.',
+          'Author scopes, namespaces, and areas over the electron-app city. Click folders to ' +
+          'add coverage, switch between Files and Scopes views, and inspect existing coverage.',
       },
     },
   },

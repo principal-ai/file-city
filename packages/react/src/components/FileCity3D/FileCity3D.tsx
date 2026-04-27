@@ -94,6 +94,10 @@ export interface ElevatedScopePanel {
    * size derived from the panel's footprint. Always clamped to fit the tile.
    */
   labelSize?: number;
+  /** Optional secondary label rendered above the main label in a smaller font. */
+  displayLabel?: string;
+  /** Hex color for the display label (default `labelColor` or white). */
+  displayLabelColor?: string;
   /** Click handler. When set, the slab becomes interactive and shows a pointer cursor. */
   onClick?: (event: MouseEvent) => void;
   /** Double-click handler. The slab becomes interactive (pointer cursor) when either onClick or onDoubleClick is set. */
@@ -2808,9 +2812,54 @@ function CityScene({
                   depthWrite={isOpaque}
                 />
               </mesh>
+              {panel.displayLabel && (
+                <>
+                  <Text
+                    position={[cx, topY + 0.05, cz - labelSize * 0.6]}
+                    rotation={[-Math.PI / 2, 0, 0]}
+                    fontSize={labelSize}
+                    color={panel.displayLabelColor ?? panel.labelColor ?? '#ffffff'}
+                    anchorX="center"
+                    anchorY="middle"
+                    maxWidth={w * 0.9}
+                    textAlign="center"
+                    renderOrder={11}
+                    frustumCulled={false}
+                  >
+                    {panel.displayLabel}
+                    <meshBasicMaterial
+                      attach="material"
+                      color={panel.displayLabelColor ?? panel.labelColor ?? '#ffffff'}
+                      depthWrite={false}
+                      depthTest={false}
+                    />
+                  </Text>
+                  {/* Underline rendered as a thin plane just below the
+                      displayLabel. Width approximated from character count
+                      (~0.55em advance) and clamped to the panel footprint. */}
+                  <mesh
+                    position={[cx, topY + 0.06, cz - labelSize * 0.05]}
+                    rotation={[-Math.PI / 2, 0, 0]}
+                    renderOrder={11}
+                  >
+                    <planeGeometry
+                      args={[
+                        Math.min(w * 0.9, panel.displayLabel.length * labelSize * 0.55),
+                        labelSize * 0.06,
+                      ]}
+                    />
+                    <meshBasicMaterial
+                      color={panel.displayLabelColor ?? panel.labelColor ?? '#ffffff'}
+                      depthWrite={false}
+                      depthTest={false}
+                      transparent
+                    />
+                  </mesh>
+                </>
+              )}
               {panel.label && (
                 <Text
-                  position={[cx, topY + 0.05, cz]}
+                  position={[cx, topY + 0.05, cz + (panel.displayLabel ? labelSize * 0.6 : 0)]}
                   rotation={[-Math.PI / 2, 0, 0]}
                   fontSize={labelSize}
                   color={panel.labelColor ?? '#ffffff'}
