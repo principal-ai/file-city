@@ -1275,7 +1275,9 @@ function buildLayersForScope(scope: MockScope): HighlightLayer[] {
   return layers;
 }
 
-const SingleScopeTemplate: React.FC = () => {
+const SingleScopeTemplate: React.FC<{ showLeftPanel?: boolean }> = ({
+  showLeftPanel = true,
+}) => {
   const [scopes, setScopes] = React.useState<MockScope[]>(loadScopesFromStorage);
   const [areas, setAreas] = React.useState<MockArea[]>(loadAreasFromStorage);
 
@@ -1285,7 +1287,7 @@ const SingleScopeTemplate: React.FC = () => {
   React.useEffect(() => {
     saveAreasToStorage(areas);
   }, [areas]);
-  const [focusDirectory, setFocusDirectory] = React.useState<string | null>(null);
+  const [focusDirectory, setFocusDirectory] = React.useState<string | null>('electron-app');
   const [focusPinned, setFocusPinned] = React.useState(false);
   // While pinned, tree/scope selections must not change focusDirectory.
   // Wrapping the setter (rather than gating each call site) keeps the pin
@@ -1294,6 +1296,13 @@ const SingleScopeTemplate: React.FC = () => {
   React.useEffect(() => {
     focusPinnedRef.current = focusPinned;
   }, [focusPinned]);
+  // Keep a ref to focusDirectory so event handlers (e.g. the city's
+  // double-click handler) can branch on it without taking a hard dep
+  // and re-rebuilding folder panels on every focus change.
+  const focusDirectoryRef = React.useRef(focusDirectory);
+  React.useEffect(() => {
+    focusDirectoryRef.current = focusDirectory;
+  }, [focusDirectory]);
   const setFocusDirectoryIfUnpinned = React.useCallback(
     (next: string | null) => {
       if (focusPinnedRef.current) return;
@@ -1303,6 +1312,20 @@ const SingleScopeTemplate: React.FC = () => {
   );
   const [selectedPanelFolder, setSelectedPanelFolder] = React.useState<string | null>(null);
   const [showPanelFolderContents, setShowPanelFolderContents] = React.useState(false);
+  const [showAddPicker, setShowAddPicker] = React.useState(false);
+  const addPickerRef = React.useRef<HTMLDivElement | null>(null);
+  // Close the +Add picker on any click outside of it. Listens at the
+  // document level so clicks anywhere — canvas, header, other overlays —
+  // dismiss the menu just like a native dropdown.
+  React.useEffect(() => {
+    if (!showAddPicker) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (addPickerRef.current?.contains(e.target as Node)) return;
+      setShowAddPicker(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [showAddPicker]);
   // Anchor for the top-right "Hidden parent layers" panel: tracks the
   // most-recently-interacted folder so the panel always shows the chain of
   // expanded ancestors up from the user's current focus. Updated by
@@ -1725,29 +1748,34 @@ const SingleScopeTemplate: React.FC = () => {
         setParentLayersDismissed(false);
       },
       onDoubleClickFolder: (folderPath) => {
-        // Double-click → focus the camera on this folder.
-        setSelectedPanelFolder(folderPath);
-        setFocusDirectoryIfUnpinned(folderPath);
-        setParentLayersAnchor(folderPath);
+        // Double-click → focus the camera on this folder. Double-clicking
+        // a folder that is *already* the focus pops the focus up by one
+        // ancestor (clamped at the package root), giving an iterative
+        // "zoom out" gesture as the user keeps double-clicking.
+        let next = folderPath;
+        let nextSelected = folderPath;
+        if (focusDirectoryRef.current === folderPath) {
+          const slash = folderPath.lastIndexOf('/');
+          next = slash > 0 ? folderPath.slice(0, slash) : 'electron-app';
+          nextSelected = next;
+        }
+        setSelectedPanelFolder(nextSelected);
+        setFocusDirectoryIfUnpinned(next);
+        setParentLayersAnchor(nextSelected);
         setParentLayersDismissed(false);
       },
       index: ELECTRON_FOLDER_INDEX,
     });
-    // While the user is inspecting a folder's contents, hide just that
-    // folder's umbrella so the buildings inside become visible. Sibling
-    // folders keep their umbrellas.
-    const filtered = showPanelFolderContents && selectedPanelFolder
-      ? panels.filter(p => p.id !== `folder::${selectedPanelFolder}`)
-      : panels;
-
     // Selection indicator: render a thin, slightly-larger panel underneath
     // the selected folder's umbrella so an accent ring peeks out around its
     // edges. Inserted *before* the umbrella in the list so the umbrella
-    // draws on top — only the inflated rim shows.
-    if (selectedPanelFolder && !showPanelFolderContents) {
-      const idx = filtered.findIndex(p => p.id === `folder::${selectedPanelFolder}`);
+    // draws on top — only the inflated rim shows. If the folder is expanded
+    // (no umbrella in the panel list) findIndex returns -1 and no ring is
+    // drawn, which is exactly what we want.
+    if (selectedPanelFolder) {
+      const idx = panels.findIndex(p => p.id === `folder::${selectedPanelFolder}`);
       if (idx >= 0) {
-        const target = filtered[idx];
+        const target = panels[idx];
         const inflate = 4;
         const border: ElevatedScopePanel = {
           id: `folder-border::${selectedPanelFolder}`,
@@ -1761,17 +1789,16 @@ const SingleScopeTemplate: React.FC = () => {
             maxZ: target.bounds.maxZ + inflate,
           },
         };
-        const next = [...filtered];
+        const next = [...panels];
         next.splice(idx, 0, border);
         return next;
       }
     }
 
-    return filtered.length > 0 ? filtered : undefined;
+    return panels.length > 0 ? panels : undefined;
   }, [
     activeTab,
     auditMode,
-    showPanelFolderContents,
     selectedPanelFolder,
     treeModel,
     folderTreeExpansion,
@@ -1989,6 +2016,7 @@ const SingleScopeTemplate: React.FC = () => {
   return (
     <div style={{ height: '100vh', display: 'flex', background: '#0f172a' }}>
       {/* Left pane — tabbed: file tree | scopes tree */}
+      {showLeftPanel && (
       <div
         style={{
           width: 320,
@@ -2303,36 +2331,52 @@ const SingleScopeTemplate: React.FC = () => {
           </>
         )}
       </div>
+      )}
 
       {/* Right pane — city + scope panel */}
       <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
-        <FileCity3D
-          cityData={auditedCityData}
-          height="100%"
-          width="100%"
-          heightScaling="linear"
-          linearScale={0.5}
-          focusDirectory={focusDirectory}
-          highlightLayers={cityHighlightLayers}
-          elevatedScopePanels={
-            cityElevatedPanels ?? areasElevatedPanels ?? folderElevatedPanels
-          }
-          onBuildingClick={handleBuildingClick}
-          animation={{
-            startFlat: true,
-            autoStartDelay: null,
-            staggerDelay: 5,
-            tension: 150,
-            friction: 16,
+        {/* Canvas wrapper — pushed down by HEADER_HEIGHT so the focus
+            bar doesn't occlude the camera's framing area. The 3D camera
+            sizes itself to the canvas, so shrinking the canvas is what
+            makes focus calculations exclude the header. */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 56,
+            left: 0,
+            right: 0,
+            bottom: 0,
           }}
-          showControls={true}
-        />
+        >
+          <FileCity3D
+            cityData={auditedCityData}
+            height="100%"
+            width="100%"
+            heightScaling="linear"
+            linearScale={0.5}
+            focusDirectory={focusDirectory}
+            highlightLayers={cityHighlightLayers}
+            elevatedScopePanels={
+              cityElevatedPanels ?? areasElevatedPanels ?? folderElevatedPanels
+            }
+            onBuildingClick={handleBuildingClick}
+            animation={{
+              startFlat: true,
+              autoStartDelay: null,
+              staggerDelay: 5,
+              tension: 150,
+              friction: 16,
+            }}
+            showControls={true}
+          />
+        </div>
 
         {/* Focus directory overlay — pinnable */}
         <div
           style={{
             position: 'absolute',
             top: 8,
+            left: 8,
             right: 8,
             padding: '8px 12px',
             background: 'rgba(15, 23, 42, 0.72)',
@@ -2344,33 +2388,51 @@ const SingleScopeTemplate: React.FC = () => {
             fontFamily: 'system-ui, sans-serif',
             fontSize: 12,
             zIndex: 100,
-            maxWidth: 480,
             display: 'flex',
-            alignItems: 'flex-start',
+            alignItems: 'center',
             gap: 10,
           }}
         >
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              display: 'flex',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 8,
+            }}
+          >
             <div style={sectionLabelStyle}>
-              focusDirectory{focusPinned ? ' (pinned)' : ''}
+              Path{focusPinned ? ' (pinned)' : ''}
             </div>
             {focusDirectory ? (
               // Breadcrumb: each ancestor segment that exists as a district
               // is a button. Clicking moves focus to that segment, even
               // while pinned (bypasses the pin guard intentionally).
+              // When a folder is selected via the city, the breadcrumb
+              // extends past focus to its full path — segments beyond the
+              // focus point are styled differently to make it clear which
+              // part of the chain is the focus vs. the selection.
               (() => {
-                const parts = focusDirectory.split('/');
-                const segments: { label: string; path: string }[] = [];
+                const focusDepth = focusDirectory.split('/').length;
+                const deepest =
+                  selectedPanelFolder &&
+                  (selectedPanelFolder === focusDirectory ||
+                    selectedPanelFolder.startsWith(focusDirectory + '/'))
+                    ? selectedPanelFolder
+                    : focusDirectory;
+                const parts = deepest.split('/');
+                const segments: { label: string; path: string; beyondFocus: boolean }[] = [];
                 for (let i = 0; i < parts.length; i++) {
                   const path = parts.slice(0, i + 1).join('/');
                   if (ELECTRON_DIRECTORIES.has(path)) {
-                    segments.push({ label: parts[i], path });
+                    segments.push({ label: parts[i], path, beyondFocus: i + 1 > focusDepth });
                   }
                 }
                 return (
                   <div
                     style={{
-                      marginTop: 4,
                       display: 'flex',
                       flexWrap: 'wrap',
                       alignItems: 'center',
@@ -2378,7 +2440,16 @@ const SingleScopeTemplate: React.FC = () => {
                     }}
                   >
                     {segments.map((seg, i) => {
-                      const isCurrent = seg.path === focusDirectory;
+                      const isFocus = seg.path === focusDirectory;
+                      const isSelectedLeaf =
+                        seg.path === selectedPanelFolder && seg.beyondFocus;
+                      const color = isFocus
+                        ? '#fde68a'
+                        : seg.beyondFocus
+                          ? isSelectedLeaf
+                            ? '#a5f3fc'
+                            : '#67e8f9'
+                          : '#94a3b8';
                       return (
                         <React.Fragment key={seg.path}>
                           {i > 0 && (
@@ -2387,8 +2458,12 @@ const SingleScopeTemplate: React.FC = () => {
                             </span>
                           )}
                           <button
-                            onClick={() => setFocusDirectory(seg.path)}
-                            disabled={isCurrent}
+                            onClick={() => {
+                              setFocusDirectory(seg.path);
+                              setSelectedPanelFolder(seg.path);
+                              setParentLayersAnchor(seg.path);
+                              setParentLayersDismissed(false);
+                            }}
                             style={{
                               background: 'transparent',
                               border: 'none',
@@ -2396,10 +2471,10 @@ const SingleScopeTemplate: React.FC = () => {
                               borderRadius: 3,
                               fontFamily: 'monospace',
                               fontSize: 12,
-                              color: isCurrent ? '#fde68a' : '#94a3b8',
-                              fontWeight: isCurrent ? 600 : 400,
-                              cursor: isCurrent ? 'default' : 'pointer',
-                              textDecoration: isCurrent ? 'none' : 'underline',
+                              color,
+                              fontWeight: isFocus || isSelectedLeaf ? 600 : 400,
+                              cursor: 'pointer',
+                              textDecoration: 'underline',
                               textDecorationColor: '#475569',
                             }}
                           >
@@ -2414,7 +2489,6 @@ const SingleScopeTemplate: React.FC = () => {
             ) : (
               <div
                 style={{
-                  marginTop: 4,
                   fontFamily: 'monospace',
                   fontSize: 12,
                   color: '#64748b',
@@ -2478,8 +2552,8 @@ const SingleScopeTemplate: React.FC = () => {
           <div
             style={{
               position: 'absolute',
-              top: 72,
-              right: 8,
+              top: 60,
+              left: 8,
               padding: '8px 12px',
               background: 'rgba(15, 23, 42, 0.72)',
               backdropFilter: 'blur(8px)',
@@ -2496,41 +2570,6 @@ const SingleScopeTemplate: React.FC = () => {
               gap: 8,
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={sectionLabelStyle}>Selected folder</div>
-                <div
-                  style={{
-                    marginTop: 4,
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                    color: '#cbd5e1',
-                    wordBreak: 'break-all',
-                  }}
-                >
-                  {selectedPanelFolder}
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setSelectedPanelFolder(null);
-                  setShowPanelFolderContents(false);
-                }}
-                title="Dismiss"
-                style={{
-                  background: 'transparent',
-                  color: '#94a3b8',
-                  border: '1px solid #334155',
-                  borderRadius: 4,
-                  padding: '4px 8px',
-                  fontSize: 12,
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                }}
-              >
-                ✕
-              </button>
-            </div>
             {panelFolderCoverage && (panelFolderCoverage.scopeHits.length > 0 ||
               panelFolderCoverage.areaHits.length > 0) && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -2626,91 +2665,97 @@ const SingleScopeTemplate: React.FC = () => {
               </div>
             )}
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              <button
-                onClick={() => setFocusDirectoryIfUnpinned(selectedPanelFolder)}
-                disabled={focusDirectory === selectedPanelFolder}
-                title={
-                  focusPinned
-                    ? 'Focus is pinned — unpin first'
-                    : 'Focus the camera on this folder'
-                }
-                style={{
-                  background: 'transparent',
-                  color: focusDirectory === selectedPanelFolder ? '#64748b' : '#cbd5e1',
-                  border: '1px solid #334155',
-                  borderRadius: 4,
-                  padding: '4px 10px',
-                  fontSize: 12,
-                  cursor: focusDirectory === selectedPanelFolder ? 'default' : 'pointer',
-                  fontWeight: 500,
-                }}
-              >
-                Focus
-              </button>
-              {(() => {
-                const isOpen = folderTreeExpansion.expanded.has(selectedPanelFolder);
-                return (
-                  <button
-                    onClick={() => {
-                      const item = asDir(treeModel.getItem(selectedPanelFolder));
-                      if (!item) return;
-                      if (isOpen) item.collapse();
-                      else item.expand();
-                    }}
-                    title={
-                      isOpen
-                        ? 'Collapse this folder in the file tree'
-                        : 'Expand this folder in the file tree'
-                    }
+              <div ref={addPickerRef} style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setShowAddPicker(v => !v)}
+                  title="Add this folder to a scope or area"
+                  style={{
+                    background: showAddPicker ? '#1e293b' : 'transparent',
+                    color: '#cbd5e1',
+                    border: '1px solid #475569',
+                    borderRadius: 4,
+                    padding: '4px 10px',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                  }}
+                >
+                  + Add
+                </button>
+                {showAddPicker && (
+                  <div
                     style={{
-                      background: isOpen ? 'transparent' : '#3b82f6',
-                      color: isOpen ? '#cbd5e1' : '#ffffff',
-                      border: '1px solid #3b82f6',
+                      position: 'absolute',
+                      top: 'calc(100% + 4px)',
+                      left: 0,
+                      background: 'rgba(15, 23, 42, 0.95)',
+                      backdropFilter: 'blur(8px)',
+                      WebkitBackdropFilter: 'blur(8px)',
+                      border: '1px solid #334155',
                       borderRadius: 4,
-                      padding: '4px 10px',
-                      fontSize: 12,
-                      cursor: 'pointer',
-                      fontWeight: 500,
+                      padding: 4,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 2,
+                      zIndex: 110,
+                      minWidth: 120,
+                      boxShadow: '0 6px 18px rgba(0,0,0,0.4)',
                     }}
                   >
-                    {isOpen ? 'Close' : 'Open'}
-                  </button>
-                );
-              })()}
+                    <button
+                      onClick={() => {
+                        setShowAddPicker(false);
+                        openAddModal(selectedPanelFolder);
+                      }}
+                      style={{
+                        background: 'transparent',
+                        color: '#cbd5e1',
+                        border: '1px solid #a855f7',
+                        borderRadius: 3,
+                        padding: '4px 10px',
+                        fontSize: 12,
+                        cursor: 'pointer',
+                        fontWeight: 500,
+                        textAlign: 'left',
+                      }}
+                    >
+                      Scope
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAddPicker(false);
+                        openAddAreaModal(selectedPanelFolder);
+                      }}
+                      style={{
+                        background: 'transparent',
+                        color: '#cbd5e1',
+                        border: '1px dashed #94a3b8',
+                        borderRadius: 3,
+                        padding: '4px 10px',
+                        fontSize: 12,
+                        cursor: 'pointer',
+                        fontWeight: 500,
+                        textAlign: 'left',
+                      }}
+                    >
+                      Area
+                    </button>
+                  </div>
+                )}
+              </div>
               <button
-                onClick={() => openAddModal(selectedPanelFolder)}
-                title="Add this folder to an OTEL scope"
-                style={{
-                  background: 'transparent',
-                  color: '#cbd5e1',
-                  border: '1px solid #a855f7',
-                  borderRadius: 4,
-                  padding: '4px 10px',
-                  fontSize: 12,
-                  cursor: 'pointer',
-                  fontWeight: 500,
+                onClick={() => {
+                  const next = !showPanelFolderContents;
+                  setShowPanelFolderContents(next);
+                  // Mirror the Open/Close behaviour: showing contents
+                  // expands the folder in the tree (so the city's umbrella
+                  // tile lifts and child buildings become visible);
+                  // hiding collapses it again.
+                  const item = asDir(treeModel.getItem(selectedPanelFolder));
+                  if (!item) return;
+                  if (next) item.expand();
+                  else item.collapse();
                 }}
-              >
-                + Scope
-              </button>
-              <button
-                onClick={() => openAddAreaModal(selectedPanelFolder)}
-                title="Tag this folder as a project area (auxiliary manifest)"
-                style={{
-                  background: 'transparent',
-                  color: '#cbd5e1',
-                  border: '1px dashed #94a3b8',
-                  borderRadius: 4,
-                  padding: '4px 10px',
-                  fontSize: 12,
-                  cursor: 'pointer',
-                  fontWeight: 500,
-                }}
-              >
-                + Area
-              </button>
-              <button
-                onClick={() => setShowPanelFolderContents(v => !v)}
                 title="Show files inside this folder"
                 style={{
                   background: showPanelFolderContents ? '#1e293b' : 'transparent',
@@ -2782,8 +2827,8 @@ const SingleScopeTemplate: React.FC = () => {
           <div
             style={{
               position: 'absolute',
-              top: 16,
-              left: 16,
+              top: 72,
+              right: 8,
               padding: '10px 12px',
               background: 'rgba(15, 23, 42, 0.72)',
               backdropFilter: 'blur(8px)',
@@ -2909,6 +2954,19 @@ export const SingleScope: Story = {
           'Story 1 from docs/scope-namespace-overlay.md — apply one scope at a time over the ' +
           'electron-app city. Toggle namespaces in the legend, switch between scopes, and change ' +
           'how uncovered (uninstrumented) files render.',
+      },
+    },
+  },
+};
+
+export const SingleScopeNoPanel: Story = {
+  render: () => <SingleScopeTemplate showLeftPanel={false} />,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Same as SingleScope but with the left tabbed panel (file tree / scopes / areas) hidden, ' +
+          'leaving only the 3D city and its in-canvas overlays.',
       },
     },
   },
