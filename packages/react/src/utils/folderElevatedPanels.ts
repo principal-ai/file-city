@@ -54,6 +54,13 @@ export function buildFolderIndex(cityData: CityData): FolderIndex {
   for (const d of cityData.districts) directorySet.add(d.path);
   const dirs = Array.from(directorySet).sort();
   for (const dir of dirs) {
+    // The empty path represents the synthetic project root that some city
+    // builders emit at depth 0. Including it here would register '' as its
+    // own parent (slash<0 → parent=''), which makes the recursive `walk`
+    // in `buildFolderElevatedPanels` loop forever the moment the root node
+    // is marked expanded. Top-level real folders already live under the
+    // empty-string parent, so skipping the empty entry costs nothing.
+    if (dir === '') continue;
     const slash = dir.lastIndexOf('/');
     const parent = slash >= 0 ? dir.slice(0, slash) : '';
     const arr = children.get(parent);
