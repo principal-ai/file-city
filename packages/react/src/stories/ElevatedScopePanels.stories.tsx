@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 
 import {
@@ -289,6 +290,69 @@ export const HandBuiltPanels: Story = {
           '`opacity`, `label`, `labelColor`, `labelSize`, `displayLabel`, ' +
           '`displayLabelColor`, and `thickness`. Use this shape when adding ' +
           'fields to `ElevatedScopePanel`.',
+      },
+    },
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Cmd-click to dismiss (parent-owned dismiss flow)
+// ---------------------------------------------------------------------------
+
+function DismissOnCommandClickStory() {
+  const [panels, setPanels] = useState<ElevatedScopePanel[]>(() =>
+    panelsFor(TOP_LEVEL),
+  );
+  const [dismissingIds, setDismissingIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+
+  const wired = panels.map(panel => ({
+    ...panel,
+    onClick: (event: MouseEvent) => {
+      if (!event.metaKey) return;
+      setDismissingIds(prev => {
+        if (prev.has(panel.id)) return prev;
+        const next = new Set(prev);
+        next.add(panel.id);
+        return next;
+      });
+    },
+  }));
+
+  const handleDismissed = useCallback((id: string) => {
+    setPanels(prev => prev.filter(p => p.id !== id));
+    setDismissingIds(prev => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }, []);
+
+  return (
+    <FileCity3D
+      {...baseArgs}
+      elevatedScopePanels={wired}
+      dismissingPanelIds={dismissingIds}
+      onPanelDismissed={handleDismissed}
+    />
+  );
+}
+
+export const DismissOnCommandClick: Story = {
+  render: () => <DismissOnCommandClickStory />,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          '⌘-click (or ctrl-click on non-Mac with `event.metaKey`) a panel ' +
+          'to lift it toward the camera and fade it out. The story owns ' +
+          'both the `panels` array and a `dismissingIds` set: clicking adds ' +
+          'the id to that set, `FileCity3D` plays the spring, and once it ' +
+          'settles `onPanelDismissed` fires so the story drops the panel ' +
+          'from both pieces of state. The component never owns the ' +
+          'truth — it just animates and notifies.',
       },
     },
   },

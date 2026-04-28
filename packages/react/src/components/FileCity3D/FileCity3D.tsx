@@ -2394,6 +2394,219 @@ function ControlsOverlay({ isFlat, onToggle, onResetCamera, onLookDown }: Contro
   );
 }
 
+// Distance (world units) the panel lifts upward when dismissed. Reads as
+// "toward the camera" because the camera looks down in flat mode.
+const PANEL_DISMISS_LIFT = 60;
+
+interface ElevatedScopePanelMeshProps {
+  panel: ElevatedScopePanel;
+  centerOffset: { x: number; z: number };
+  dismissing: boolean;
+  onDismissed?: (id: string) => void;
+}
+
+// Dismiss animation duration in seconds.
+const PANEL_DISMISS_DURATION = 0.7;
+
+function ElevatedScopePanelMesh({
+  panel,
+  centerOffset,
+  dismissing,
+  onDismissed,
+}: ElevatedScopePanelMeshProps) {
+  const cx = (panel.bounds.minX + panel.bounds.maxX) / 2 - centerOffset.x;
+  const cz = (panel.bounds.minZ + panel.bounds.maxZ) / 2 - centerOffset.z;
+  const w = Math.max(1, panel.bounds.maxX - panel.bounds.minX);
+  const d = Math.max(1, panel.bounds.maxZ - panel.bounds.minZ);
+  const t = panel.thickness ?? 2;
+  const y = (panel.height ?? 4) + t / 2;
+  const baseOpacity = panel.opacity ?? 1;
+  const isOpaqueStatic = baseOpacity >= 1;
+  const topY = y + t / 2;
+  const tileMax = Math.min(w, d) / 2;
+  const requested = panel.labelSize ?? Math.min(w, d) / 6;
+  const labelSize = Math.max(4, Math.min(tileMax, requested));
+
+  // Drive the dismiss animation directly via useFrame + Three.js refs
+  // rather than react-spring. React re-renders (e.g., from FileCity3D's
+  // hover state on mouse-move) were disturbing the spring-driven
+  // animation; mutating the Three.js objects directly keeps the
+  // animation isolated from React's render cycle.
+  const groupRef = useRef<THREE.Group>(null);
+  const slabMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const labelMaterialRefs = useRef<THREE.MeshBasicMaterial[]>([]);
+  const startTimeRef = useRef<number | null>(null);
+  const finishedRef = useRef(false);
+  const [fullyDismissed, setFullyDismissed] = useState(false);
+
+  useFrame(({ clock }) => {
+    if (!dismissing || finishedRef.current) return;
+    if (startTimeRef.current === null) {
+      startTimeRef.current = clock.elapsedTime;
+    }
+    const elapsed = clock.elapsedTime - startTimeRef.current;
+    const t = Math.min(elapsed / PANEL_DISMISS_DURATION, 1);
+    // ease-out cubic
+    const eased = 1 - Math.pow(1 - t, 3);
+
+    if (groupRef.current) {
+      groupRef.current.position.y = eased * PANEL_DISMISS_LIFT;
+    }
+    const opacityNow = baseOpacity * (1 - eased);
+    if (slabMaterialRef.current) {
+      slabMaterialRef.current.opacity = opacityNow;
+    }
+    for (const mat of labelMaterialRefs.current) {
+      if (mat) mat.opacity = opacityNow;
+    }
+
+    if (t >= 1) {
+      finishedRef.current = true;
+      setFullyDismissed(true);
+      onDismissed?.(panel.id);
+    }
+  });
+
+  if (fullyDismissed) return null;
+
+  // Always transparent on the slab so animated opacity actually blends.
+  // (Three.js skips alpha blending entirely when transparent=false, which
+  // makes the fade invisible until the prop flips mid-animation.)
+  // depthWrite stays true while the panel is at full opacity so it still
+  // occludes buildings beneath; we drop it once dismissal starts so the
+  // fading panel doesn't punch a hole in the scene.
+  const slabDepthWrite = isOpaqueStatic && !dismissing;
+
+  const interactive = Boolean(panel.onClick || panel.onDoubleClick);
+  const handleClick = panel.onClick
+    ? (e: ThreeEvent<MouseEvent>) => {
+        e.stopPropagation();
+        panel.onClick!(e.nativeEvent);
+      }
+    : undefined;
+  const handleDoubleClick = panel.onDoubleClick
+    ? (e: ThreeEvent<MouseEvent>) => {
+        e.stopPropagation();
+        panel.onDoubleClick!(e.nativeEvent);
+      }
+    : undefined;
+  const handlePointerOver = interactive
+    ? (e: ThreeEvent<PointerEvent>) => {
+        e.stopPropagation();
+        document.body.style.cursor = 'pointer';
+      }
+    : undefined;
+  const handlePointerOut = interactive
+    ? () => {
+        document.body.style.cursor = '';
+      }
+    : undefined;
+
+  const labelColor = panel.labelColor ?? '#ffffff';
+  const displayLabelColor = panel.displayLabelColor ?? panel.labelColor ?? '#ffffff';
+
+  // Reset the array each render — the ref callbacks below will repopulate
+  // it. This avoids stale entries if labels come and go.
+  labelMaterialRefs.current = [];
+  const captureLabelMat = (mat: THREE.MeshBasicMaterial | null) => {
+    if (mat) labelMaterialRefs.current.push(mat);
+  };
+
+  return (
+    <group ref={groupRef}>
+      <mesh
+        position={[cx, y, cz]}
+        renderOrder={10}
+        onClick={dismissing ? undefined : handleClick}
+        onDoubleClick={dismissing ? undefined : handleDoubleClick}
+        onPointerOver={dismissing ? undefined : handlePointerOver}
+        onPointerOut={dismissing ? undefined : handlePointerOut}
+      >
+        <boxGeometry args={[w, t, d]} />
+        <meshBasicMaterial
+          ref={slabMaterialRef}
+          color={panel.color}
+          transparent
+          opacity={baseOpacity}
+          depthWrite={slabDepthWrite}
+        />
+      </mesh>
+      {panel.displayLabel && (
+        <>
+          <Text
+            position={[cx, topY + 0.05, cz - labelSize * 0.6]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            fontSize={labelSize}
+            color={displayLabelColor}
+            anchorX="center"
+            anchorY="middle"
+            maxWidth={w * 0.9}
+            textAlign="center"
+            renderOrder={11}
+            frustumCulled={false}
+          >
+            {panel.displayLabel}
+            <meshBasicMaterial
+              ref={captureLabelMat}
+              attach="material"
+              color={displayLabelColor}
+              depthWrite={false}
+              depthTest={false}
+              transparent
+              opacity={baseOpacity}
+            />
+          </Text>
+          <mesh
+            position={[cx, topY + 0.06, cz - labelSize * 0.05]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            renderOrder={11}
+          >
+            <planeGeometry
+              args={[
+                Math.min(w * 0.9, panel.displayLabel.length * labelSize * 0.55),
+                labelSize * 0.06,
+              ]}
+            />
+            <meshBasicMaterial
+              ref={captureLabelMat}
+              color={displayLabelColor}
+              depthWrite={false}
+              depthTest={false}
+              transparent
+              opacity={baseOpacity}
+            />
+          </mesh>
+        </>
+      )}
+      {panel.label && (
+        <Text
+          position={[cx, topY + 0.05, cz + (panel.displayLabel ? labelSize * 0.6 : 0)]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          fontSize={labelSize}
+          color={labelColor}
+          anchorX="center"
+          anchorY="middle"
+          maxWidth={w * 0.9}
+          textAlign="center"
+          renderOrder={11}
+          frustumCulled={false}
+        >
+          {panel.label}
+          <meshBasicMaterial
+            ref={captureLabelMat}
+            attach="material"
+            color={labelColor}
+            depthWrite={false}
+            depthTest={false}
+            transparent
+            opacity={baseOpacity}
+          />
+        </Text>
+      )}
+    </group>
+  );
+}
+
 // Main scene component
 interface CitySceneProps {
   cityData: CityData;
@@ -2412,6 +2625,8 @@ interface CitySceneProps {
   focusColor?: string | null;
   adaptCameraToBuildings?: boolean;
   elevatedScopePanels?: ElevatedScopePanel[];
+  dismissingPanelIds?: ReadonlySet<string>;
+  onPanelDismissed?: (id: string) => void;
   cameraControls?: CameraControlsConfig;
 }
 
@@ -2432,6 +2647,8 @@ function CityScene({
   focusColor,
   adaptCameraToBuildings = false,
   elevatedScopePanels,
+  dismissingPanelIds,
+  onPanelDismissed,
   cameraControls,
   onCameraReady,
 }: CitySceneProps & { onCameraReady?: () => void }) {
@@ -2754,137 +2971,15 @@ function CityScene({
       />
 
       {growProgress === 0 &&
-        elevatedScopePanels?.map(panel => {
-          const cx = (panel.bounds.minX + panel.bounds.maxX) / 2 - centerOffset.x;
-          const cz = (panel.bounds.minZ + panel.bounds.maxZ) / 2 - centerOffset.z;
-          const w = Math.max(1, panel.bounds.maxX - panel.bounds.minX);
-          const d = Math.max(1, panel.bounds.maxZ - panel.bounds.minZ);
-          const t = panel.thickness ?? 2;
-          const y = (panel.height ?? 4) + t / 2;
-          const opacity = panel.opacity ?? 1;
-          const isOpaque = opacity >= 1;
-          const topY = y + t / 2;
-          // Size text to the panel: roughly fit longest reasonable label,
-          // clamped so tiny tiles still render legibly and huge ones don't
-          // get absurd. Callers may override via panel.labelSize, but we
-          // still cap to the tile footprint so the label fits.
-          const tileMax = Math.min(w, d) / 2;
-          const requested = panel.labelSize ?? Math.min(w, d) / 6;
-          const labelSize = Math.max(4, Math.min(tileMax, requested));
-
-          const interactive = Boolean(panel.onClick || panel.onDoubleClick);
-          const handleClick = panel.onClick
-            ? (e: ThreeEvent<MouseEvent>) => {
-                e.stopPropagation();
-                panel.onClick!(e.nativeEvent);
-              }
-            : undefined;
-          const handleDoubleClick = panel.onDoubleClick
-            ? (e: ThreeEvent<MouseEvent>) => {
-                e.stopPropagation();
-                panel.onDoubleClick!(e.nativeEvent);
-              }
-            : undefined;
-          const handlePointerOver = interactive
-            ? (e: ThreeEvent<PointerEvent>) => {
-                e.stopPropagation();
-                document.body.style.cursor = 'pointer';
-              }
-            : undefined;
-          const handlePointerOut = interactive
-            ? () => {
-                document.body.style.cursor = '';
-              }
-            : undefined;
-
-          return (
-            <group key={panel.id}>
-              <mesh
-                position={[cx, y, cz]}
-                renderOrder={10}
-                onClick={handleClick}
-                onDoubleClick={handleDoubleClick}
-                onPointerOver={handlePointerOver}
-                onPointerOut={handlePointerOut}
-              >
-                <boxGeometry args={[w, t, d]} />
-                <meshBasicMaterial
-                  color={panel.color}
-                  transparent={!isOpaque}
-                  opacity={opacity}
-                  depthWrite={isOpaque}
-                />
-              </mesh>
-              {panel.displayLabel && (
-                <>
-                  <Text
-                    position={[cx, topY + 0.05, cz - labelSize * 0.6]}
-                    rotation={[-Math.PI / 2, 0, 0]}
-                    fontSize={labelSize}
-                    color={panel.displayLabelColor ?? panel.labelColor ?? '#ffffff'}
-                    anchorX="center"
-                    anchorY="middle"
-                    maxWidth={w * 0.9}
-                    textAlign="center"
-                    renderOrder={11}
-                    frustumCulled={false}
-                  >
-                    {panel.displayLabel}
-                    <meshBasicMaterial
-                      attach="material"
-                      color={panel.displayLabelColor ?? panel.labelColor ?? '#ffffff'}
-                      depthWrite={false}
-                      depthTest={false}
-                    />
-                  </Text>
-                  {/* Underline rendered as a thin plane just below the
-                      displayLabel. Width approximated from character count
-                      (~0.55em advance) and clamped to the panel footprint. */}
-                  <mesh
-                    position={[cx, topY + 0.06, cz - labelSize * 0.05]}
-                    rotation={[-Math.PI / 2, 0, 0]}
-                    renderOrder={11}
-                  >
-                    <planeGeometry
-                      args={[
-                        Math.min(w * 0.9, panel.displayLabel.length * labelSize * 0.55),
-                        labelSize * 0.06,
-                      ]}
-                    />
-                    <meshBasicMaterial
-                      color={panel.displayLabelColor ?? panel.labelColor ?? '#ffffff'}
-                      depthWrite={false}
-                      depthTest={false}
-                      transparent
-                    />
-                  </mesh>
-                </>
-              )}
-              {panel.label && (
-                <Text
-                  position={[cx, topY + 0.05, cz + (panel.displayLabel ? labelSize * 0.6 : 0)]}
-                  rotation={[-Math.PI / 2, 0, 0]}
-                  fontSize={labelSize}
-                  color={panel.labelColor ?? '#ffffff'}
-                  anchorX="center"
-                  anchorY="middle"
-                  maxWidth={w * 0.9}
-                  textAlign="center"
-                  renderOrder={11}
-                  frustumCulled={false}
-                >
-                  {panel.label}
-                  <meshBasicMaterial
-                    attach="material"
-                    color={panel.labelColor ?? '#ffffff'}
-                    depthWrite={false}
-                    depthTest={false}
-                  />
-                </Text>
-              )}
-            </group>
-          );
-        })}
+        elevatedScopePanels?.map(panel => (
+          <ElevatedScopePanelMesh
+            key={panel.id}
+            panel={panel}
+            centerOffset={centerOffset}
+            dismissing={dismissingPanelIds?.has(panel.id) ?? false}
+            onDismissed={onPanelDismissed}
+          />
+        ))}
     </>
   );
 }
@@ -2957,6 +3052,20 @@ export interface FileCity3DProps {
   elevatedScopePanels?: ElevatedScopePanel[];
 
   /**
+   * Set of panel ids that should play the "lift up and fade out" dismiss
+   * animation. Add an id here to start the animation; once it settles,
+   * `onPanelDismissed` fires so the host can drop the panel from
+   * `elevatedScopePanels`.
+   */
+  dismissingPanelIds?: ReadonlySet<string>;
+
+  /**
+   * Fires once a panel's dismiss animation has settled. The host should
+   * remove the id from both `dismissingPanelIds` and `elevatedScopePanels`.
+   */
+  onPanelDismissed?: (id: string) => void;
+
+  /**
    * Configure how mouse / trackpad / touch input drives the camera.
    * Defaults match Google Maps style: left-drag pans, right-drag rotates,
    * wheel zooms. Set `wheel: 'pan'` to make trackpad two-finger scroll pan
@@ -2985,6 +3094,8 @@ export function FileCity3D({
   onGrowChange,
   showControls = false,
   elevatedScopePanels,
+  dismissingPanelIds,
+  onPanelDismissed,
   highlightLayers: externalHighlightLayers,
   isolationMode: externalIsolationMode,
   dimOpacity: _dimOpacity = 0.15,
@@ -3160,6 +3271,8 @@ export function FileCity3D({
           focusColor={focusColor}
           adaptCameraToBuildings={adaptCameraToBuildings}
           elevatedScopePanels={elevatedScopePanels}
+          dismissingPanelIds={dismissingPanelIds}
+          onPanelDismissed={onPanelDismissed}
           cameraControls={cameraControls}
           onCameraReady={() => setCameraReady(true)}
         />
