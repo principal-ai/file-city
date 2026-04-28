@@ -1,7 +1,8 @@
 import React from 'react';
+import { useTheme } from '@principal-ade/industry-theme';
 import type { ProjectArea } from './model';
 import { AREA_PANEL_COLOR } from './layers';
-import { sectionLabelStyle } from './styles';
+import { makeSectionLabelStyle } from './styles';
 
 export const AddToAreaModal: React.FC<{
   path: string;
@@ -24,6 +25,9 @@ export const AddToAreaModal: React.FC<{
   onSubmit,
   onClose,
 }) => {
+  const { theme } = useTheme();
+  const sectionLabelStyle = makeSectionLabelStyle(theme);
+
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -42,6 +46,17 @@ export const AddToAreaModal: React.FC<{
   else if (!targetArea) actionLabel = 'Create area';
   else actionLabel = 'Add path';
 
+  const sectionDivider = `1px solid ${theme.colors.backgroundSecondary}`;
+  const inputStyle: React.CSSProperties = {
+    padding: '8px 10px',
+    background: theme.colors.backgroundDark ?? theme.colors.background,
+    color: theme.colors.text,
+    border: `1px solid ${theme.colors.border}`,
+    borderRadius: theme.radii[2],
+    fontFamily: theme.fonts.monospace,
+    fontSize: theme.fontSizes[1],
+  };
+
   return (
     <div
       onClick={onClose}
@@ -53,7 +68,7 @@ export const AddToAreaModal: React.FC<{
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1000,
-        fontFamily: 'system-ui, sans-serif',
+        fontFamily: theme.fonts.body,
       }}
     >
       <div
@@ -63,31 +78,31 @@ export const AddToAreaModal: React.FC<{
           maxHeight: 'min(80vh, 700px)',
           display: 'flex',
           flexDirection: 'column',
-          background: '#0f172a',
-          color: '#e2e8f0',
-          borderRadius: 8,
-          border: '1px solid #334155',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+          background: theme.colors.background,
+          color: theme.colors.text,
+          borderRadius: theme.radii[4],
+          border: `1px solid ${theme.colors.border}`,
+          boxShadow: theme.shadows[4],
           overflow: 'hidden',
         }}
       >
         <div
           style={{
             padding: '14px 18px',
-            borderBottom: '1px solid #1e293b',
+            borderBottom: sectionDivider,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'flex-start',
-            gap: 12,
+            gap: theme.space[3],
           }}
         >
           <div>
             <div style={sectionLabelStyle}>Add to area</div>
             <div
               style={{
-                fontFamily: 'monospace',
-                fontSize: 12,
-                color: '#94a3b8',
+                fontFamily: theme.fonts.monospace,
+                fontSize: theme.fontSizes[0],
+                color: theme.colors.textMuted,
                 marginTop: 6,
                 wordBreak: 'break-all',
               }}
@@ -100,8 +115,8 @@ export const AddToAreaModal: React.FC<{
             style={{
               background: 'transparent',
               border: 'none',
-              color: '#64748b',
-              fontSize: 20,
+              color: theme.colors.textTertiary,
+              fontSize: theme.fontSizes[3],
               cursor: 'pointer',
               lineHeight: 1,
               padding: 0,
@@ -115,10 +130,10 @@ export const AddToAreaModal: React.FC<{
         <div
           style={{
             padding: '14px 18px',
-            borderBottom: '1px solid #1e293b',
+            borderBottom: sectionDivider,
             display: 'flex',
             flexDirection: 'column',
-            gap: 12,
+            gap: theme.space[3],
           }}
         >
           <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -133,15 +148,7 @@ export const AddToAreaModal: React.FC<{
               onKeyDown={e => {
                 if (e.key === 'Enter' && canSubmit && !alreadyClaimed) onSubmit();
               }}
-              style={{
-                padding: '8px 10px',
-                background: '#0b1220',
-                color: '#e2e8f0',
-                border: '1px solid #334155',
-                borderRadius: 4,
-                fontFamily: 'monospace',
-                fontSize: 14,
-              }}
+              style={inputStyle}
             />
             <datalist id="area-name-options">
               {areas.map(a => (
@@ -161,29 +168,22 @@ export const AddToAreaModal: React.FC<{
                 onKeyDown={e => {
                   if (e.key === 'Enter' && canSubmit) onSubmit();
                 }}
-                style={{
-                  padding: '8px 10px',
-                  background: '#0b1220',
-                  color: '#e2e8f0',
-                  border: '1px solid #334155',
-                  borderRadius: 4,
-                  fontSize: 14,
-                }}
+                style={{ ...inputStyle, fontFamily: theme.fonts.body }}
               />
             </label>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: theme.space[2] }}>
             <button
               onClick={onClose}
               style={{
                 padding: '8px 14px',
                 background: 'transparent',
-                color: '#cbd5e1',
-                border: '1px solid #334155',
-                borderRadius: 4,
+                color: theme.colors.textSecondary,
+                border: `1px solid ${theme.colors.border}`,
+                borderRadius: theme.radii[2],
                 cursor: 'pointer',
-                fontSize: 14,
+                fontSize: theme.fontSizes[1],
               }}
             >
               Cancel
@@ -193,13 +193,17 @@ export const AddToAreaModal: React.FC<{
               disabled={!canSubmit || alreadyClaimed}
               style={{
                 padding: '8px 14px',
-                background: !canSubmit || alreadyClaimed ? '#1e293b' : '#94a3b8',
-                color: !canSubmit || alreadyClaimed ? '#475569' : '#0f172a',
-                border: '1px solid #334155',
-                borderRadius: 4,
+                background: !canSubmit || alreadyClaimed
+                  ? theme.colors.backgroundSecondary
+                  : theme.colors.textMuted,
+                color: !canSubmit || alreadyClaimed
+                  ? theme.colors.muted
+                  : theme.colors.background,
+                border: `1px solid ${theme.colors.border}`,
+                borderRadius: theme.radii[2],
                 cursor: !canSubmit || alreadyClaimed ? 'not-allowed' : 'pointer',
-                fontSize: 14,
-                fontWeight: 500,
+                fontSize: theme.fontSizes[1],
+                fontWeight: theme.fontWeights.medium,
               }}
             >
               {actionLabel}
@@ -209,9 +213,9 @@ export const AddToAreaModal: React.FC<{
 
         <div style={{ padding: '14px 18px', overflowY: 'auto', flex: 1 }}>
           <div style={sectionLabelStyle}>Existing areas (click to prefill)</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: theme.space[2] }}>
             {areas.length === 0 && (
-              <div style={{ fontSize: 12, color: '#64748b', fontStyle: 'italic' }}>
+              <div style={{ fontSize: theme.fontSizes[0], color: theme.colors.textTertiary, fontStyle: 'italic' }}>
                 No areas yet. Type a name above to create the first one.
               </div>
             )}
@@ -223,17 +227,17 @@ export const AddToAreaModal: React.FC<{
                   onClick={() => onPickExisting(area.name)}
                   title={claims ? 'Area already claims this path' : 'Prefill the area name'}
                   style={{
-                    fontSize: 12,
+                    fontSize: theme.fontSizes[0],
                     padding: '6px 10px',
-                    background: claims ? '#0f172a' : '#1e293b',
-                    color: claims ? '#475569' : '#e2e8f0',
-                    border: '1px solid #334155',
-                    borderRadius: 4,
+                    background: claims ? theme.colors.background : theme.colors.backgroundSecondary,
+                    color: claims ? theme.colors.muted : theme.colors.text,
+                    border: `1px solid ${theme.colors.border}`,
+                    borderRadius: theme.radii[2],
                     cursor: 'pointer',
                     textAlign: 'left',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 8,
+                    gap: theme.space[2],
                     opacity: claims ? 0.6 : 1,
                   }}
                 >
@@ -241,23 +245,23 @@ export const AddToAreaModal: React.FC<{
                     style={{
                       width: 10,
                       height: 10,
-                      borderRadius: 2,
+                      borderRadius: theme.radii[1],
                       background: AREA_PANEL_COLOR,
-                      border: '1px dashed #94a3b8',
+                      border: `1px dashed ${theme.colors.textMuted}`,
                       flexShrink: 0,
                     }}
                   />
-                  <span style={{ fontFamily: 'monospace' }}>{area.name}</span>
+                  <span style={{ fontFamily: theme.fonts.monospace }}>{area.name}</span>
                   <span
                     style={{
                       marginLeft: 'auto',
-                      fontSize: 12,
-                      color: '#64748b',
+                      fontSize: theme.fontSizes[0],
+                      color: theme.colors.textTertiary,
                     }}
                   >
                     {area.paths.length} path{area.paths.length === 1 ? '' : 's'}
                   </span>
-                  {claims && <span style={{ marginLeft: 4, fontSize: 12 }}>✓</span>}
+                  {claims && <span style={{ marginLeft: theme.space[1], fontSize: theme.fontSizes[0] }}>✓</span>}
                 </button>
               );
             })}

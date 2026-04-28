@@ -1,6 +1,7 @@
 import React from 'react';
+import { useTheme } from '@principal-ade/industry-theme';
 import type { Scope } from './model';
-import { sectionLabelStyle } from './styles';
+import { makeSectionLabelStyle } from './styles';
 
 export const AddToScopeModal: React.FC<{
   path: string;
@@ -23,6 +24,9 @@ export const AddToScopeModal: React.FC<{
   onSubmit,
   onClose,
 }) => {
+  const { theme } = useTheme();
+  const sectionLabelStyle = makeSectionLabelStyle(theme);
+
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -52,6 +56,17 @@ export const AddToScopeModal: React.FC<{
   else if (!targetNs) actionLabel = 'Create namespace';
   else actionLabel = 'Add path';
 
+  const sectionDivider = `1px solid ${theme.colors.backgroundSecondary}`;
+  const inputStyle: React.CSSProperties = {
+    padding: '8px 10px',
+    background: theme.colors.backgroundDark ?? theme.colors.background,
+    color: theme.colors.text,
+    border: `1px solid ${theme.colors.border}`,
+    borderRadius: theme.radii[2],
+    fontFamily: theme.fonts.monospace,
+    fontSize: theme.fontSizes[1],
+  };
+
   return (
     <div
       onClick={onClose}
@@ -63,7 +78,7 @@ export const AddToScopeModal: React.FC<{
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1000,
-        fontFamily: 'system-ui, sans-serif',
+        fontFamily: theme.fonts.body,
       }}
     >
       <div
@@ -73,31 +88,31 @@ export const AddToScopeModal: React.FC<{
           maxHeight: 'min(80vh, 700px)',
           display: 'flex',
           flexDirection: 'column',
-          background: '#0f172a',
-          color: '#e2e8f0',
-          borderRadius: 8,
-          border: '1px solid #334155',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+          background: theme.colors.background,
+          color: theme.colors.text,
+          borderRadius: theme.radii[4],
+          border: `1px solid ${theme.colors.border}`,
+          boxShadow: theme.shadows[4],
           overflow: 'hidden',
         }}
       >
         <div
           style={{
             padding: '14px 18px',
-            borderBottom: '1px solid #1e293b',
+            borderBottom: sectionDivider,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'flex-start',
-            gap: 12,
+            gap: theme.space[3],
           }}
         >
           <div>
             <div style={sectionLabelStyle}>Add to scope</div>
             <div
               style={{
-                fontFamily: 'monospace',
-                fontSize: 12,
-                color: '#94a3b8',
+                fontFamily: theme.fonts.monospace,
+                fontSize: theme.fontSizes[0],
+                color: theme.colors.textMuted,
                 marginTop: 6,
                 wordBreak: 'break-all',
               }}
@@ -110,8 +125,8 @@ export const AddToScopeModal: React.FC<{
             style={{
               background: 'transparent',
               border: 'none',
-              color: '#64748b',
-              fontSize: 20,
+              color: theme.colors.textTertiary,
+              fontSize: theme.fontSizes[3],
               cursor: 'pointer',
               lineHeight: 1,
               padding: 0,
@@ -125,10 +140,10 @@ export const AddToScopeModal: React.FC<{
         <div
           style={{
             padding: '14px 18px',
-            borderBottom: '1px solid #1e293b',
+            borderBottom: sectionDivider,
             display: 'flex',
             flexDirection: 'column',
-            gap: 12,
+            gap: theme.space[3],
           }}
         >
           <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -143,15 +158,7 @@ export const AddToScopeModal: React.FC<{
               onKeyDown={e => {
                 if (e.key === 'Enter' && canSubmit && !alreadyClaimed) onSubmit();
               }}
-              style={{
-                padding: '8px 10px',
-                background: '#0b1220',
-                color: '#e2e8f0',
-                border: '1px solid #334155',
-                borderRadius: 4,
-                fontFamily: 'monospace',
-                fontSize: 14,
-              }}
+              style={inputStyle}
             />
             <datalist id="scope-id-options">
               {scopes.map(s => (
@@ -170,29 +177,21 @@ export const AddToScopeModal: React.FC<{
               onKeyDown={e => {
                 if (e.key === 'Enter' && canSubmit && !alreadyClaimed) onSubmit();
               }}
-              style={{
-                padding: '8px 10px',
-                background: '#0b1220',
-                color: '#e2e8f0',
-                border: '1px solid #334155',
-                borderRadius: 4,
-                fontFamily: 'monospace',
-                fontSize: 14,
-              }}
+              style={inputStyle}
             />
           </label>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: theme.space[2] }}>
             <button
               onClick={onClose}
               style={{
                 padding: '8px 14px',
                 background: 'transparent',
-                color: '#cbd5e1',
-                border: '1px solid #334155',
-                borderRadius: 4,
+                color: theme.colors.textSecondary,
+                border: `1px solid ${theme.colors.border}`,
+                borderRadius: theme.radii[2],
                 cursor: 'pointer',
-                fontSize: 14,
+                fontSize: theme.fontSizes[1],
               }}
             >
               Cancel
@@ -202,13 +201,17 @@ export const AddToScopeModal: React.FC<{
               disabled={!canSubmit || alreadyClaimed}
               style={{
                 padding: '8px 14px',
-                background: !canSubmit || alreadyClaimed ? '#1e293b' : '#3b82f6',
-                color: !canSubmit || alreadyClaimed ? '#475569' : '#ffffff',
-                border: '1px solid #334155',
-                borderRadius: 4,
+                background: !canSubmit || alreadyClaimed
+                  ? theme.colors.backgroundSecondary
+                  : theme.colors.primary,
+                color: !canSubmit || alreadyClaimed
+                  ? theme.colors.muted
+                  : theme.colors.textOnPrimary,
+                border: `1px solid ${theme.colors.border}`,
+                borderRadius: theme.radii[2],
                 cursor: !canSubmit || alreadyClaimed ? 'not-allowed' : 'pointer',
-                fontSize: 14,
-                fontWeight: 500,
+                fontSize: theme.fontSizes[1],
+                fontWeight: theme.fontWeights.medium,
               }}
             >
               {actionLabel}
@@ -224,20 +227,20 @@ export const AddToScopeModal: React.FC<{
           }}
         >
           <div style={sectionLabelStyle}>Existing scopes (click to prefill)</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space[3], marginTop: theme.space[2] }}>
             {scopes.map(scope => (
               <div key={scope.id}>
                 <div
                   style={{
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                    color: '#cbd5e1',
+                    fontFamily: theme.fonts.monospace,
+                    fontSize: theme.fontSizes[0],
+                    color: theme.colors.textSecondary,
                     marginBottom: 6,
                   }}
                 >
                   {scope.id}
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: theme.space[1] }}>
                   <button
                     onClick={() => onPickExisting(scope.id, '')}
                     title={
@@ -246,12 +249,16 @@ export const AddToScopeModal: React.FC<{
                         : 'Prefill (scope-level)'
                     }
                     style={{
-                      fontSize: 12,
+                      fontSize: theme.fontSizes[0],
                       padding: '3px 7px',
-                      background: scope.paths.includes(path) ? '#0f172a' : '#1e293b',
-                      color: scope.paths.includes(path) ? '#475569' : '#cbd5e1',
-                      border: '1px dashed #475569',
-                      borderRadius: 3,
+                      background: scope.paths.includes(path)
+                        ? theme.colors.background
+                        : theme.colors.backgroundSecondary,
+                      color: scope.paths.includes(path)
+                        ? theme.colors.muted
+                        : theme.colors.textSecondary,
+                      border: `1px dashed ${theme.colors.muted}`,
+                      borderRadius: theme.radii[1],
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
@@ -262,7 +269,7 @@ export const AddToScopeModal: React.FC<{
                   >
                     (scope-level)
                     {scope.paths.includes(path) && (
-                      <span style={{ marginLeft: 4, fontSize: 12 }}>✓</span>
+                      <span style={{ marginLeft: theme.space[1], fontSize: theme.fontSizes[0] }}>✓</span>
                     )}
                   </button>
                   {scope.namespaces.map(ns => {
@@ -273,12 +280,14 @@ export const AddToScopeModal: React.FC<{
                         onClick={() => onPickExisting(scope.id, ns.name)}
                         title={claims ? 'Already claims this path' : 'Prefill inputs'}
                         style={{
-                          fontSize: 12,
+                          fontSize: theme.fontSizes[0],
                           padding: '3px 7px',
-                          background: claims ? '#0f172a' : '#1e293b',
-                          color: claims ? '#475569' : '#e2e8f0',
-                          border: '1px solid #334155',
-                          borderRadius: 3,
+                          background: claims
+                            ? theme.colors.background
+                            : theme.colors.backgroundSecondary,
+                          color: claims ? theme.colors.muted : theme.colors.text,
+                          border: `1px solid ${theme.colors.border}`,
+                          borderRadius: theme.radii[1],
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
@@ -290,13 +299,13 @@ export const AddToScopeModal: React.FC<{
                           style={{
                             width: 8,
                             height: 8,
-                            borderRadius: 2,
+                            borderRadius: theme.radii[1],
                             background: ns.color,
                             flexShrink: 0,
                           }}
                         />
                         {ns.name}
-                        {claims && <span style={{ marginLeft: 4, fontSize: 12 }}>✓</span>}
+                        {claims && <span style={{ marginLeft: theme.space[1], fontSize: theme.fontSizes[0] }}>✓</span>}
                       </button>
                     );
                   })}

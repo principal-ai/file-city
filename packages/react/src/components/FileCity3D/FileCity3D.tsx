@@ -8,6 +8,7 @@
  */
 
 import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react';
+import { useTheme } from '@principal-ade/industry-theme';
 import { Canvas, useFrame, ThreeEvent, useThree } from '@react-three/fiber';
 
 import { useSpring } from '@react-spring/three';
@@ -2277,6 +2278,7 @@ interface InfoPanelProps {
 }
 
 function InfoPanel({ building }: InfoPanelProps) {
+  const { theme } = useTheme();
   if (!building) return null;
 
   const fileName = building.path.split('/').pop();
@@ -2288,26 +2290,26 @@ function InfoPanel({ building }: InfoPanelProps) {
         position: 'absolute',
         bottom: 16,
         left: 60,
-        background: 'rgba(15, 23, 42, 0.9)',
-        border: '1px solid #334155',
-        borderRadius: 8,
+        background: `color-mix(in oklab, ${theme.colors.background} 90%, transparent)`,
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: theme.radii[4],
         padding: '12px 16px',
-        color: '#e2e8f0',
-        fontSize: 14,
-        fontFamily: 'monospace',
+        color: theme.colors.text,
+        fontSize: theme.fontSizes[1],
+        fontFamily: theme.fonts.monospace,
         maxWidth: 400,
         pointerEvents: 'none',
       }}
     >
-      <div style={{ fontWeight: 600, marginBottom: 4 }}>{fileName}</div>
-      <div style={{ color: '#94a3b8', fontSize: 12 }}>{dirPath}</div>
+      <div style={{ fontWeight: theme.fontWeights.semibold, marginBottom: 4 }}>{fileName}</div>
+      <div style={{ color: theme.colors.textMuted, fontSize: theme.fontSizes[0] }}>{dirPath}</div>
       <div
         style={{
-          color: '#64748b',
+          color: theme.colors.textTertiary,
           fontSize: 11,
           marginTop: 4,
           display: 'flex',
-          gap: 12,
+          gap: theme.space[3],
         }}
       >
         {building.lineCount !== undefined && (
@@ -2328,20 +2330,21 @@ interface ControlsOverlayProps {
 }
 
 function ControlsOverlay({ isFlat, onToggle, onResetCamera, onLookDown }: ControlsOverlayProps) {
+  const { theme } = useTheme();
   const buttonStyle = {
-    background: 'rgba(15, 23, 42, 0.9)',
-    border: '1px solid #334155',
-    borderRadius: 8,
+    background: `color-mix(in oklab, ${theme.colors.background} 90%, transparent)`,
+    border: `1px solid ${theme.colors.border}`,
+    borderRadius: theme.radii[4],
     padding: '10px',
-    color: '#e2e8f0',
-    fontSize: 14,
+    color: theme.colors.text,
+    fontSize: theme.fontSizes[1],
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     width: 40,
     height: 40,
-    fontWeight: 500,
+    fontWeight: theme.fontWeights.medium,
   };
 
   return (

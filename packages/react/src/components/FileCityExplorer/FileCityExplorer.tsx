@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '@principal-ade/industry-theme';
 import {
   FileTree,
   useFileTree,
@@ -26,7 +27,7 @@ import {
   parseScopeTreePath,
   type ScopeTreeSelection,
 } from './scopeTreePaths';
-import { sectionLabelStyle } from './styles';
+import { makeSectionLabelStyle, withAlpha } from './styles';
 
 type FileTreeModel = UseFileTreeResult['model'];
 
@@ -76,6 +77,9 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
   persistKey,
   initialFocusDirectory,
 }) => {
+  const { theme } = useTheme();
+  const sectionLabelStyle = makeSectionLabelStyle(theme);
+
   // City root without trailing slash — used as the iterative-zoom-out clamp
   // and the default initial focus.
   const packageRootClamp = React.useMemo(
@@ -405,7 +409,7 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
           if (!district) continue;
           panels.push({
             id: `${scope.id}::scope::${sp}`,
-            color: '#64748b',
+            color: theme.colors.textTertiary,
             height: 4,
             thickness: 2,
             bounds: district.worldBounds,
@@ -438,7 +442,7 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
     }
 
     return panels.length > 0 ? panels : undefined;
-  }, [activeTab, scopes, scopeTreeModel, treeExpansion, districtsByPath, toCityPath]);
+  }, [activeTab, scopes, scopeTreeModel, treeExpansion, districtsByPath, toCityPath, theme]);
 
   // Track which folders are expanded in the file tree. The file-tree tab's
   // elevated panels mirror this: a collapsed folder shows one umbrella tile
@@ -573,7 +577,7 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
         const inflate = 4;
         const border: ElevatedScopePanel = {
           id: `folder-border::${selectedPanelFolder}`,
-          color: '#fbbf24',
+          color: theme.colors.warning,
           height: (target.height ?? 4) - 2,
           thickness: 1,
           bounds: {
@@ -600,6 +604,7 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
     areaNameByCityPath,
     folderIndex,
     packageRootClamp,
+    theme,
   ]);
 
   // Cmd-click on a building → surface the chain of expanded ancestor folders
@@ -798,7 +803,7 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
   }, [areaModalTargetPath, modalAreaName, modalAreaDescription, toScopePath]);
 
   return (
-    <div style={{ height: '100vh', display: 'flex', background: '#0f172a' }}>
+    <div style={{ height: '100vh', display: 'flex', background: theme.colors.background }}>
       <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
         {/* Canvas wrapper — pushed down by HEADER_HEIGHT so the focus
             bar doesn't occlude the camera's framing area. The 3D camera
@@ -819,6 +824,8 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
             width="100%"
             heightScaling="linear"
             linearScale={0.5}
+            backgroundColor={theme.colors.background}
+            textColor={theme.colors.textMuted}
             focusDirectory={focusDirectory}
             highlightLayers={cityHighlightLayers}
             elevatedScopePanels={cityElevatedPanels ?? folderElevatedPanels}
@@ -838,18 +845,18 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
         <div
           style={{
             position: 'absolute',
-            top: 8,
-            left: 8,
-            right: 8,
+            top: theme.space[2],
+            left: theme.space[2],
+            right: theme.space[2],
             padding: '8px 12px',
-            background: 'rgba(15, 23, 42, 0.72)',
+            background: withAlpha(theme.colors.background, 72),
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)',
-            border: `1px solid ${focusPinned ? '#fbbf24' : '#334155'}`,
-            borderRadius: 6,
-            color: '#e2e8f0',
-            fontFamily: 'system-ui, sans-serif',
-            fontSize: 14,
+            border: `1px solid ${focusPinned ? theme.colors.warning : theme.colors.border}`,
+            borderRadius: theme.radii[3],
+            color: theme.colors.text,
+            fontFamily: theme.fonts.body,
+            fontSize: theme.fontSizes[1],
             zIndex: 100,
             display: 'flex',
             alignItems: 'center',
@@ -906,17 +913,13 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
                       const isFocus = seg.path === focusDirectory;
                       const isSelectedLeaf =
                         seg.path === selectedPanelFolder && seg.beyondFocus;
-                      const color = isFocus
-                        ? '#fde68a'
-                        : seg.beyondFocus
-                          ? isSelectedLeaf
-                            ? '#a5f3fc'
-                            : '#67e8f9'
-                          : '#94a3b8';
+                      const color = isFocus || seg.beyondFocus
+                        ? theme.colors.text
+                        : theme.colors.textMuted;
                       return (
                         <React.Fragment key={seg.path}>
                           {i > 0 && (
-                            <span style={{ color: '#475569', fontFamily: 'monospace' }}>
+                            <span style={{ color: theme.colors.text, fontFamily: theme.fonts.monospace }}>
                               /
                             </span>
                           )}
@@ -931,14 +934,16 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
                               background: 'transparent',
                               border: 'none',
                               padding: '2px 4px',
-                              borderRadius: 3,
-                              fontFamily: 'monospace',
-                              fontSize: 14,
+                              borderRadius: theme.radii[1],
+                              fontFamily: theme.fonts.monospace,
+                              fontSize: theme.fontSizes[1],
                               color,
-                              fontWeight: isFocus || isSelectedLeaf ? 600 : 400,
+                              fontWeight: isFocus || isSelectedLeaf
+                                ? theme.fontWeights.semibold
+                                : theme.fontWeights.body,
                               cursor: 'pointer',
                               textDecoration: 'underline',
-                              textDecorationColor: '#475569',
+                              textDecorationColor: theme.colors.muted,
                             }}
                           >
                             {seg.label}
@@ -952,9 +957,9 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
             ) : (
               <div
                 style={{
-                  fontFamily: 'monospace',
-                  fontSize: 14,
-                  color: '#64748b',
+                  fontFamily: theme.fonts.monospace,
+                  fontSize: theme.fontSizes[1],
+                  color: theme.colors.textTertiary,
                   wordBreak: 'break-all',
                 }}
               >
@@ -971,14 +976,14 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
                   : 'Pin — keep this focus while navigating the trees'
               }
               style={{
-                background: focusPinned ? '#fbbf24' : 'transparent',
-                color: focusPinned ? '#0f172a' : '#cbd5e1',
-                border: `1px solid ${focusPinned ? '#fbbf24' : '#334155'}`,
-                borderRadius: 4,
+                background: focusPinned ? theme.colors.warning : 'transparent',
+                color: focusPinned ? theme.colors.background : theme.colors.textSecondary,
+                border: `1px solid ${focusPinned ? theme.colors.warning : theme.colors.border}`,
+                borderRadius: theme.radii[2],
                 padding: '4px 8px',
-                fontSize: 12,
+                fontSize: theme.fontSizes[0],
                 cursor: 'pointer',
-                fontWeight: 500,
+                fontWeight: theme.fontWeights.medium,
                 flexShrink: 0,
               }}
             >
@@ -994,11 +999,11 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
               title="Clear focus"
               style={{
                 background: 'transparent',
-                color: '#94a3b8',
-                border: '1px solid #334155',
-                borderRadius: 4,
+                color: theme.colors.textMuted,
+                border: `1px solid ${theme.colors.border}`,
+                borderRadius: theme.radii[2],
                 padding: '4px 8px',
-                fontSize: 12,
+                fontSize: theme.fontSizes[0],
                 cursor: 'pointer',
                 flexShrink: 0,
               }}
@@ -1016,21 +1021,21 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
             style={{
               position: 'absolute',
               top: 60,
-              left: 8,
+              left: theme.space[2],
               padding: '8px 12px',
-              background: 'rgba(15, 23, 42, 0.72)',
+              background: withAlpha(theme.colors.background, 72),
               backdropFilter: 'blur(8px)',
               WebkitBackdropFilter: 'blur(8px)',
-              border: '1px solid #334155',
-              borderRadius: 6,
-              color: '#e2e8f0',
-              fontFamily: 'system-ui, sans-serif',
-              fontSize: 12,
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.radii[3],
+              color: theme.colors.text,
+              fontFamily: theme.fonts.body,
+              fontSize: theme.fontSizes[0],
               zIndex: 100,
               maxWidth: 480,
               display: 'flex',
               flexDirection: 'column',
-              gap: 8,
+              gap: theme.space[2],
             }}
           >
             {panelFolderCoverage && (panelFolderCoverage.scopeHits.length > 0 ||
@@ -1041,22 +1046,22 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
                     key={area.name}
                     style={{
                       padding: '6px 8px',
-                      background: '#0b1220',
-                      border: '1px dashed #334155',
-                      borderRadius: 4,
+                      background: theme.colors.backgroundDark ?? theme.colors.background,
+                      border: `1px dashed ${theme.colors.border}`,
+                      borderRadius: theme.radii[2],
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 4,
+                      gap: theme.space[1],
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span
                         style={{
-                          fontSize: 12,
-                          color: '#94a3b8',
+                          fontSize: theme.fontSizes[0],
+                          color: theme.colors.textMuted,
                           textTransform: 'uppercase',
                           letterSpacing: 0.5,
-                          fontWeight: 600,
+                          fontWeight: theme.fontWeights.semibold,
                         }}
                       >
                         Area
@@ -1065,15 +1070,15 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
                         style={{
                           width: 8,
                           height: 8,
-                          borderRadius: 2,
+                          borderRadius: theme.radii[1],
                           background: AREA_PANEL_COLOR,
-                          border: '1px dashed #94a3b8',
+                          border: `1px dashed ${theme.colors.textMuted}`,
                           flexShrink: 0,
                         }}
                       />
-                      <code style={{ fontSize: 12, color: '#cbd5e1' }}>{area.name}</code>
+                      <code style={{ fontSize: theme.fontSizes[0], color: theme.colors.textSecondary }}>{area.name}</code>
                     </div>
-                    <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.4 }}>
+                    <div style={{ fontSize: theme.fontSizes[0], color: theme.colors.textMuted, lineHeight: 1.4 }}>
                       {area.description}
                     </div>
                   </div>
@@ -1083,44 +1088,44 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
                     key={scope.id}
                     style={{
                       padding: '6px 8px',
-                      background: '#0b1220',
-                      border: '1px solid #1e293b',
-                      borderRadius: 4,
+                      background: theme.colors.backgroundDark ?? theme.colors.background,
+                      border: `1px solid ${theme.colors.backgroundSecondary}`,
+                      borderRadius: theme.radii[2],
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 4,
+                      gap: theme.space[1],
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span
                         style={{
-                          fontSize: 12,
-                          color: '#a855f7',
+                          fontSize: theme.fontSizes[0],
+                          color: theme.colors.accent,
                           textTransform: 'uppercase',
                           letterSpacing: 0.5,
-                          fontWeight: 600,
+                          fontWeight: theme.fontWeights.semibold,
                         }}
                       >
                         Scope
                       </span>
-                      <code style={{ fontSize: 12, color: '#cbd5e1' }}>{scope.id}</code>
+                      <code style={{ fontSize: theme.fontSizes[0], color: theme.colors.textSecondary }}>{scope.id}</code>
                       {namespace && (
                         <>
-                          <span style={{ color: '#475569' }}>/</span>
+                          <span style={{ color: theme.colors.muted }}>/</span>
                           <span
                             style={{
                               width: 8,
                               height: 8,
-                              borderRadius: 2,
+                              borderRadius: theme.radii[1],
                               background: namespace.color,
                               flexShrink: 0,
                             }}
                           />
-                          <code style={{ fontSize: 12, color: '#cbd5e1' }}>{namespace.name}</code>
+                          <code style={{ fontSize: theme.fontSizes[0], color: theme.colors.textSecondary }}>{namespace.name}</code>
                         </>
                       )}
                     </div>
-                    <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.4 }}>
+                    <div style={{ fontSize: theme.fontSizes[0], color: theme.colors.textMuted, lineHeight: 1.4 }}>
                       {namespace ? namespace.description : scope.description}
                     </div>
                   </div>
@@ -1133,14 +1138,14 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
                   onClick={() => setShowAddPicker(v => !v)}
                   title="Add this folder to a scope or area"
                   style={{
-                    background: showAddPicker ? '#1e293b' : 'transparent',
-                    color: '#cbd5e1',
-                    border: '1px solid #475569',
-                    borderRadius: 4,
+                    background: showAddPicker ? theme.colors.backgroundSecondary : 'transparent',
+                    color: theme.colors.textSecondary,
+                    border: `1px solid ${theme.colors.muted}`,
+                    borderRadius: theme.radii[2],
                     padding: '4px 10px',
-                    fontSize: 12,
+                    fontSize: theme.fontSizes[0],
                     cursor: 'pointer',
-                    fontWeight: 500,
+                    fontWeight: theme.fontWeights.medium,
                   }}
                 >
                   + Add
@@ -1151,18 +1156,18 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
                       position: 'absolute',
                       top: 'calc(100% + 4px)',
                       left: 0,
-                      background: 'rgba(15, 23, 42, 0.95)',
+                      background: withAlpha(theme.colors.background, 95),
                       backdropFilter: 'blur(8px)',
                       WebkitBackdropFilter: 'blur(8px)',
-                      border: '1px solid #334155',
-                      borderRadius: 4,
-                      padding: 4,
+                      border: `1px solid ${theme.colors.border}`,
+                      borderRadius: theme.radii[2],
+                      padding: theme.space[1],
                       display: 'flex',
                       flexDirection: 'column',
                       gap: 2,
                       zIndex: 110,
                       minWidth: 120,
-                      boxShadow: '0 6px 18px rgba(0,0,0,0.4)',
+                      boxShadow: theme.shadows[3],
                     }}
                   >
                     <button
@@ -1172,13 +1177,13 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
                       }}
                       style={{
                         background: 'transparent',
-                        color: '#cbd5e1',
-                        border: '1px solid #a855f7',
-                        borderRadius: 3,
+                        color: theme.colors.textSecondary,
+                        border: `1px solid ${theme.colors.accent}`,
+                        borderRadius: theme.radii[1],
                         padding: '4px 10px',
-                        fontSize: 12,
+                        fontSize: theme.fontSizes[0],
                         cursor: 'pointer',
-                        fontWeight: 500,
+                        fontWeight: theme.fontWeights.medium,
                         textAlign: 'left',
                       }}
                     >
@@ -1191,13 +1196,13 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
                       }}
                       style={{
                         background: 'transparent',
-                        color: '#cbd5e1',
-                        border: '1px dashed #94a3b8',
-                        borderRadius: 3,
+                        color: theme.colors.textSecondary,
+                        border: `1px dashed ${theme.colors.textMuted}`,
+                        borderRadius: theme.radii[1],
                         padding: '4px 10px',
-                        fontSize: 12,
+                        fontSize: theme.fontSizes[0],
                         cursor: 'pointer',
-                        fontWeight: 500,
+                        fontWeight: theme.fontWeights.medium,
                         textAlign: 'left',
                       }}
                     >
@@ -1221,14 +1226,14 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
                 }}
                 title="Show files inside this folder"
                 style={{
-                  background: showPanelFolderContents ? '#1e293b' : 'transparent',
-                  color: '#cbd5e1',
-                  border: '1px solid #334155',
-                  borderRadius: 4,
+                  background: showPanelFolderContents ? theme.colors.backgroundSecondary : 'transparent',
+                  color: theme.colors.textSecondary,
+                  border: `1px solid ${theme.colors.border}`,
+                  borderRadius: theme.radii[2],
                   padding: '4px 10px',
-                  fontSize: 12,
+                  fontSize: theme.fontSizes[0],
                   cursor: 'pointer',
-                  fontWeight: 500,
+                  fontWeight: theme.fontWeights.medium,
                 }}
               >
                 {showPanelFolderContents ? 'Hide contents' : 'Show contents'}
@@ -1239,8 +1244,8 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  borderTop: '1px solid #1e293b',
-                  paddingTop: 8,
+                  borderTop: `1px solid ${theme.colors.backgroundSecondary}`,
+                  paddingTop: theme.space[2],
                   marginTop: 2,
                   minWidth: 320,
                 }}
@@ -1248,8 +1253,8 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
                 {panelFolderContentsPaths.length === 0 ? (
                   <div
                     style={{
-                      fontSize: 12,
-                      color: '#64748b',
+                      fontSize: theme.fontSizes[0],
+                      color: theme.colors.textTertiary,
                       fontStyle: 'italic',
                       padding: '4px 0',
                     }}
@@ -1267,10 +1272,8 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
                           '--trees-bg-override': 'transparent',
                           '--trees-search-bg-override': 'rgba(0, 0, 0, 0.25)',
                           '--trees-padding-inline-override': '0',
-                          '--trees-theme-list-active-selection-bg':
-                            'color-mix(in oklab, #3b82f6 28%, transparent)',
-                          '--trees-theme-list-hover-bg':
-                            'color-mix(in oklab, #3b82f6 14%, transparent)',
+                          '--trees-theme-list-active-selection-bg': withAlpha(theme.colors.primary, 28),
+                          '--trees-theme-list-hover-bg': withAlpha(theme.colors.primary, 14),
                         } as React.CSSProperties
                       }
                     />
@@ -1290,22 +1293,22 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
             style={{
               position: 'absolute',
               top: 72,
-              right: 8,
+              right: theme.space[2],
               padding: '10px 12px',
-              background: 'rgba(15, 23, 42, 0.72)',
+              background: withAlpha(theme.colors.background, 72),
               backdropFilter: 'blur(8px)',
               WebkitBackdropFilter: 'blur(8px)',
-              border: '1px solid #334155',
-              borderRadius: 6,
-              color: '#e2e8f0',
-              fontFamily: 'system-ui, sans-serif',
-              fontSize: 12,
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.radii[3],
+              color: theme.colors.text,
+              fontFamily: theme.fonts.body,
+              fontSize: theme.fontSizes[0],
               zIndex: 100,
               maxWidth: 240,
               display: 'flex',
               flexDirection: 'column',
-              gap: 8,
-              boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
+              gap: theme.space[2],
+              boxShadow: theme.shadows[3],
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1317,11 +1320,11 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
                 title="Dismiss (reappears on next folder interaction)"
                 style={{
                   background: 'transparent',
-                  color: '#94a3b8',
-                  border: '1px solid #334155',
-                  borderRadius: 4,
+                  color: theme.colors.textMuted,
+                  border: `1px solid ${theme.colors.border}`,
+                  borderRadius: theme.radii[2],
                   padding: '4px 8px',
-                  fontSize: 12,
+                  fontSize: theme.fontSizes[0],
                   cursor: 'pointer',
                   flexShrink: 0,
                 }}
@@ -1329,7 +1332,7 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
                 ✕
               </button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space[1] }}>
               {parentLayers.map(folderPath => {
                 const label = folderPath.split('/').pop() ?? folderPath;
                 return (
@@ -1340,19 +1343,19 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 8,
+                      gap: theme.space[2],
                       padding: '6px 8px',
-                      background: '#1e293b',
-                      color: '#e2e8f0',
-                      border: '1px solid #334155',
-                      borderRadius: 4,
+                      background: theme.colors.backgroundSecondary,
+                      color: theme.colors.text,
+                      border: `1px solid ${theme.colors.border}`,
+                      borderRadius: theme.radii[2],
                       cursor: 'pointer',
                       textAlign: 'left',
-                      fontFamily: 'system-ui, sans-serif',
-                      fontSize: 12,
+                      fontFamily: theme.fonts.body,
+                      fontSize: theme.fontSizes[0],
                     }}
                   >
-                    <span style={{ fontFamily: 'monospace', fontWeight: 500 }}>{label}</span>
+                    <span style={{ fontFamily: theme.fonts.monospace, fontWeight: theme.fontWeights.medium }}>{label}</span>
                   </button>
                 );
               })}
@@ -1364,24 +1367,24 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
         <div
           style={{
             position: 'absolute',
-            bottom: 16,
+            bottom: theme.space[3],
             left: '50%',
             transform: 'translateX(-50%)',
             display: 'flex',
-            background: 'rgba(15, 23, 42, 0.92)',
-            border: '1px solid #1e293b',
-            borderRadius: 6,
+            background: withAlpha(theme.colors.background, 92),
+            border: `1px solid ${theme.colors.backgroundSecondary}`,
+            borderRadius: theme.radii[3],
             overflow: 'hidden',
-            fontFamily: 'system-ui, sans-serif',
-            fontSize: 12,
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+            fontFamily: theme.fonts.body,
+            fontSize: theme.fontSizes[0],
+            boxShadow: theme.shadows[2],
             zIndex: 10,
           }}
         >
           {(
             [
-              { id: 'files' as const, label: 'Files', accent: '#3b82f6' },
-              { id: 'scopes' as const, label: 'Scopes', accent: '#a855f7' },
+              { id: 'files' as const, label: 'Files', accent: theme.colors.primary },
+              { id: 'scopes' as const, label: 'Scopes', accent: theme.colors.accent },
             ]
           ).map((opt, i) => {
             const active = activeTab === opt.id;
@@ -1392,11 +1395,11 @@ export const FileCityExplorer: React.FC<FileCityExplorerProps> = ({
                 style={{
                   padding: '8px 16px',
                   background: active ? opt.accent : 'transparent',
-                  color: active ? '#ffffff' : '#cbd5e1',
+                  color: active ? theme.colors.textOnPrimary : theme.colors.textSecondary,
                   border: 'none',
-                  borderLeft: i === 0 ? 'none' : '1px solid #1e293b',
+                  borderLeft: i === 0 ? 'none' : `1px solid ${theme.colors.backgroundSecondary}`,
                   cursor: 'pointer',
-                  fontWeight: active ? 600 : 400,
+                  fontWeight: active ? theme.fontWeights.semibold : theme.fontWeights.body,
                   fontFamily: 'inherit',
                   fontSize: 'inherit',
                 }}
