@@ -2997,6 +2997,8 @@ export interface FileCity3DProps {
   height?: number | string;
   /** Callback when a building is clicked */
   onBuildingClick?: (building: CityBuilding, event: MouseEvent) => void;
+  /** Callback when the hovered building changes (fires with null on hover-out) */
+  onBuildingHover?: (building: CityBuilding | null) => void;
   /** CSS class name */
   className?: string;
   /** Inline styles */
@@ -3087,6 +3089,7 @@ export function FileCity3D({
   width = '100%',
   height = 600,
   onBuildingClick,
+  onBuildingHover,
   className,
   style,
   animation,
@@ -3118,6 +3121,14 @@ export function FileCity3D({
   const [hoveredBuilding, setHoveredBuilding] = useState<CityBuilding | null>(null);
   const [internalIsGrown, setInternalIsGrown] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
+
+  const handleBuildingHover = useCallback(
+    (building: CityBuilding | null) => {
+      setHoveredBuilding(building);
+      onBuildingHover?.(building);
+    },
+    [onBuildingHover],
+  );
 
   const animationConfig = useMemo(() => ({ ...DEFAULT_ANIMATION, ...animation }), [animation]);
 
@@ -3256,7 +3267,7 @@ export function FileCity3D({
       >
         <CityScene
           cityData={cityData}
-          onBuildingHover={setHoveredBuilding}
+          onBuildingHover={handleBuildingHover}
           onBuildingClick={onBuildingClick}
           hoveredBuilding={hoveredBuilding}
           selectedBuilding={selectedBuilding}
