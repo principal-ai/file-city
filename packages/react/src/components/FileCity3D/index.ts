@@ -36,4 +36,5 @@ export type {
   TouchOneAction,
   TouchTwoAction,
   WheelAction,
+  OnCameraFrame,
 } from './FileCity3D';

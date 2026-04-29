@@ -49,6 +49,24 @@ export interface SelectionStyle {
   borderWidth?: number;
 }
 
+/**
+ * Per-frame camera callback signature. Fires once per R3F render frame from
+ * inside the Canvas, so projection done in the callback is in lockstep with
+ * the city render — useful for HTML/SVG overlays that need to track world
+ * positions (e.g. leader lines anchored to buildings).
+ *
+ * The callback receives the live `THREE.Camera` and the current canvas
+ * size in CSS pixels. To project a world point to canvas-local pixels:
+ *
+ *   const v = new THREE.Vector3(x, y, z).project(camera);
+ *   const px = (v.x *  0.5 + 0.5) * size.width;
+ *   const py = (v.y * -0.5 + 0.5) * size.height;
+ */
+export type OnCameraFrame = (
+  camera: THREE.Camera,
+  size: { width: number; height: number },
+) => void;
+
 /** What to do with non-highlighted buildings */
 export type IsolationMode =
   | 'none' // Show all buildings normally
@@ -718,7 +736,7 @@ function BorderHighlights({
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, borderEdgeData.length]} frustumCulled={false}>
       <boxGeometry args={[1, 1, 1]} />
-      <meshBasicMaterial transparent opacity={0.9} vertexColors />
+      <meshBasicMaterial transparent opacity={0.9} />
     </instancedMesh>
   );
 }
@@ -743,6 +761,7 @@ interface InstancedBuildingsProps {
   focusDirectory: string | null;
   highlightLayers: HighlightLayer[];
   isolationMode: IsolationMode;
+  defaultBuildingColor?: string;
 }
 
 // Helper to check if a path is inside a directory
@@ -767,6 +786,7 @@ function InstancedBuildings({
   focusDirectory,
   highlightLayers,
   isolationMode,
+  defaultBuildingColor,
 }: InstancedBuildingsProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const startTimeRef = useRef<number | null>(null);
@@ -852,7 +872,7 @@ function InstancedBuildings({
       // Get all layer matches and find first fill match for building color
       const matches = getLayerMatchesForPath(building.path, highlightLayers);
       const fillMatch = matches.find(m => m.renderStrategy === 'fill');
-      const color = fillMatch?.color ?? getColorForFile(building);
+      const color = fillMatch?.color ?? defaultBuildingColor ?? getColorForFile(building);
 
       const x = building.position.x - centerOffset.x;
       const z = building.position.z - centerOffset.z;
@@ -881,6 +901,7 @@ function InstancedBuildings({
     staggerIndices,
     animationConfig.staggerDelay,
     highlightLayers,
+    defaultBuildingColor,
   ]);
 
   const minHeight = 0.3;
@@ -1535,6 +1556,19 @@ export function getCameraAngle() {
  */
 export function getCameraTilt() {
   return cameraApi?.getCurrentTilt() ?? null;
+}
+
+/**
+ * Bridge for piping the live camera + canvas size out of the R3F Canvas on
+ * every frame. Mounted as a child of `<Canvas>` so it has access to the R3F
+ * render loop; runs zero work if no callback is provided.
+ */
+function CameraFrameBridge({ onCameraFrame }: { onCameraFrame?: OnCameraFrame }) {
+  const { camera, size } = useThree();
+  useFrame(() => {
+    onCameraFrame?.(camera, { width: size.width, height: size.height });
+  });
+  return null;
 }
 
 const AnimatedCamera = React.memo(function AnimatedCamera({
@@ -2698,6 +2732,7 @@ interface CitySceneProps {
   dismissingPanelIds?: ReadonlySet<string>;
   onPanelDismissed?: (id: string) => void;
   cameraControls?: CameraControlsConfig;
+  defaultBuildingColor?: string;
 }
 
 function CityScene({
@@ -2722,6 +2757,7 @@ function CityScene({
   dismissingPanelIds,
   onPanelDismissed,
   cameraControls,
+  defaultBuildingColor,
   onCameraReady,
 }: CitySceneProps & { onCameraReady?: () => void }) {
   const centerOffset = useMemo(
@@ -3028,6 +3064,7 @@ function CityScene({
         focusDirectory={buildingFocusDirectory}
         highlightLayers={highlightLayers}
         isolationMode={isolationMode}
+        defaultBuildingColor={defaultBuildingColor}
       />
 
       <BuildingIcons
@@ -3145,6 +3182,15 @@ export interface FileCity3DProps {
   fileColorLayers?: HighlightLayer[];
 
   /**
+   * Override the per-building color fallback. When unset (default), buildings
+   * not matched by a fill highlight layer are colored by file extension via
+   * the built-in file-type palette. Set to a CSS color (e.g. `'#475569'`) to
+   * render unmatched buildings in a neutral tone — useful for debug stories
+   * that want to isolate highlight-layer rendering.
+   */
+  defaultBuildingColor?: string;
+
+  /**
    * Translucent slabs rendered above the city showing scope coverage as
    * elevated planes over the directories they own.
    */
@@ -3173,6 +3219,15 @@ export interface FileCity3DProps {
    * Memoize this object to avoid unnecessary camera re-mounts.
    */
   cameraControls?: CameraControlsConfig;
+
+  /**
+   * Fires once per R3F render frame with the live camera and canvas size.
+   * Use to project world points to canvas pixels for HTML/SVG overlays that
+   * need to track buildings as the camera pans / zooms / rotates.
+   *
+   * Memoize the callback to avoid re-mounting the bridge.
+   */
+  onCameraFrame?: OnCameraFrame;
 }
 
 /**
@@ -3215,7 +3270,9 @@ export function FileCity3D({
   selectionStyle,
   adaptCameraToBuildings = false,
   fileColorLayers,
+  defaultBuildingColor,
   cameraControls,
+  onCameraFrame,
 }: FileCity3DProps) {
   const [hoveredBuilding, setHoveredBuilding] = useState<CityBuilding | null>(null);
   const [internalIsGrown, setInternalIsGrown] = useState(false);
@@ -3402,8 +3459,10 @@ export function FileCity3D({
           dismissingPanelIds={dismissingPanelIds}
           onPanelDismissed={onPanelDismissed}
           cameraControls={cameraControls}
+          defaultBuildingColor={defaultBuildingColor}
           onCameraReady={() => setCameraReady(true)}
         />
+        {onCameraFrame && <CameraFrameBridge onCameraFrame={onCameraFrame} />}
       </Canvas>
       <InfoPanel building={resolvedSelection.building} />
       {showControls && (
