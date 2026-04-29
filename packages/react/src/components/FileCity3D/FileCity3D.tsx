@@ -41,6 +41,14 @@ declare module 'react' {
 export type { CityData, CityBuilding, CityDistrict, LayerItem, LayerRenderStrategy };
 export type HighlightLayer = BuilderHighlightLayer;
 
+/** Visual style for the `selectedPath` ring on a directory. */
+export interface SelectionStyle {
+  /** Ring color. Defaults to the theme accent. */
+  color?: string;
+  /** Ring border width in world units. Default: 2. */
+  borderWidth?: number;
+}
+
 /** What to do with non-highlighted buildings */
 export type IsolationMode =
   | 'none' // Show all buildings normally
@@ -2607,6 +2615,66 @@ function ElevatedScopePanelMesh({
   );
 }
 
+interface SelectionRingProps {
+  district: CityDistrict;
+  centerOffset: { x: number; z: number };
+  color: string;
+  borderWidth: number;
+  growProgress: number;
+}
+
+// Lifted just above the default umbrella topY (height 4 + thickness 2 → 6)
+// so the ring isn't occluded by an `ElevatedScopePanel` covering the same
+// district when the city is flat.
+const SELECTION_RING_FLAT_Y = 7;
+
+function SelectionRing({
+  district,
+  centerOffset,
+  color,
+  borderWidth,
+  growProgress,
+}: SelectionRingProps) {
+  const { worldBounds } = district;
+  const inflate = 1;
+  const minX = worldBounds.minX - inflate;
+  const maxX = worldBounds.maxX + inflate;
+  const minZ = worldBounds.minZ - inflate;
+  const maxZ = worldBounds.maxZ + inflate;
+  const cx = (minX + maxX) / 2 - centerOffset.x;
+  const cz = (minZ + maxZ) / 2 - centerOffset.z;
+  const w = maxX - minX;
+  const d = maxZ - minZ;
+
+  const pathDepth = district.path.split('/').length;
+  const groundY = -5 - pathDepth * 0.1 + 0.2;
+  const y = SELECTION_RING_FLAT_Y + (groundY - SELECTION_RING_FLAT_Y) * growProgress;
+
+  const t = Math.max(0.5, borderWidth);
+  const barH = 0.5;
+
+  return (
+    <group position={[cx, y, cz]}>
+      <mesh position={[0, 0, -d / 2]} renderOrder={20}>
+        <boxGeometry args={[w + t, barH, t]} />
+        <meshBasicMaterial color={color} transparent opacity={0.95} />
+      </mesh>
+      <mesh position={[0, 0, d / 2]} renderOrder={20}>
+        <boxGeometry args={[w + t, barH, t]} />
+        <meshBasicMaterial color={color} transparent opacity={0.95} />
+      </mesh>
+      <mesh position={[-w / 2, 0, 0]} renderOrder={20}>
+        <boxGeometry args={[t, barH, d + t]} />
+        <meshBasicMaterial color={color} transparent opacity={0.95} />
+      </mesh>
+      <mesh position={[w / 2, 0, 0]} renderOrder={20}>
+        <boxGeometry args={[t, barH, d + t]} />
+        <meshBasicMaterial color={color} transparent opacity={0.95} />
+      </mesh>
+    </group>
+  );
+}
+
 // Main scene component
 interface CitySceneProps {
   cityData: CityData;
@@ -2614,6 +2682,8 @@ interface CitySceneProps {
   onBuildingClick?: (building: CityBuilding, event: MouseEvent) => void;
   hoveredBuilding: CityBuilding | null;
   selectedBuilding: CityBuilding | null;
+  selectedDistrict: CityDistrict | null;
+  selectionStyle?: SelectionStyle;
   growProgress: number;
   animationConfig: AnimationConfig;
   highlightLayers: HighlightLayer[];
@@ -2636,6 +2706,8 @@ function CityScene({
   onBuildingClick,
   hoveredBuilding,
   selectedBuilding,
+  selectedDistrict,
+  selectionStyle,
   growProgress,
   animationConfig,
   highlightLayers,
@@ -2980,6 +3052,16 @@ function CityScene({
             onDismissed={onPanelDismissed}
           />
         ))}
+
+      {selectedDistrict && (
+        <SelectionRing
+          district={selectedDistrict}
+          centerOffset={centerOffset}
+          color={selectionStyle?.color ?? '#facc15'}
+          borderWidth={selectionStyle?.borderWidth ?? 2}
+          growProgress={growProgress}
+        />
+      )}
     </>
   );
 }
@@ -3039,8 +3121,23 @@ export interface FileCity3DProps {
   backgroundColor?: string;
   /** Text color for secondary/placeholder text */
   textColor?: string;
-  /** Currently selected building (controlled by host) */
+  /**
+   * @deprecated Use `selectedPath` instead. When both are set, `selectedPath`
+   * wins. This prop will be removed in a future release.
+   */
   selectedBuilding?: CityBuilding | null;
+
+  /**
+   * Path of the selected building or directory. The component resolves the
+   * path against `cityData.buildings` (file selection — emphasizes the
+   * building and shows the InfoPanel) and `cityData.districts` (directory
+   * selection — draws a ring around the district). When both `selectedPath`
+   * and `selectedBuilding` are set, `selectedPath` wins.
+   */
+  selectedPath?: string | null;
+
+  /** Visual style for the directory selection ring drawn for `selectedPath`. */
+  selectionStyle?: SelectionStyle;
   /** When true, camera height adjusts based on tallest building when grown */
   adaptCameraToBuildings?: boolean;
 
@@ -3114,6 +3211,8 @@ export function FileCity3D({
   backgroundColor = '#0f172a',
   textColor = '#94a3b8',
   selectedBuilding = null,
+  selectedPath = null,
+  selectionStyle,
   adaptCameraToBuildings = false,
   fileColorLayers,
   cameraControls,
@@ -3166,6 +3265,22 @@ export function FileCity3D({
   const focusDirectory = resolved.focusDirectory;
   const focusColor = resolved.focusColor;
   const isolationMode = resolved.isolationMode as IsolationMode;
+
+  // `selectedPath` wins over the deprecated `selectedBuilding` when both are
+  // set. A path resolves to either a building (file selection) or a district
+  // (directory selection) — never both.
+  const resolvedSelection = useMemo<{
+    building: CityBuilding | null;
+    district: CityDistrict | null;
+  }>(() => {
+    if (selectedPath != null) {
+      const building = cityData.buildings.find(b => b.path === selectedPath) ?? null;
+      if (building) return { building, district: null };
+      const district = cityData.districts.find(d => d.path === selectedPath) ?? null;
+      return { building: null, district };
+    }
+    return { building: selectedBuilding ?? null, district: null };
+  }, [selectedPath, selectedBuilding, cityData.buildings, cityData.districts]);
 
   const isGrown = externalIsGrown !== undefined ? externalIsGrown : internalIsGrown;
   const setIsGrown = (value: boolean) => {
@@ -3270,7 +3385,9 @@ export function FileCity3D({
           onBuildingHover={handleBuildingHover}
           onBuildingClick={onBuildingClick}
           hoveredBuilding={hoveredBuilding}
-          selectedBuilding={selectedBuilding}
+          selectedBuilding={resolvedSelection.building}
+          selectedDistrict={resolvedSelection.district}
+          selectionStyle={selectionStyle}
           growProgress={growProgress}
           animationConfig={animationConfig}
           highlightLayers={highlightLayers}
@@ -3288,7 +3405,7 @@ export function FileCity3D({
           onCameraReady={() => setCameraReady(true)}
         />
       </Canvas>
-      <InfoPanel building={selectedBuilding} />
+      <InfoPanel building={resolvedSelection.building} />
       {showControls && (
         <ControlsOverlay
           isFlat={!isGrown}

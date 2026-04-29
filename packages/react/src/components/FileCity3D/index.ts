@@ -27,6 +27,7 @@ export type {
   HeightScaling,
   FlatPattern,
   ElevatedScopePanel,
+  SelectionStyle,
   CityData,
   CityBuilding,
   CityDistrict,

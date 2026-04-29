@@ -190,7 +190,8 @@ export const RecoloredAndTranslucent: Story = {
 };
 
 // ---------------------------------------------------------------------------
-// Selection ring
+// Selection ring (now a first-class `selectedPath` prop on FileCity3D —
+// kept here as a regression demo so the panel/ring composition stays visible).
 // ---------------------------------------------------------------------------
 
 const SELECTED_FOLDER = 'electron-app/src';
@@ -199,37 +200,17 @@ const SELECTION_RING_COLOR = '#fbbf24';
 export const WithSelectionRing: Story = {
   args: {
     ...baseArgs,
-    elevatedScopePanels: (() => {
-      const panels = panelsFor(TOP_LEVEL);
-      const idx = panels.findIndex(p => p.id === `folder::${SELECTED_FOLDER}`);
-      if (idx < 0) return panels;
-      const target = panels[idx];
-      const inflate = 4;
-      const ring: ElevatedScopePanel = {
-        id: `folder-border::${SELECTED_FOLDER}`,
-        color: SELECTION_RING_COLOR,
-        height: (target.height ?? 4) - 2,
-        thickness: 1,
-        bounds: {
-          minX: target.bounds.minX - inflate,
-          maxX: target.bounds.maxX + inflate,
-          minZ: target.bounds.minZ - inflate,
-          maxZ: target.bounds.maxZ + inflate,
-        },
-      };
-      const next = [...panels];
-      next.splice(idx, 0, ring);
-      return next;
-    })(),
+    elevatedScopePanels: panelsFor(TOP_LEVEL),
+    selectedPath: SELECTED_FOLDER,
+    selectionStyle: { color: SELECTION_RING_COLOR },
   },
   parameters: {
     docs: {
       description: {
         story:
-          'Insert an inflated, lower-height panel just *before* the target ' +
-          'umbrella so only its rim peeks out — the selection-ring pattern ' +
-          'used by FileCityExplorer. Order matters: the ring must come ' +
-          'first so the umbrella draws on top of its centre.',
+          '`selectedPath` resolves to a district, so FileCity3D draws the ' +
+          'selection ring above the umbrella covering that district. ' +
+          'Replaces the older inflate-a-panel-underneath-the-umbrella trick.',
       },
     },
   },

@@ -1570,39 +1570,10 @@ const FileCityExplorerTemplate: React.FC = () => {
       const displayLabel = folderPath ? areaNameByCityPath.get(folderPath) : undefined;
       return displayLabel ? { ...panel, displayLabel } : panel;
     });
-    // Selection indicator: render a thin, slightly-larger panel underneath
-    // the selected folder's umbrella so an accent ring peeks out around its
-    // edges. Inserted *before* the umbrella in the list so the umbrella
-    // draws on top — only the inflated rim shows. If the folder is expanded
-    // (no umbrella in the panel list) findIndex returns -1 and no ring is
-    // drawn, which is exactly what we want.
-    if (selectedPanelFolder) {
-      const idx = panels.findIndex(p => p.id === `folder::${selectedPanelFolder}`);
-      if (idx >= 0) {
-        const target = panels[idx];
-        const inflate = 4;
-        const border: ElevatedScopePanel = {
-          id: `folder-border::${selectedPanelFolder}`,
-          color: '#fbbf24',
-          height: (target.height ?? 4) - 2,
-          thickness: 1,
-          bounds: {
-            minX: target.bounds.minX - inflate,
-            maxX: target.bounds.maxX + inflate,
-            minZ: target.bounds.minZ - inflate,
-            maxZ: target.bounds.maxZ + inflate,
-          },
-        };
-        const next = [...panels];
-        next.splice(idx, 0, border);
-        return next;
-      }
-    }
 
     return panels.length > 0 ? panels : undefined;
   }, [
     activeTab,
-    selectedPanelFolder,
     treeModel,
     folderTreeExpansion,
     setFocusDirectoryIfUnpinned,
@@ -1829,6 +1800,8 @@ const FileCityExplorerTemplate: React.FC = () => {
             focusDirectory={focusDirectory}
             highlightLayers={cityHighlightLayers}
             elevatedScopePanels={cityElevatedPanels ?? folderElevatedPanels}
+            selectedPath={activeTab === 'files' ? selectedPanelFolder : null}
+            selectionStyle={{ color: '#fbbf24' }}
             onBuildingClick={handleBuildingClick}
             animation={{
               startFlat: true,
