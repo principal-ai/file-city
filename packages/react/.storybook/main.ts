@@ -25,12 +25,28 @@ const config: StorybookConfig = {
     },
   },
   viteFinal: async config => {
-    // Add alias for the local builder package
     config.resolve = config.resolve || {};
     config.resolve.alias = {
       ...config.resolve.alias,
       '@principal-ai/file-city-builder': resolve(__dirname, '../../builder/dist/index.js'),
     };
+    config.resolve.dedupe = [
+      ...(config.resolve.dedupe ?? []),
+      'zustand',
+      '@react-three/fiber',
+      '@react-three/drei',
+      'three',
+      'react',
+      'react-dom',
+    ];
+    config.optimizeDeps = config.optimizeDeps || {};
+    config.optimizeDeps.include = [
+      ...(config.optimizeDeps.include ?? []),
+      '@react-three/fiber',
+      '@react-three/drei',
+      'zustand',
+      'three',
+    ];
     return config;
   },
 };
