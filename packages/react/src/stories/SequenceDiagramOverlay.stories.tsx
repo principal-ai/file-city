@@ -20,9 +20,9 @@ const meta = {
 export default meta;
 
 /**
- * Hand-tagged auth-server flow: each event carries a `filePath` in its
- * `data` bag pointing at a real building in the auth-server city data.
- * Clicking a step in the diagram drives `selectedPath` on the city below.
+ * Hand-tagged auth-server flow: each event carries a `sourcePath` pointing
+ * at a real building in the auth-server city data. Clicking a step in the
+ * diagram drives a HighlightLayer on the matching building below.
  */
 const AUTH_FLOW: { events: SequenceEvent[]; edges: SequenceEdge[] } = {
   events: [
@@ -30,71 +30,61 @@ const AUTH_FLOW: { events: SequenceEvent[]; edges: SequenceEdge[] } = {
       id: '1',
       name: 'request.middleware.intercepted',
       label: 'Middleware Intercepts',
-      data: { filePath: 'auth-server/src/middleware.ts' },
+      sourcePath: 'auth-server/src/middleware.ts',
     },
     {
       id: '2',
       name: 'workos.start.requested',
       label: 'Start WorkOS Auth',
-      data: {
-        filePath: 'auth-server/src/app/api/auth/workos/start/route.ts',
-      },
+      sourcePath: 'auth-server/src/app/api/auth/workos/start/route.ts',
     },
     {
       id: '3',
       name: 'workos.callback.received',
       label: 'Callback Received',
-      data: {
-        filePath: 'auth-server/src/app/api/auth/workos/callback/route.ts',
-      },
+      sourcePath: 'auth-server/src/app/api/auth/workos/callback/route.ts',
     },
     {
       id: '4',
       name: 'workos.token.exchanged',
       label: 'Exchange Code → Token',
-      data: {
-        filePath: 'auth-server/src/app/api/auth/workos/token/route.ts',
-      },
+      sourcePath: 'auth-server/src/app/api/auth/workos/token/route.ts',
     },
     {
       id: '5',
       name: 'token.stored',
       label: 'Persist Token',
-      data: { filePath: 'auth-server/src/lib/token-store.ts' },
+      sourcePath: 'auth-server/src/lib/token-store.ts',
     },
     {
       id: '6',
       name: 'session.created',
       label: 'Create Session',
-      data: { filePath: 'auth-server/src/lib/auth-session-manager.ts' },
+      sourcePath: 'auth-server/src/lib/auth-session-manager.ts',
     },
     {
       id: '7',
       name: 'org.membership.checked',
       label: 'Check Org Membership',
-      data: { filePath: 'auth-server/src/lib/org-membership.ts' },
+      sourcePath: 'auth-server/src/lib/org-membership.ts',
     },
     {
       id: '8',
       name: 'cli.room-token.minted',
       label: 'Mint CLI Room Token',
-      data: {
-        filePath: 'auth-server/src/app/api/auth/cli/room-token/route.ts',
-      },
+      sourcePath: 'auth-server/src/app/api/auth/cli/room-token/route.ts',
     },
     {
       id: '9',
       name: 'workos.token.verified',
       label: 'Verify Token',
-      data: {
-        filePath: 'auth-server/src/app/api/auth/workos/verify/route.ts',
-      },
+      sourcePath: 'auth-server/src/app/api/auth/workos/verify/route.ts',
     },
     {
       id: '10',
       name: 'user.fetched',
       label: 'Fetch User',
-      data: { filePath: 'auth-server/src/app/api/auth/user/route.ts' },
+      sourcePath: 'auth-server/src/app/api/auth/user/route.ts',
     },
   ],
   edges: [
@@ -118,7 +108,7 @@ const COLLAPSE_MS = 320;
 export const Default: Story = {
   render: () => {
     const cityData = useMemo(() => authServerCityData as CityData, []);
-    const [opacity, setOpacity] = useState(0.85);
+    const [opacity, setOpacity] = useState(1);
     const [interactive, setInteractive] = useState(true);
     const [collapsed, setCollapsed] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
@@ -134,9 +124,7 @@ export const Default: Story = {
 
     const selectedPath = useMemo(() => {
       if (!selectedEventId) return null;
-      const e = eventById.get(selectedEventId);
-      const fp = e?.data?.filePath;
-      return typeof fp === 'string' ? fp : null;
+      return eventById.get(selectedEventId)?.sourcePath ?? null;
     }, [selectedEventId, eventById]);
 
     const highlightLayers = useMemo<HighlightLayer[]>(() => {
@@ -261,6 +249,8 @@ export const Default: Story = {
               left: 0,
               right: 0,
               bottom: 0,
+              backgroundColor: '#0b0f14',
+              borderTop: '1px solid #1f2937',
               opacity: collapsed ? 0 : opacity,
               pointerEvents: interactive && !collapsed ? 'auto' : 'none',
               transition: `opacity ${COLLAPSE_MS}ms ease`,
@@ -274,7 +264,6 @@ export const Default: Story = {
               showControls={false}
               showBackground={false}
               stickyHeaders
-              showEventLabels
               selectedNodeId={selectedEventId ?? undefined}
               onNodeClick={handleNodeClick}
             />

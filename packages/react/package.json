@@ -30,7 +30,7 @@
     "@principal-ade/industry-theme": "^0.1.19",
     "@principal-ai/file-city-builder": "^0.4.5",
     "@principal-ai/principal-view-core": "^0.28.5",
-    "@principal-ai/principal-view-react": "^0.15.3",
+    "@principal-ai/principal-view-react": "^0.15.5",
     "@react-spring/three": "^10.0.3",
     "@react-three/drei": "^10.0.6",
     "@react-three/fiber": "^9.1.2",
