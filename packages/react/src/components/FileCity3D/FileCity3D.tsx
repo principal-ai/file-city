@@ -1411,9 +1411,16 @@ export interface CameraControlsConfig {
   rotateSpeed?: number;
   /** Zoom speed multiplier. Default: 1 */
   zoomSpeed?: number;
+  /** Closest the camera can get to its target (world units). Default: 10. */
+  minDistance?: number;
+  /** Farthest the camera can get from its target (world units). Default:
+   *  `citySize * 3`. Override with a larger value when consumers need to
+   *  zoom out beyond that — e.g. fitting the city into a small canvas
+   *  sub-rect via `setCameraFlatView`. */
+  maxDistance?: number;
 }
 
-export const DEFAULT_CAMERA_CONTROLS: Required<Omit<CameraControlsConfig, 'panSpeed' | 'rotateSpeed' | 'zoomSpeed'>> & Pick<CameraControlsConfig, 'panSpeed' | 'rotateSpeed' | 'zoomSpeed'> = {
+export const DEFAULT_CAMERA_CONTROLS: Required<Omit<CameraControlsConfig, 'panSpeed' | 'rotateSpeed' | 'zoomSpeed' | 'minDistance' | 'maxDistance'>> & Pick<CameraControlsConfig, 'panSpeed' | 'rotateSpeed' | 'zoomSpeed' | 'minDistance' | 'maxDistance'> = {
   leftDrag: 'pan',
   rightDrag: 'rotate',
   middleDrag: 'zoom',
@@ -2335,13 +2342,20 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
 
   return (
     <>
-      <PerspectiveCamera makeDefault fov={50} near={1} far={citySize * 10} />
+      <PerspectiveCamera
+        makeDefault
+        fov={50}
+        near={1}
+        // far must comfortably exceed the camera's maxDistance, otherwise
+        // the city clips out of view when consumers raise maxDistance.
+        far={Math.max(citySize * 10, (controlsConfig.maxDistance ?? citySize * 3) * 1.5)}
+      />
       <MapControls
         ref={controlsRef}
         enableDamping
         dampingFactor={0.05}
-        minDistance={10}
-        maxDistance={citySize * 3}
+        minDistance={controlsConfig.minDistance ?? 10}
+        maxDistance={controlsConfig.maxDistance ?? citySize * 3}
         maxPolarAngle={Math.PI / 2.1}
         mouseButtons={mouseButtons}
         touches={touches}
