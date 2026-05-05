@@ -1902,6 +1902,32 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     // Wait for controls and initialization to complete
     if (!controlsRef.current || !hasAppliedInitial.current) return;
 
+    // [debug] log which branch runs each frame so consumers can identify
+    // unexpected camera mutation when no api.start fired.
+    if (
+      isOrbitingRef.current ||
+      isTiltingRef.current ||
+      isAnimatingRef.current
+    ) {
+      const branch = isOrbitingRef.current
+        ? 'orbit'
+        : isTiltingRef.current
+          ? 'tilt'
+          : 'animating';
+      const w = (
+        globalThis as unknown as { __fileCityFrameLog?: Map<string, number> }
+      ).__fileCityFrameLog ??= new Map<string, number>();
+      const last = w.get(branch) ?? 0;
+      const now = performance.now();
+      if (now - last > 200) {
+        w.set(branch, now);
+        // eslint-disable-next-line no-console
+        console.log(`[useFrame#${branch}]`, {
+          camY: camY.get(),
+          posY: camera.position.y,
+        });
+      }
+    }
     // Handle orbit animation (horizontal rotation along arc)
     if (isOrbitingRef.current && orbitParamsRef.current) {
       const { centerX, centerZ, distance, height } = orbitParamsRef.current;
