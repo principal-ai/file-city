@@ -1768,7 +1768,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
           targetZ: 0,
         };
 
-    console.log('[useEffect] Animating to:', newPos);
+    console.log('[api.start#isFlat-toggle]', newPos);
     api.start({
       camX: newPos.x,
       camY: newPos.y,
@@ -1838,6 +1838,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       };
     }
 
+    console.log('[api.start#focus-target]', { focusTarget, isFlat, newPos });
     api.start({
       camX: newPos.x,
       camY: newPos.y,
@@ -1876,6 +1877,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
         controlsRef.current.update();
 
         // Sync spring to match camera position (use immediate to avoid animation)
+        console.log('[api.start#frame1-immediate]', initialPos);
         api.start({
           camX: initialPos.x,
           camY: initialPos.y,
@@ -1966,6 +1968,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     const targetHeight = citySize * 1.1;
     const targetZ = citySize * 1.3;
 
+    console.log('[api.start#resetToInitial]', { targetHeight, targetZ });
     api.start({
       camX: 0,
       camY: targetHeight,
@@ -1981,6 +1984,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     const distance = Math.max(effectiveSize * 2, 50);
     const height = Math.max(effectiveSize * 1.5, 40);
 
+    console.log('[api.start#moveTo]', { x, z, height, distance });
     api.start({
       camX: x,
       camY: height,
@@ -2012,6 +2016,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
         });
       }
       const config = options?.duration ? { duration: options.duration } : undefined;
+      console.log('[api.start#setFlatView]', { x, z, height, options });
       api.start({
         camX: x,
         camY: height,
@@ -2046,6 +2051,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       ? { duration: options.duration, easing: (t: number) => t }
       : { tension: 60, friction: 20 };
 
+    console.log('[api.start#setTarget]', { x, y, z, newCamX, newCamY, newCamZ });
     api.start({
       camX: newCamX,
       camY: newCamY,
