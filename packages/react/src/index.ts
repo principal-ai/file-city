@@ -72,7 +72,23 @@ export {
 export { ThemeProvider, useTheme } from '@principal-ade/industry-theme';
 
 // 3D visualization component
-export { FileCity3D, resetCamera, DEFAULT_FLAT_PATTERNS } from './components/FileCity3D';
+export {
+  FileCity3D,
+  resetCamera,
+  getCameraAngle,
+  getCameraPosition,
+  getCameraTarget,
+  getCameraTilt,
+  rotateCameraTo,
+  rotateCameraBy,
+  tiltCameraTo,
+  tiltCameraBy,
+  moveCameraTo,
+  setCameraFlatView,
+  setCameraTarget,
+  DEFAULT_FLAT_PATTERNS,
+  DEFAULT_CAMERA_CONTROLS,
+} from './components/FileCity3D';
 export type {
   FileCity3DProps,
   AnimationConfig,
@@ -82,6 +98,12 @@ export type {
   FlatPattern,
   ElevatedScopePanel,
   SelectionStyle,
+  CameraControlsConfig,
+  MouseDragAction,
+  TouchOneAction,
+  TouchTwoAction,
+  WheelAction,
+  OnCameraFrame,
 } from './components/FileCity3D';
 
 // Re-export HighlightLayer from FileCity3D with distinct name to avoid conflict
