@@ -1453,6 +1453,7 @@ function touchTwoAction(action: TouchTwoAction): number | undefined {
 interface CameraApi {
   reset: () => void;
   moveTo: (x: number, z: number, size?: number) => void;
+  setFlatView: (x: number, z: number, height: number, options?: RotateOptions) => void;
   setTarget: (x: number, y: number, z: number, options?: RotateOptions) => void;
   rotateTo: (angleOrDirection: number | 'north' | 'south' | 'east' | 'west', options?: RotateOptions) => void;
   rotateBy: (degrees: number, options?: RotateOptions) => void;
@@ -1472,6 +1473,21 @@ export function resetCamera() {
 
 export function moveCameraTo(x: number, z: number, size?: number) {
   cameraApi?.moveTo(x, z, size);
+}
+
+/**
+ * Position the camera straight overhead a target at a specific height (flat
+ * top-down view). Use to fit the city inside a sub-rect of the canvas — e.g.
+ * when overlays cover part of the viewport. Larger `height` = city appears
+ * smaller; smaller `height` = zoomed in.
+ */
+export function setCameraFlatView(
+  x: number,
+  z: number,
+  height: number,
+  options?: RotateOptions,
+) {
+  cameraApi?.setFlatView(x, z, height, options);
 }
 
 /**
@@ -1968,6 +1984,40 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     });
   }, [citySize, api]);
 
+  // Position the camera directly above a target at a given height (flat /
+  // top-down view). Useful for fitting the city into a visible sub-rect of
+  // the canvas — raise `height` to make the city appear smaller, lower it to
+  // zoom in. Pairs with `setTarget` for pan-only changes.
+  const setFlatView = useCallback(
+    (x: number, z: number, height: number, options?: RotateOptions) => {
+      // MapControls (drag/wheel) mutates camera.position and controls.target
+      // directly without touching our spring. If we don't resync first, a
+      // call here can no-op when the spring's stored values happen to equal
+      // the requested target even though the visible camera is elsewhere.
+      if (controlsRef.current) {
+        api.set({
+          camX: camera.position.x,
+          camY: camera.position.y,
+          camZ: camera.position.z,
+          lookX: controlsRef.current.target.x,
+          lookY: controlsRef.current.target.y,
+          lookZ: controlsRef.current.target.z,
+        });
+      }
+      const config = options?.duration ? { duration: options.duration } : undefined;
+      api.start({
+        camX: x,
+        camY: height,
+        camZ: z + 0.001, // tiny offset to avoid gimbal lock when looking straight down
+        lookX: x,
+        lookY: 0,
+        lookZ: z,
+        ...(config ? { config } : {}),
+      });
+    },
+    [api, camera],
+  );
+
   // Set camera target (look-at point), maintaining current distance and angles
   const setTarget = useCallback((x: number, y: number, z: number, options?: RotateOptions) => {
     // Get current offset from target
@@ -2201,6 +2251,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     cameraApi = {
       reset: resetToInitial,
       moveTo,
+      setFlatView,
       setTarget,
       rotateTo,
       rotateBy,
@@ -2214,7 +2265,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     return () => {
       cameraApi = null;
     };
-  }, [resetToInitial, moveTo, setTarget, rotateTo, rotateBy, tiltTo, tiltBy, getCurrentPosition, getCurrentTarget, getCurrentAngle, getCurrentTilt]);
+  }, [resetToInitial, moveTo, setFlatView, setTarget, rotateTo, rotateBy, tiltTo, tiltBy, getCurrentPosition, getCurrentTarget, getCurrentAngle, getCurrentTilt]);
 
   // Custom wheel handler for wheel === 'pan'. We disable MapControls' built-in
   // zoom (otherwise it competes with our handler) and handle both axes here:
