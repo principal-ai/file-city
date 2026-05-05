@@ -1902,29 +1902,37 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     // Wait for controls and initialization to complete
     if (!controlsRef.current || !hasAppliedInitial.current) return;
 
-    // [debug] log which branch runs each frame so consumers can identify
-    // unexpected camera mutation when no api.start fired.
-    if (
-      isOrbitingRef.current ||
-      isTiltingRef.current ||
-      isAnimatingRef.current
-    ) {
-      const branch = isOrbitingRef.current
-        ? 'orbit'
-        : isTiltingRef.current
-          ? 'tilt'
-          : 'animating';
+    // [debug] log every frame: which branch is active + spring vs camera
+    // position. Throttled to every 250ms. Catches both spring-driven motion
+    // AND external mutation (when no branch is active but position changes).
+    {
       const w = (
-        globalThis as unknown as { __fileCityFrameLog?: Map<string, number> }
-      ).__fileCityFrameLog ??= new Map<string, number>();
-      const last = w.get(branch) ?? 0;
+        globalThis as unknown as {
+          __fileCityFrameLog?: { last: number; lastY: number };
+        }
+      );
+      w.__fileCityFrameLog ??= { last: 0, lastY: NaN };
+      const log = w.__fileCityFrameLog;
       const now = performance.now();
-      if (now - last > 200) {
-        w.set(branch, now);
+      const yChanged =
+        Math.abs(camera.position.y - log.lastY) > 0.5 ||
+        Number.isNaN(log.lastY);
+      if (now - log.last > 250 && yChanged) {
+        log.last = now;
+        log.lastY = camera.position.y;
+        const branch = isOrbitingRef.current
+          ? 'orbit'
+          : isTiltingRef.current
+            ? 'tilt'
+            : isAnimatingRef.current
+              ? 'animating'
+              : 'idle';
         // eslint-disable-next-line no-console
         console.log(`[useFrame#${branch}]`, {
-          camY: camY.get(),
+          springY: camY.get(),
           posY: camera.position.y,
+          springZ: camZ.get(),
+          posZ: camera.position.z,
         });
       }
     }
