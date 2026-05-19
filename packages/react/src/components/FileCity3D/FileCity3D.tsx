@@ -818,17 +818,14 @@ function InstancedBuildings({
   // Track which buildings should be hidden entirely (1 = hidden, 0 = visible)
   const hiddenRef = useRef<Uint8Array | null>(null);
 
-  // Check if user-supplied highlight layers have any active items. File-color
-  // layers don't count — they're decorative and shouldn't trigger isolation.
   const hasActiveHighlightLayers = useMemo(() => {
     return visibilityLayers.some(layer => layer.enabled && layer.items.length > 0);
   }, [visibilityLayers]);
 
-  // Directories matched by a directory-type item that also contain a file-type
-  // item from any user-supplied layer. Inside these directories, a directory-
-  // only match isn't enough to count as "specifically highlighted" — file-level
-  // matches narrow the visible set, so unmatched siblings get hidden in 'hide'
-  // isolation mode.
+  // Directories matched by a directory-type item from a user-supplied layer
+  // that also contain a file-type item from any user-supplied layer. Inside
+  // these directories, the directory match alone isn't enough to count as
+  // "specifically highlighted" — file-level matches define the visible subset.
   const narrowedDirectories = useMemo(() => {
     const dirs: string[] = [];
     const files: string[] = [];
@@ -887,30 +884,29 @@ function InstancedBuildings({
         ? layerMatches.length > 0
         : true; // No highlights means all are "highlighted"
 
-      // For 'hide' mode, a directory-only match doesn't count as highlighted
-      // when that directory has been narrowed by file-level matches in some
-      // layer — the file-level matches define the visible subset.
+      // A directory match doesn't count as "specifically highlighted" when
+      // that directory has been narrowed by file-level matches — the
+      // file-level matches define the visible subset within it.
       const isSpecificallyHighlighted = hasActiveHighlightLayers
         ? layerMatches.some(m =>
             m.item.type === 'file' || !narrowedDirectories.has(m.item.path),
           )
         : true;
 
-      // Determine collapse/dim/hide behavior based on what's active:
-      // - focusDirectory only: collapse if outside focus
-      // - highlightLayers only (with collapse mode): collapse if not highlighted
-      // - highlightLayers only (with hide mode): hide if not specifically highlighted
-      // - both: collapse if outside focus, dim/hide if in focus but not highlighted
+      // Determine collapse/dim/hide behavior based on what's active. The
+      // "specifically highlighted" check applies in both collapse and hide
+      // modes so directory matches narrowed by file-level matches don't keep
+      // every sibling visible.
       if (focusDirectory && hasActiveHighlightLayers && isolationMode === 'collapse') {
         shouldCollapse = !isInFocusDirectory;
-        shouldDim = isInFocusDirectory && !isHighlighted;
+        shouldDim = isInFocusDirectory && !isSpecificallyHighlighted;
       } else if (focusDirectory && hasActiveHighlightLayers && isolationMode === 'hide') {
         shouldCollapse = !isInFocusDirectory;
         shouldHide = isInFocusDirectory && !isSpecificallyHighlighted;
       } else if (focusDirectory) {
         shouldCollapse = !isInFocusDirectory;
       } else if (hasActiveHighlightLayers && isolationMode === 'collapse') {
-        shouldCollapse = !isHighlighted;
+        shouldCollapse = !isSpecificallyHighlighted;
       } else if (hasActiveHighlightLayers && isolationMode === 'hide') {
         shouldHide = !isSpecificallyHighlighted;
       }
@@ -1323,7 +1319,7 @@ function BuildingIcons({
         const isSpecificallyHighlighted = matches.some(
           m => m.item.type === 'file' || !narrowedDirectories.has(m.item.path),
         );
-        const shouldDim = hasActiveHighlights && !isHighlighted;
+        const shouldDim = hasActiveHighlights && !isSpecificallyHighlighted;
         const shouldHide =
           hasActiveHighlights && isolationMode === 'hide' && !isSpecificallyHighlighted;
         const shouldCollapse = shouldDim && isolationMode === 'collapse';
