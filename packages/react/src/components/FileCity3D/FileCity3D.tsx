@@ -409,6 +409,7 @@ interface BuildingEdgesProps {
   baseOffset: number;
   springDuration: number;
   heightMultipliersRef: React.MutableRefObject<Float32Array | null>;
+  hiddenRef?: React.MutableRefObject<Uint8Array | null>;
 }
 
 function BuildingEdges({
@@ -418,6 +419,7 @@ function BuildingEdges({
   baseOffset,
   springDuration,
   heightMultipliersRef,
+  hiddenRef,
 }: BuildingEdgesProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const startTimeRef = useRef<number | null>(null);
@@ -455,6 +457,16 @@ function BuildingEdges({
 
     edgeData.forEach((edge, idx) => {
       const { x, z, fullHeight, staggerDelayMs, buildingIndex } = edge;
+
+      const isHidden = hiddenRef?.current?.[buildingIndex] === 1;
+
+      if (isHidden) {
+        tempObject.position.set(x, baseOffset, z);
+        tempObject.scale.set(0, 0, 0);
+        tempObject.updateMatrix();
+        meshRef.current!.setMatrixAt(idx, tempObject.matrix);
+        return;
+      }
 
       // Get height multiplier from shared ref (for collapse animation)
       const heightMultiplier = heightMultipliersRef.current?.[buildingIndex] ?? 1;
@@ -759,7 +771,10 @@ interface InstancedBuildingsProps {
   flatPatterns: FlatPattern[];
   staggerIndices: number[];
   focusDirectory: string | null;
+  /** Combined layers (user highlights + filtered file-color layers) — used for fill colors. */
   highlightLayers: HighlightLayer[];
+  /** User-supplied highlight layers only (no file-color layers) — used for visibility decisions. */
+  visibilityLayers: HighlightLayer[];
   isolationMode: IsolationMode;
   defaultBuildingColor?: string;
 }
@@ -785,6 +800,7 @@ function InstancedBuildings({
   staggerIndices,
   focusDirectory,
   highlightLayers,
+  visibilityLayers,
   isolationMode,
   defaultBuildingColor,
 }: InstancedBuildingsProps) {
@@ -799,11 +815,41 @@ function InstancedBuildings({
   // Track dim state for buildings in focus but not highlighted (0 = dimmed, 1 = full)
   const dimMultipliersRef = useRef<Float32Array | null>(null);
   const targetDimRef = useRef<Float32Array | null>(null);
+  // Track which buildings should be hidden entirely (1 = hidden, 0 = visible)
+  const hiddenRef = useRef<Uint8Array | null>(null);
 
-  // Check if highlight layers have any active items
+  // Check if user-supplied highlight layers have any active items. File-color
+  // layers don't count — they're decorative and shouldn't trigger isolation.
   const hasActiveHighlightLayers = useMemo(() => {
-    return highlightLayers.some(layer => layer.enabled && layer.items.length > 0);
-  }, [highlightLayers]);
+    return visibilityLayers.some(layer => layer.enabled && layer.items.length > 0);
+  }, [visibilityLayers]);
+
+  // Directories matched by a directory-type item that also contain a file-type
+  // item from any user-supplied layer. Inside these directories, a directory-
+  // only match isn't enough to count as "specifically highlighted" — file-level
+  // matches narrow the visible set, so unmatched siblings get hidden in 'hide'
+  // isolation mode.
+  const narrowedDirectories = useMemo(() => {
+    const dirs: string[] = [];
+    const files: string[] = [];
+    for (const layer of visibilityLayers) {
+      if (!layer.enabled) continue;
+      for (const item of layer.items) {
+        if (item.type === 'directory') dirs.push(item.path);
+        else if (item.type === 'file') files.push(item.path);
+      }
+    }
+    const narrowed = new Set<string>();
+    for (const dir of dirs) {
+      for (const f of files) {
+        if (f === dir || f.startsWith(dir + '/')) {
+          narrowed.add(dir);
+          break;
+        }
+      }
+    }
+    return narrowed;
+  }, [visibilityLayers]);
 
   // Initialize height and dim multiplier arrays
   useEffect(() => {
@@ -816,40 +862,57 @@ function InstancedBuildings({
         targetMultipliersRef.current = new Float32Array(buildings.length).fill(1);
         dimMultipliersRef.current = new Float32Array(buildings.length).fill(1);
         targetDimRef.current = new Float32Array(buildings.length).fill(1);
+        hiddenRef.current = new Uint8Array(buildings.length);
       }
     }
   }, [buildings.length]);
 
   // Update target multipliers when focusDirectory or highlightLayers change
   useEffect(() => {
-    if (!targetMultipliersRef.current || !targetDimRef.current) return;
+    if (!targetMultipliersRef.current || !targetDimRef.current || !hiddenRef.current) return;
 
     buildings.forEach((building, index) => {
       let shouldCollapse = false;
       let shouldDim = false;
+      let shouldHide = false;
 
       const isInFocusDirectory = focusDirectory
         ? isPathInDirectory(building.path, focusDirectory)
         : true; // No focusDirectory means all are "in focus"
 
+      const layerMatches = hasActiveHighlightLayers
+        ? getLayerMatchesForPath(building.path, visibilityLayers)
+        : [];
       const isHighlighted = hasActiveHighlightLayers
-        ? getHighlightForPath(building.path, highlightLayers) !== null
+        ? layerMatches.length > 0
         : true; // No highlights means all are "highlighted"
 
-      // Determine collapse and dim behavior based on what's active:
+      // For 'hide' mode, a directory-only match doesn't count as highlighted
+      // when that directory has been narrowed by file-level matches in some
+      // layer — the file-level matches define the visible subset.
+      const isSpecificallyHighlighted = hasActiveHighlightLayers
+        ? layerMatches.some(m =>
+            m.item.type === 'file' || !narrowedDirectories.has(m.item.path),
+          )
+        : true;
+
+      // Determine collapse/dim/hide behavior based on what's active:
       // - focusDirectory only: collapse if outside focus
       // - highlightLayers only (with collapse mode): collapse if not highlighted
-      // - both: collapse if outside focus, dim if in focus but not highlighted
+      // - highlightLayers only (with hide mode): hide if not specifically highlighted
+      // - both: collapse if outside focus, dim/hide if in focus but not highlighted
       if (focusDirectory && hasActiveHighlightLayers && isolationMode === 'collapse') {
-        // Both active: collapse if outside focus, dim if in focus but not highlighted
         shouldCollapse = !isInFocusDirectory;
         shouldDim = isInFocusDirectory && !isHighlighted;
+      } else if (focusDirectory && hasActiveHighlightLayers && isolationMode === 'hide') {
+        shouldCollapse = !isInFocusDirectory;
+        shouldHide = isInFocusDirectory && !isSpecificallyHighlighted;
       } else if (focusDirectory) {
-        // Focus only: collapse if outside focus directory
         shouldCollapse = !isInFocusDirectory;
       } else if (hasActiveHighlightLayers && isolationMode === 'collapse') {
-        // Highlight only with collapse: collapse if not highlighted
         shouldCollapse = !isHighlighted;
+      } else if (hasActiveHighlightLayers && isolationMode === 'hide') {
+        shouldHide = !isSpecificallyHighlighted;
       }
 
       // Height: 1.0 = full, 0.05 = flat (collapsed or dimmed)
@@ -861,8 +924,10 @@ function InstancedBuildings({
       // Dim ref controls graying: 0 = gray out, 1 = keep color
       // Collapsed buildings go gray, dimmed buildings keep their color
       targetDimRef.current![index] = shouldCollapse ? 0 : 1;
+      // Hidden ref controls full invisibility (mesh + edges + icon)
+      hiddenRef.current![index] = shouldHide ? 1 : 0;
     });
-  }, [focusDirectory, buildings, highlightLayers, isolationMode, hasActiveHighlightLayers]);
+  }, [focusDirectory, buildings, visibilityLayers, isolationMode, hasActiveHighlightLayers, narrowedDirectories]);
 
   // Pre-compute building data
   const buildingData = useMemo(() => {
@@ -961,6 +1026,16 @@ function InstancedBuildings({
 
     buildingData.forEach((data, instanceIndex) => {
       const { width, depth, fullHeight, x, z, staggerDelayMs } = data;
+
+      const isHidden = hiddenRef.current?.[instanceIndex] === 1;
+
+      if (isHidden) {
+        tempObject.position.set(x, baseOffset, z);
+        tempObject.scale.set(0, 0, 0);
+        tempObject.updateMatrix();
+        meshRef.current!.setMatrixAt(instanceIndex, tempObject.matrix);
+        return;
+      }
 
       // Animate height multiplier towards target
       const currentMultiplier = heightMultipliersRef.current![instanceIndex];
@@ -1089,6 +1164,7 @@ function InstancedBuildings({
         baseOffset={baseOffset}
         springDuration={springDuration}
         heightMultipliersRef={heightMultipliersRef}
+        hiddenRef={hiddenRef}
       />
 
       {/* Border highlights (colored, layer-driven) */}
@@ -1123,6 +1199,8 @@ interface BuildingIconsProps {
   linearScale: number;
   flatPatterns: FlatPattern[];
   highlightLayers: HighlightLayer[];
+  /** User-supplied highlight layers only (excludes file-color layers). */
+  visibilityLayers: HighlightLayer[];
   isolationMode: IsolationMode;
   hasActiveHighlights: boolean;
 }
@@ -1205,9 +1283,34 @@ function BuildingIcons({
   linearScale,
   flatPatterns,
   highlightLayers,
+  visibilityLayers,
   isolationMode,
   hasActiveHighlights,
 }: BuildingIconsProps) {
+  // Same narrowing rule as InstancedBuildings, scoped to user highlight layers
+  // only (file-color layers don't narrow visibility).
+  const narrowedDirectories = useMemo(() => {
+    const dirs: string[] = [];
+    const files: string[] = [];
+    for (const layer of visibilityLayers) {
+      if (!layer.enabled) continue;
+      for (const item of layer.items) {
+        if (item.type === 'directory') dirs.push(item.path);
+        else if (item.type === 'file') files.push(item.path);
+      }
+    }
+    const narrowed = new Set<string>();
+    for (const dir of dirs) {
+      for (const f of files) {
+        if (f === dir || f.startsWith(dir + '/')) {
+          narrowed.add(dir);
+          break;
+        }
+      }
+    }
+    return narrowed;
+  }, [visibilityLayers]);
+
   // Pre-compute buildings with icons
   const buildingsWithIcons = useMemo(() => {
     return buildings
@@ -1215,10 +1318,14 @@ function BuildingIcons({
         const config = getConfigForFile(building);
         if (!config.icon) return null;
 
-        const highlight = getHighlightForPath(building.path, highlightLayers);
-        const isHighlighted = highlight !== null;
+        const matches = getLayerMatchesForPath(building.path, visibilityLayers);
+        const isHighlighted = matches.length > 0;
+        const isSpecificallyHighlighted = matches.some(
+          m => m.item.type === 'file' || !narrowedDirectories.has(m.item.path),
+        );
         const shouldDim = hasActiveHighlights && !isHighlighted;
-        const shouldHide = shouldDim && isolationMode === 'hide';
+        const shouldHide =
+          hasActiveHighlights && isolationMode === 'hide' && !isSpecificallyHighlighted;
         const shouldCollapse = shouldDim && isolationMode === 'collapse';
 
         // Hide icons for buildings that are hidden or collapsed
@@ -1250,12 +1357,13 @@ function BuildingIcons({
   }, [
     buildings,
     centerOffset,
-    highlightLayers,
+    visibilityLayers,
     isolationMode,
     hasActiveHighlights,
     heightScaling,
     linearScale,
     flatPatterns,
+    narrowedDirectories,
   ]);
 
   // Icons are now always rendered (flat or grown)
@@ -1339,14 +1447,6 @@ function DistrictFloor({ district, centerOffset, highlightColor, growProgress }:
         <edgesGeometry args={[new THREE.PlaneGeometry(width, depth)]} attach="geometry" />
         <lineBasicMaterial color={borderColor} linewidth={lineWidth} depthWrite={false} />
       </lineSegments>
-
-      {/* Highlighted floor fill when focused */}
-      {highlightColor && (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, floorY - 0.1, 0]} renderOrder={-2}>
-          <planeGeometry args={[width, depth]} />
-          <meshBasicMaterial color={highlightColor} transparent opacity={0.15} depthWrite={false} />
-        </mesh>
-      )}
 
       {/* Always show directory name label */}
       <Text
@@ -1658,7 +1758,6 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     // This will be corrected in Frame 1 if aspect is different
     const initialHeight = calculateFlatCameraHeight(1);
 
-    console.log('[Spring init] Initializing with 2D position, height:', initialHeight);
     return {
       camX: 0,
       camY: initialHeight,
@@ -1668,16 +1767,11 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       lookZ: 0,
       config: { tension: 60, friction: 20 },
       onStart: () => {
-        // Only allow animations after initial setup is complete
         if (hasAppliedInitial.current) {
-          console.log('[Spring onStart] Animation starting - camY:', camY.get());
           isAnimatingRef.current = true;
-        } else {
-          console.log('[Spring onStart] Blocked - initialization not complete');
         }
       },
       onRest: () => {
-        console.log('[Spring onRest] Animation finished');
         isAnimatingRef.current = false;
       },
     };
@@ -1728,23 +1822,11 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   // When isFlat changes from true to false, animate to 3D view
   // Component always starts in 2D, so we only animate the 2D→3D transition
   useEffect(() => {
-    console.log('[useEffect] isFlat:', isFlat, 'prevIsFlat:', prevIsFlatRef.current, 'hasAppliedInitial:', hasAppliedInitial.current);
+    if (!hasAppliedInitial.current) return;
 
-    // Skip until camera is initialized
-    if (!hasAppliedInitial.current) {
-      console.log('[useEffect] Skipping - not initialized yet');
-      return;
-    }
-
-    // Only animate if isFlat changed from true to false (2D → 3D transition)
     const isFlatChanged = prevIsFlatRef.current !== isFlat;
+    if (!isFlatChanged) return;
 
-    if (!isFlatChanged) {
-      console.log('[useEffect] No isFlat change - skipping');
-      return;
-    }
-
-    console.log('[useEffect] isFlat changed from', prevIsFlatRef.current, 'to', isFlat, '- animating transition');
     prevIsFlatRef.current = isFlat;
 
     // Calculate target position for 3D view
@@ -1768,7 +1850,6 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
           targetZ: 0,
         };
 
-    console.log('[api.start#isFlat-toggle]', newPos);
     api.start({
       camX: newPos.x,
       camY: newPos.y,
@@ -1838,7 +1919,6 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       };
     }
 
-    console.log('[api.start#focus-target]', { focusTarget, isFlat, newPos });
     api.start({
       camX: newPos.x,
       camY: newPos.y,
@@ -1860,14 +1940,12 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       // Ensure camera FOV is correct (defaults to 75 before prop applies)
       const perspCam = camera as THREE.PerspectiveCamera;
       if (perspCam.fov !== 50) {
-        console.log('[Frame 1] Correcting FOV from', perspCam.fov, 'to 50');
         perspCam.fov = 50;
         perspCam.updateProjectionMatrix();
       }
 
       // Calculate initial 2D position with correct aspect ratio
       const initialPos = getInitial2DPosition();
-      console.log('[Frame 1] Setting camera to initial 2D position:', initialPos);
 
       camera.position.set(initialPos.x, initialPos.y, initialPos.z);
 
@@ -1877,7 +1955,6 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
         controlsRef.current.update();
 
         // Sync spring to match camera position (use immediate to avoid animation)
-        console.log('[api.start#frame1-immediate]', initialPos);
         api.start({
           camX: initialPos.x,
           camY: initialPos.y,
@@ -1902,40 +1979,6 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     // Wait for controls and initialization to complete
     if (!controlsRef.current || !hasAppliedInitial.current) return;
 
-    // [debug] log every frame: which branch is active + spring vs camera
-    // position. Throttled to every 250ms. Catches both spring-driven motion
-    // AND external mutation (when no branch is active but position changes).
-    {
-      const w = (
-        globalThis as unknown as {
-          __fileCityFrameLog?: { last: number; lastY: number };
-        }
-      );
-      w.__fileCityFrameLog ??= { last: 0, lastY: NaN };
-      const log = w.__fileCityFrameLog;
-      const now = performance.now();
-      const yChanged =
-        Math.abs(camera.position.y - log.lastY) > 0.5 ||
-        Number.isNaN(log.lastY);
-      if (now - log.last > 250 && yChanged) {
-        log.last = now;
-        log.lastY = camera.position.y;
-        const branch = isOrbitingRef.current
-          ? 'orbit'
-          : isTiltingRef.current
-            ? 'tilt'
-            : isAnimatingRef.current
-              ? 'animating'
-              : 'idle';
-        // eslint-disable-next-line no-console
-        console.log(`[useFrame#${branch}]`, {
-          springY: camY.get(),
-          posY: camera.position.y,
-          springZ: camZ.get(),
-          posZ: camera.position.z,
-        });
-      }
-    }
     // Handle orbit animation (horizontal rotation along arc)
     if (isOrbitingRef.current && orbitParamsRef.current) {
       const { centerX, centerZ, distance, height } = orbitParamsRef.current;
@@ -2002,7 +2045,6 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     const targetHeight = citySize * 1.1;
     const targetZ = citySize * 1.3;
 
-    console.log('[api.start#resetToInitial]', { targetHeight, targetZ });
     api.start({
       camX: 0,
       camY: targetHeight,
@@ -2018,7 +2060,6 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     const distance = Math.max(effectiveSize * 2, 50);
     const height = Math.max(effectiveSize * 1.5, 40);
 
-    console.log('[api.start#moveTo]', { x, z, height, distance });
     api.start({
       camX: x,
       camY: height,
@@ -2050,7 +2091,6 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
         });
       }
       const config = options?.duration ? { duration: options.duration } : undefined;
-      console.log('[api.start#setFlatView]', { x, z, height, options });
       api.start({
         camX: x,
         camY: height,
@@ -2085,7 +2125,6 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       ? { duration: options.duration, easing: (t: number) => t }
       : { tension: 60, friction: 20 };
 
-    console.log('[api.start#setTarget]', { x, y, z, newCamX, newCamY, newCamZ });
     api.start({
       camX: newCamX,
       camY: newCamY,
@@ -2826,6 +2865,8 @@ interface CitySceneProps {
   growProgress: number;
   animationConfig: AnimationConfig;
   highlightLayers: HighlightLayer[];
+  /** User-supplied highlight layers (no file-color layers) for visibility logic. */
+  visibilityLayers: HighlightLayer[];
   isolationMode: IsolationMode;
   heightScaling: HeightScaling;
   linearScale: number;
@@ -2851,6 +2892,7 @@ function CityScene({
   growProgress,
   animationConfig,
   highlightLayers,
+  visibilityLayers,
   isolationMode,
   heightScaling,
   linearScale,
@@ -2884,7 +2926,7 @@ function CityScene({
     return Math.max(...cityData.buildings.map(b => b.dimensions[1]), 0);
   }, [adaptCameraToBuildings, cityData.buildings]);
 
-  const activeHighlights = useMemo(() => hasActiveHighlights(highlightLayers), [highlightLayers]);
+  const activeHighlights = useMemo(() => hasActiveHighlights(visibilityLayers), [visibilityLayers]);
 
   // Helper to check if a path is inside a directory
   const isPathInDirectory = useCallback((path: string, directory: string) => {
@@ -3168,6 +3210,7 @@ function CityScene({
         staggerIndices={staggerIndices}
         focusDirectory={buildingFocusDirectory}
         highlightLayers={highlightLayers}
+        visibilityLayers={visibilityLayers}
         isolationMode={isolationMode}
         defaultBuildingColor={defaultBuildingColor}
       />
@@ -3180,6 +3223,7 @@ function CityScene({
         linearScale={linearScale}
         flatPatterns={flatPatterns}
         highlightLayers={highlightLayers}
+        visibilityLayers={visibilityLayers}
         isolationMode={isolationMode}
         hasActiveHighlights={activeHighlights}
       />
@@ -3428,6 +3472,13 @@ export function FileCity3D({
   const focusColor = resolved.focusColor;
   const isolationMode = resolved.isolationMode as IsolationMode;
 
+  // User-supplied highlight layers only — used for visibility decisions so
+  // file-color layers don't keep every building visible in 'hide' mode.
+  const visibilityLayers = useMemo(
+    () => (externalHighlightLayers ?? []) as HighlightLayer[],
+    [externalHighlightLayers],
+  );
+
   // `selectedPath` wins over the deprecated `selectedBuilding` when both are
   // set. A path resolves to either a building (file selection) or a district
   // (directory selection) — never both.
@@ -3553,6 +3604,7 @@ export function FileCity3D({
           growProgress={growProgress}
           animationConfig={animationConfig}
           highlightLayers={highlightLayers}
+          visibilityLayers={visibilityLayers}
           isolationMode={isolationMode}
           heightScaling={heightScaling}
           linearScale={linearScale}

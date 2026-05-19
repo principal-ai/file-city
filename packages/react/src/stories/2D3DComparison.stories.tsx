@@ -392,11 +392,41 @@ const testScenarios: TestScenario[] = [
       },
     ],
   },
+  {
+    id: 'S10-dir-plus-files-inside',
+    name: 'S10: Directory + Files Inside',
+    description:
+      'Directory layer on api + file layer for specific routes inside it — directory-only matches inside the dir should be hidden in hide mode',
+    focusDirectory: null,
+    highlightLayers: [
+      {
+        id: 'api-dir-layer',
+        name: 'API Routes (dir)',
+        enabled: true,
+        priority: 0,
+        color: '#3b82f6',
+        items: [{ path: 'auth-server/src/app/api', type: 'directory' as const }],
+      },
+      {
+        id: 'workos-files-layer',
+        name: 'WorkOS Routes (files)',
+        enabled: true,
+        priority: 1,
+        color: '#ec4899',
+        items: [
+          { path: 'auth-server/src/app/api/auth/workos/callback/route.ts', type: 'file' as const },
+          { path: 'auth-server/src/app/api/auth/workos/verify/route.ts', type: 'file' as const },
+          { path: 'auth-server/src/app/api/auth/workos/token/route.ts', type: 'file' as const },
+        ],
+      },
+    ],
+  },
 ];
 
 export const ScenarioComparison: StoryObj = {
   render: function RenderScenarioComparison() {
     const [currentScenarioIndex, setCurrentScenarioIndex] = useState(0);
+    const [isGrown, setIsGrown] = useState(true);
     const scenario = testScenarios[currentScenarioIndex];
     const cityData = authServerCityData as CityData;
 
@@ -521,9 +551,11 @@ export const ScenarioComparison: StoryObj = {
                 fileColorLayers={fileColorLayers}
                 focusDirectory={scenario.focusDirectory}
                 focusColor={scenario.focusColor}
+                isolationMode="hide"
                 width="100%"
                 height="100%"
-                isGrown={true}
+                isGrown={isGrown}
+                onGrowChange={setIsGrown}
                 showControls={true}
                 backgroundColor="#0f1419"
               />
