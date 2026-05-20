@@ -3275,6 +3275,13 @@ export interface FileCity3DProps {
   onGrowChange?: (isGrown: boolean) => void;
   /** Show control buttons (default: false). Use isGrown prop and resetCamera() for programmatic control. */
   showControls?: boolean;
+  /**
+   * Render the built-in selection info panel (filename / dir / size)
+   * for the selected building. Default `true`. Set `false` when the
+   * host already surfaces the same info elsewhere (e.g. a side panel
+   * or brief card) so the corner panel doesn't duplicate it.
+   */
+  showInfoPanel?: boolean;
   /** Highlight layers for focusing on specific files/directories */
   highlightLayers?: HighlightLayer[];
   /** How to handle non-highlighted buildings when highlights are active */
@@ -3393,6 +3400,7 @@ export function FileCity3D({
   isGrown: externalIsGrown,
   onGrowChange,
   showControls = false,
+  showInfoPanel = true,
   elevatedScopePanels,
   dismissingPanelIds,
   onPanelDismissed,
@@ -3617,7 +3625,7 @@ export function FileCity3D({
         />
         {onCameraFrame && <CameraFrameBridge onCameraFrame={onCameraFrame} />}
       </Canvas>
-      <InfoPanel building={resolvedSelection.building} />
+      {showInfoPanel && <InfoPanel building={resolvedSelection.building} />}
       {showControls && (
         <ControlsOverlay
           isFlat={!isGrown}
