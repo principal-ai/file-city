@@ -1,7 +1,7 @@
 {
   "name": "@principal-ai/file-city-cli",
   "version": "0.1.6",
-  "description": "CLI tool for File City tours - validation, creation, and linting",
+  "description": "DEPRECATED — use `@principal-ai/principal-view-cli` `tour` subcommands. CLI tool for File City tours - validation, creation, and linting",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

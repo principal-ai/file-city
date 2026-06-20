@@ -1,5 +1,18 @@
 # @principal-ai/file-city-cli
 
+> ⚠️ **Deprecated.** Tour authoring has moved into the Principal CLI. Use
+> [`@principal-ai/principal-view-cli`](https://www.npmjs.com/package/@principal-ai/principal-view-cli)
+> instead — every command here is now a `tour` subcommand:
+>
+> | Old | New |
+> | --- | --- |
+> | `npx @principal-ai/file-city-cli init …` | `npx @principal-ai/principal-view-cli tour init …` |
+> | `npx @principal-ai/file-city-cli validate …` | `npx @principal-ai/principal-view-cli tour validate …` |
+> | `npx @principal-ai/file-city-cli stats …` | `npx @principal-ai/principal-view-cli tour stats …` |
+>
+> This package will receive no further updates. The docs below are retained for
+> reference only.
+
 Command-line tool for creating, validating, and managing introduction tours for File City visualizations.
 
 ## Installation
