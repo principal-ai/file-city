@@ -426,7 +426,10 @@ const testScenarios: TestScenario[] = [
 export const ScenarioComparison: StoryObj = {
   render: function RenderScenarioComparison() {
     const [currentScenarioIndex, setCurrentScenarioIndex] = useState(0);
-    const [isGrown, setIsGrown] = useState(true);
+    // Start flat (2D, top-down) to match the 2D canvas on the left. `isGrown`
+    // begins false and `animation.startFlat`/`autoStartDelay: null` keeps the
+    // component from auto-growing into 3D on mount.
+    const [isGrown, setIsGrown] = useState(false);
     const scenario = testScenarios[currentScenarioIndex];
     const cityData = authServerCityData as CityData;
 
@@ -556,6 +559,7 @@ export const ScenarioComparison: StoryObj = {
                 height="100%"
                 isGrown={isGrown}
                 onGrowChange={setIsGrown}
+                animation={{ startFlat: true, autoStartDelay: null }}
                 showControls={true}
                 backgroundColor="#0f1419"
               />

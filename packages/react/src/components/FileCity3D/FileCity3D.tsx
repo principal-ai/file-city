@@ -1736,6 +1736,16 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   const frameCount = useRef(0);
   const hasNotifiedReady = useRef(false);
   const prevIsFlatRef = useRef(isFlat); // Track previous isFlat to detect actual state changes
+  // Always-latest mirrors of isFlat/focusTarget. The resize re-frame effect reads
+  // these but must NOT fire when they change — focus and 2D<->3D have their own
+  // easing effects, and re-triggering the snap-based resize effect on those
+  // changes would override the ease with an instant jump (the "camera snaps
+  // instead of moving" bug). Refs let resize read the current values without
+  // listing them as dependencies.
+  const isFlatRef = useRef(isFlat);
+  isFlatRef.current = isFlat;
+  const focusTargetRef = useRef(focusTarget);
+  focusTargetRef.current = focusTarget;
 
   // The authoritative viewport aspect. Prefer R3F's measured canvas size
   // (`viewportSize`) — it's the source of truth that `perspCam.aspect` is derived
@@ -2022,9 +2032,15 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   // sometimes fits height on reload." Recomputing whenever the measured size
   // changes both fixes that initial race (the real measurement lands as a size
   // change) and keeps the framing correct across genuine panel resizes.
+  //
+  // CRITICAL: this effect depends ONLY on the measured viewport size. It reads
+  // isFlat/focusTarget via refs and must NOT list them as dependencies — it
+  // *snaps* the camera, so firing it on a focus or 2D<->3D change would clobber
+  // the easing animations those changes start (the focus/isFlat effects above)
+  // with an instant jump. That was the "camera snaps instead of moving" bug.
   useEffect(() => {
     if (!hasAppliedInitial.current) return; // the one-shot owns the first framing
-    if (!isFlat) return; // 3D view has its own framing path
+    if (!isFlatRef.current) return; // 3D view has its own framing path
     // Don't fight an active user-driven rotation. (Note: we do NOT bail on the
     // framing spring `isAnimatingRef` — the common case is the real measurement
     // landing one frame after the one-shot, while that very spring is still
@@ -2032,14 +2048,15 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     // frozen at the wrong framing, which was the bug.)
     if (isOrbitingRef.current || isTiltingRef.current) return;
 
-    const pos = focusTarget
+    const focus = focusTargetRef.current;
+    const pos = focus
       ? {
-          x: focusTarget.x,
-          y: fitFlatHeight(focusTarget.width, focusTarget.depth, getViewportAspect()),
-          z: focusTarget.z + 0.001,
-          targetX: focusTarget.x,
+          x: focus.x,
+          y: fitFlatHeight(focus.width, focus.depth, getViewportAspect()),
+          z: focus.z + 0.001,
+          targetX: focus.x,
           targetY: 0,
-          targetZ: focusTarget.z,
+          targetZ: focus.z,
         }
       : getInitial2DPosition();
 
@@ -2058,7 +2075,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       lookZ: pos.targetZ,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewportSize.width, viewportSize.height, isFlat, focusTarget]);
+  }, [viewportSize.width, viewportSize.height]);
 
   // Update camera each frame
   useFrame(() => {
@@ -3133,30 +3150,21 @@ function CityScene({
 
     // Case 1: Going from overview to a directory (null -> dir)
     if (prevFocus === null && focusDirectory !== null) {
-      // Check if camera is already focused on this area via highlight layers
-      const highlightMatchesFocus = highlightLayers.some(
-        layer => layer.enabled && layer.items.some(
-          item => item.type === 'directory' && (
-            item.path === focusDirectory ||
-            focusDirectory.startsWith(item.path + '/')
-          )
-        )
-      );
-
       // Phase 1: Collapse buildings immediately with the new color
       setBuildingFocusDirectory(focusDirectory);
       setBuildingFocusColor(focusColor ?? null);
 
-      if (highlightMatchesFocus) {
-        // Camera is already there, set immediately
+      // Phase 2: After the collapse settles, ease the camera in. We always
+      // stage this — a highlight layer covering the same directory does NOT move
+      // the camera, so the old "highlight matches focus → camera is already
+      // there, set immediately" shortcut set the camera focus at t=0 instead.
+      // That fired the zoom on the same tick as the collapse with no stagger,
+      // making focus+highlight-on-the-same-directory read as an abrupt snap
+      // instead of the staged, eased zoom every other focus change gets.
+      const timer = setTimeout(() => {
         setCameraFocusDirectory(focusDirectory);
-      } else {
-        // Phase 2: After collapse settles, zoom camera in
-        const timer = setTimeout(() => {
-          setCameraFocusDirectory(focusDirectory);
-        }, 600);
-        animationTimersRef.current.push(timer);
-      }
+      }, 600);
+      animationTimersRef.current.push(timer);
       return;
     }
 
