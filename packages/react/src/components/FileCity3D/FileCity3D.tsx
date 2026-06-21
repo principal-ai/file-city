@@ -1465,11 +1465,17 @@ function DistrictFloor({ district, centerOffset, highlightColor, growProgress }:
 interface FocusTarget {
   x: number;
   z: number;
-  size: number; // Approximate size of the focused area
+  size: number; // Approximate size of the focused area (max of width/depth)
+  width: number; // Footprint extent along X
+  depth: number; // Footprint extent along Z
 }
 
 interface AnimatedCameraProps {
   citySize: number;
+  /** City footprint extent along X (for viewport-aware rect framing). */
+  cityWidth: number;
+  /** City footprint extent along Z (for viewport-aware rect framing). */
+  cityDepth: number;
   isFlat: boolean;
   /** Whether the city has content to frame. The one-shot initial framing waits
    * for this so it never locks onto a degenerate (empty) citySize. */
@@ -1695,6 +1701,8 @@ function CameraFrameBridge({ onCameraFrame }: { onCameraFrame?: OnCameraFrame })
 
 const AnimatedCamera = React.memo(function AnimatedCamera({
   citySize,
+  cityWidth,
+  cityDepth,
   isFlat,
   cityReady = true,
   focusTarget,
@@ -1706,6 +1714,10 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   // This prevents re-renders on pointer movement
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
+  // Subscribe to the measured canvas size so the flat overview re-frames when the
+  // viewport aspect changes (resize, or the first real measurement landing after
+  // the one-shot). Only changes on resize, so it doesn't cause pointer-move churn.
+  const viewportSize = useThree((state) => state.size);
   const controlsConfig = useMemo(
     () => ({ ...DEFAULT_CAMERA_CONTROLS, ...cameraControls }),
     [cameraControls],
@@ -1713,33 +1725,61 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
   const isAnimatingRef = useRef(false);
+  // Only let the position spring drive the camera when WE start a deliberate
+  // transition (focus, 2D<->3D, exported camera moves). react-spring runs a
+  // deferred mount animation toward the `useSpring` seed; without this gate its
+  // onStart would flip `isAnimatingRef` and the per-frame handler would ease the
+  // camera to that stale seed height — the framing bug.
+  const allowSpringDrive = useRef(false);
   const isOrbitingRef = useRef(false);
   const hasAppliedInitial = useRef(false);
   const frameCount = useRef(0);
   const hasNotifiedReady = useRef(false);
   const prevIsFlatRef = useRef(isFlat); // Track previous isFlat to detect actual state changes
 
-  // Helper to calculate flat camera height with known FOV (50) and aspect ratio
-  // Formula: height = citySize / (2 * tan(fov/2) * min(1, aspect))
-  // Padding factor adds space around the city to match 2D component
-  const calculateFlatCameraHeight = useCallback((aspect: number) => {
-    const fov = 50; // Known FOV that will be set on PerspectiveCamera
-    const fovRad = (fov * Math.PI) / 180;
-    const tanHalfFov = Math.tan(fovRad / 2);
-    // Use min(1, aspect) to handle both landscape and portrait viewports
-    const effectiveAspect = Math.min(1, aspect);
-    const baseHeight = citySize / (2 * tanHalfFov * effectiveAspect);
-    // Add padding to match 2D component's default padding
-    const paddingFactor = 1.08;
-    return baseHeight * paddingFactor;
-  }, [citySize]);
-
-  // Calculate initial 2D position (component always starts in 2D mode)
-  // We need aspect ratio from the camera, but we'll use a default until Frame 1
-  const getInitial2DPosition = useCallback(() => {
+  // The authoritative viewport aspect. Prefer R3F's measured canvas size
+  // (`viewportSize`) — it's the source of truth that `perspCam.aspect` is derived
+  // from, and it updates reactively (so the resize effect below re-frames when it
+  // lands). Reading `perspCam.aspect` directly was the root of the "overview
+  // sometimes fits width, sometimes height on reload" bug: R3F sets it in an
+  // effect a beat after measurement, so the one-shot often captured the default 1.
+  const getViewportAspect = useCallback(() => {
+    if (viewportSize.width > 0 && viewportSize.height > 0) {
+      return viewportSize.width / viewportSize.height;
+    }
+    const el = gl.domElement;
+    if (el && el.clientWidth > 0 && el.clientHeight > 0) {
+      return el.clientWidth / el.clientHeight;
+    }
     const perspCam = camera as THREE.PerspectiveCamera;
-    const aspect = perspCam.aspect || 1;
-    const height = calculateFlatCameraHeight(aspect);
+    return perspCam.aspect || 1;
+  }, [viewportSize, gl, camera]);
+
+  // Flat (top-down) camera height that fits a footprint rectangle (width x depth)
+  // into the viewport rectangle for the given aspect. Depth fills the vertical
+  // FOV; width fills the horizontal FOV; whichever needs more height wins, so the
+  // whole footprint is always visible. This replaces the old
+  // `max(width,depth) / (2*tan * min(1,aspect))` form, which framed against a
+  // single dimension and flipped fit-to-width vs fit-to-height at aspect === 1.
+  const fitFlatHeight = useCallback((width: number, depth: number, aspect: number) => {
+    const fovRad = (50 * Math.PI) / 180;
+    const tanHalfFov = Math.tan(fovRad / 2);
+    const safeAspect = aspect > 0 ? aspect : 1;
+    const heightForDepth = depth / (2 * tanHalfFov);
+    const heightForWidth = width / (2 * tanHalfFov * safeAspect);
+    const paddingFactor = 1.08; // ~8% breathing room, matches 2D component
+    return Math.max(heightForDepth, heightForWidth) * paddingFactor;
+  }, []);
+
+  // Calculate flat camera height for the whole-city overview at a given aspect.
+  const calculateFlatCameraHeight = useCallback(
+    (aspect: number) => fitFlatHeight(cityWidth, cityDepth, aspect),
+    [fitFlatHeight, cityWidth, cityDepth],
+  );
+
+  // Calculate initial 2D position (component always starts in 2D mode).
+  const getInitial2DPosition = useCallback(() => {
+    const height = calculateFlatCameraHeight(getViewportAspect());
 
     return {
       x: 0,
@@ -1749,14 +1789,19 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       targetY: 0,
       targetZ: 0,
     };
-  }, [camera, calculateFlatCameraHeight]);
+  }, [calculateFlatCameraHeight, getViewportAspect]);
 
   // Spring animation for camera movement
   // Initialize with correct 2D position from the start
   const [{ camX, camY, camZ, lookX, lookY, lookZ }, api] = useSpring(() => {
-    // Calculate initial position with default aspect ratio
-    // This will be corrected in Frame 1 if aspect is different
-    const initialHeight = calculateFlatCameraHeight(1);
+    // Seed from the REAL measured aspect, not a hardcoded 1. react-spring runs a
+    // deferred mount animation toward whatever this seed is, and that mount
+    // animation always processes after the one-shot — so a hardcoded-aspect seed
+    // (329) becomes the spring's standing goal and pulls the camera back down on
+    // every remount/resize. Seeding from `getViewportAspect()` (which reads the
+    // canvas size that exists from the first frame) makes the standing goal the
+    // correct height, so the mount animation is a no-op instead of a regression.
+    const initialHeight = calculateFlatCameraHeight(getViewportAspect());
 
     return {
       camX: 0,
@@ -1767,12 +1812,13 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       lookZ: 0,
       config: { tension: 60, friction: 20 },
       onStart: () => {
-        if (hasAppliedInitial.current) {
+        if (hasAppliedInitial.current && allowSpringDrive.current) {
           isAnimatingRef.current = true;
         }
       },
       onRest: () => {
         isAnimatingRef.current = false;
+        allowSpringDrive.current = false;
       },
     };
   });
@@ -1850,6 +1896,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
           targetZ: 0,
         };
 
+    allowSpringDrive.current = true;
     api.start({
       camX: newPos.x,
       camY: newPos.y,
@@ -1880,14 +1927,10 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
 
     if (isFlat) {
       if (focusTarget) {
-        const perspCam = camera as THREE.PerspectiveCamera;
-        const aspect = perspCam.aspect || 1;
-        const fovRad = (50 * Math.PI) / 180;
-        const tanHalfFov = Math.tan(fovRad / 2);
-        const effectiveAspect = Math.min(1, aspect);
-        // Same framing math as calculateFlatCameraHeight, but using the focus
-        // region's size instead of citySize so the directory fills the view.
-        const height = (focusTarget.size / (2 * tanHalfFov * effectiveAspect)) * 1.08;
+        // Same rect-fit as the overview, but framing the focused directory's
+        // footprint so it fills the viewport without the single-dimension
+        // over-zoom of the old `size / (2*tan * min(1,aspect))` form.
+        const height = fitFlatHeight(focusTarget.width, focusTarget.depth, getViewportAspect());
         newPos = {
           x: focusTarget.x,
           y: height,
@@ -1919,6 +1962,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       };
     }
 
+    allowSpringDrive.current = true;
     api.start({
       camX: newPos.x,
       camY: newPos.y,
@@ -1969,6 +2013,53 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     });
   }, [citySize, isFlat, focusTarget, getInitial2DPosition, api, camera]);
 
+  // Re-frame the flat view when the viewport aspect changes.
+  //
+  // The flat framing is aspect-dependent but was applied only once (the one-shot)
+  // plus on isFlat/focusTarget/citySize changes — never on resize. So if the
+  // one-shot ran before the canvas had its real measured size (a frame-timing
+  // race), the overview stayed framed for a stale aspect: "sometimes fits width,
+  // sometimes fits height on reload." Recomputing whenever the measured size
+  // changes both fixes that initial race (the real measurement lands as a size
+  // change) and keeps the framing correct across genuine panel resizes.
+  useEffect(() => {
+    if (!hasAppliedInitial.current) return; // the one-shot owns the first framing
+    if (!isFlat) return; // 3D view has its own framing path
+    // Don't fight an active user-driven rotation. (Note: we do NOT bail on the
+    // framing spring `isAnimatingRef` — the common case is the real measurement
+    // landing one frame after the one-shot, while that very spring is still
+    // easing to the stale-aspect target; bailing here would leave the overview
+    // frozen at the wrong framing, which was the bug.)
+    if (isOrbitingRef.current || isTiltingRef.current) return;
+
+    const pos = focusTarget
+      ? {
+          x: focusTarget.x,
+          y: fitFlatHeight(focusTarget.width, focusTarget.depth, getViewportAspect()),
+          z: focusTarget.z + 0.001,
+          targetX: focusTarget.x,
+          targetY: 0,
+          targetZ: focusTarget.z,
+        }
+      : getInitial2DPosition();
+
+    // Snap (not ease) so a resize doesn't read as a zoom animation.
+    camera.position.set(pos.x, pos.y, pos.z);
+    if (controlsRef.current) {
+      controlsRef.current.target.set(pos.targetX, pos.targetY, pos.targetZ);
+      controlsRef.current.update();
+    }
+    api.set({
+      camX: pos.x,
+      camY: pos.y,
+      camZ: pos.z,
+      lookX: pos.targetX,
+      lookY: pos.targetY,
+      lookZ: pos.targetZ,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewportSize.width, viewportSize.height, isFlat, focusTarget]);
+
   // Update camera each frame
   useFrame(() => {
     frameCount.current++;
@@ -1983,6 +2074,15 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     // overview correctly on the first paintable frame, with no wrong-camera flash.
     if (!hasAppliedInitial.current) {
       if (!cityReady || !controlsRef.current) return; // wait until framable
+      // Also wait until the canvas has a real measured size. Framing before the
+      // measurement lands would compute the flat height from the default aspect
+      // (1) and freeze it — the "fits height instead of width in a portrait
+      // viewport" bug. The resize effect above is a safety net, but gating here
+      // frames correctly on the first visible frame with no snap.
+      const measured = viewportSize.width > 0 && viewportSize.height > 0;
+      const domMeasured =
+        gl.domElement && gl.domElement.clientWidth > 0 && gl.domElement.clientHeight > 0;
+      if (!measured && !domMeasured) return;
 
       // Ensure camera FOV is correct (defaults to 75 before prop applies)
       const perspCam = camera as THREE.PerspectiveCamera;
@@ -1998,15 +2098,19 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       controlsRef.current.target.set(initialPos.targetX, initialPos.targetY, initialPos.targetZ);
       controlsRef.current.update();
 
-      // Sync spring to match camera position (use immediate to avoid animation)
-      api.start({
+      // Pin the spring to the framed position. Use `api.set` (not
+      // `api.start({ immediate: true })`): set updates the spring's GOAL and
+      // cancels any pending animation, whereas the immediate-start only jumped
+      // the displayed value — leaving the goal at the `useSpring` seed (the
+      // aspect=1 height) so react-spring's deferred initial animation eased the
+      // camera right back down to it.
+      api.set({
         camX: initialPos.x,
         camY: initialPos.y,
         camZ: initialPos.z,
         lookX: initialPos.targetX,
         lookY: initialPos.targetY,
         lookZ: initialPos.targetZ,
-        immediate: true,
       });
 
       hasAppliedInitial.current = true;
@@ -2088,6 +2192,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     const targetHeight = citySize * 1.1;
     const targetZ = citySize * 1.3;
 
+    allowSpringDrive.current = true;
     api.start({
       camX: 0,
       camY: targetHeight,
@@ -2103,6 +2208,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     const distance = Math.max(effectiveSize * 2, 50);
     const height = Math.max(effectiveSize * 1.5, 40);
 
+    allowSpringDrive.current = true;
     api.start({
       camX: x,
       camY: height,
@@ -2134,6 +2240,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
         });
       }
       const config = options?.duration ? { duration: options.duration } : undefined;
+      allowSpringDrive.current = true;
       api.start({
         camX: x,
         camY: height,
@@ -2168,6 +2275,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       ? { duration: options.duration, easing: (t: number) => t }
       : { tension: 60, friction: 20 };
 
+    allowSpringDrive.current = true;
     api.start({
       camX: newCamX,
       camY: newCamY,
@@ -2477,7 +2585,14 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
         // y≈10 ("zoomed in at the origin"), overriding the init's correct
         // height. Starting at the overview height makes MapControls connect to
         // the right radius regardless of ordering, killing that race.
-        position={[0, calculateFlatCameraHeight(1), 0.001]}
+        //
+        // Use the real viewport aspect, not a hardcoded 1. drei re-applies this
+        // `position` prop on every re-render, so a hardcoded-aspect seed would
+        // clobber the one-shot/resize framing back to the aspect=1 height on the
+        // next render — the "fits height instead of width in portrait" bug. Tied
+        // to `getViewportAspect()` (which depends on the measured `viewportSize`),
+        // the seed re-applies at the correct height once the canvas is measured.
+        position={[0, calculateFlatCameraHeight(getViewportAspect()), 0.001]}
         // far must comfortably exceed the camera's maxDistance, otherwise
         // the city clips out of view when consumers raise maxDistance.
         far={Math.max(citySize * 10, (controlsConfig.maxDistance ?? citySize * 3) * 1.5)}
@@ -2499,12 +2614,16 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     </>
   );
 }, (prevProps, nextProps) => {
-  // Custom comparison: re-render when isFlat, citySize, maxBuildingHeight,
-  // cameraControls, or focusTarget change. focusTarget is included so the
-  // useEffect that animates the camera on focus changes actually fires.
+  // Custom comparison: re-render when isFlat, citySize, cityWidth/cityDepth,
+  // maxBuildingHeight, cameraControls, or focusTarget change. focusTarget is
+  // included so the useEffect that animates the camera on focus changes actually
+  // fires. cityWidth/cityDepth are included because the rect-fit framing depends
+  // on them and they can change while citySize (their max) stays equal.
   return (
     prevProps.isFlat === nextProps.isFlat &&
     prevProps.citySize === nextProps.citySize &&
+    prevProps.cityWidth === nextProps.cityWidth &&
+    prevProps.cityDepth === nextProps.cityDepth &&
     prevProps.maxBuildingHeight === nextProps.maxBuildingHeight &&
     prevProps.cameraControls === nextProps.cameraControls &&
     prevProps.focusTarget === nextProps.focusTarget
@@ -2968,10 +3087,9 @@ function CityScene({
     [cityData.bounds],
   );
 
-  const citySize = Math.max(
-    cityData.bounds.maxX - cityData.bounds.minX,
-    cityData.bounds.maxZ - cityData.bounds.minZ,
-  );
+  const cityWidth = cityData.bounds.maxX - cityData.bounds.minX;
+  const cityDepth = cityData.bounds.maxZ - cityData.bounds.minZ;
+  const citySize = Math.max(cityWidth, cityDepth);
 
   // Calculate max building height for camera positioning (when adaptCameraToBuildings is true)
   const maxBuildingHeight = useMemo(() => {
@@ -3143,9 +3261,11 @@ function CityScene({
 
       const centerX = (minX + maxX) / 2;
       const centerZ = (minZ + maxZ) / 2;
-      const size = Math.max(maxX - minX, maxZ - minZ);
+      const width = maxX - minX;
+      const depth = maxZ - minZ;
+      const size = Math.max(width, depth);
 
-      return { x: centerX, z: centerZ, size };
+      return { x: centerX, z: centerZ, size, width, depth };
     }
 
     // No auto-focus on highlights - camera only moves with explicit focusDirectory
@@ -3192,6 +3312,8 @@ function CityScene({
     <>
       <AnimatedCamera
         citySize={citySize}
+        cityWidth={cityWidth}
+        cityDepth={cityDepth}
         isFlat={growProgress === 0}
         cityReady={cityData.buildings.length > 0}
         focusTarget={focusTarget}
