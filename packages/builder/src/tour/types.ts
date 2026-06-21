@@ -113,6 +113,40 @@ export interface IntroductionTourStep {
 }
 
 /**
+ * A repository a tour is anchored to.
+ *
+ * Tours describe *directories* of a codebase, so the rendered File City is built
+ * from a real working tree — which means a tour needs to name the repo(s) those
+ * directories live in. Git-authored tours could imply this from where the
+ * `*.tour.json` file lived; store-published tours can't, so they carry it here.
+ * Consumers use it to: pick the working tree to render (viewer), bucket/publish
+ * without re-specifying owner/repo (CLI + store), and scope very large repos to
+ * the relevant subtree(s).
+ *
+ * `repos[0]` is the primary repo; additional entries describe a multi-repo tour.
+ */
+export interface TourRepoRef {
+  /** Package URL identifying the repo, e.g. `pkg:github/owner/name`. */
+  id: string;
+  /** Short repo name, e.g. `Backlog.md`. */
+  name: string;
+  /** Git remote coordinates, when known. */
+  remote?: {
+    host: 'github' | 'gitlab' | 'bitbucket';
+    owner: string;
+    name: string;
+  };
+  /**
+   * Subtrees to scope the rendered city to, repo-relative (e.g.
+   * `["packages/cli"]`). Keeps very large repos legible by showing only the
+   * relevant subtree(s). Absent or empty = render the whole repo.
+   */
+  roots?: string[];
+  /** Commit SHA the tour was authored against (provenance / audio keying). */
+  authoredAtSha?: string;
+}
+
+/**
  * Tour metadata
  */
 export interface TourMetadata {
@@ -146,6 +180,14 @@ export interface IntroductionTour {
   coverImage?: string;
   /** Ordered list of steps */
   steps: IntroductionTourStep[];
+  /**
+   * Repositories this tour is anchored to (at least one; `repos[0]` is the
+   * primary). Required: a tour describes directories of a codebase, and once
+   * tours live in the store rather than in a working tree, nothing else records
+   * which repo those directories belong to. The viewer reads this to pick the
+   * working tree to render; the CLI/store use it to resolve and bucket the tour.
+   */
+  repos: TourRepoRef[];
   /** Tour metadata */
   metadata?: TourMetadata;
 }

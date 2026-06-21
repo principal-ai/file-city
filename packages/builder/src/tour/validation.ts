@@ -5,7 +5,7 @@
  * Adapted from industry-themed-file-city-panels/src/utils/tourParser.ts
  */
 
-import type { IntroductionTour, IntroductionTourStep } from './types.js';
+import type { IntroductionTour, IntroductionTourStep, TourRepoRef } from './types.js';
 
 /**
  * Validation error for tour parsing
@@ -264,6 +264,61 @@ function validateStep(step: IntroductionTourStep, index: number): TourValidation
 }
 
 /**
+ * Validates an optional tour repo reference. Lenient by design: `repos` is
+ * optional, but when present each entry must at least carry an `id` and `name`.
+ */
+function validateRepoRef(repo: TourRepoRef, index: number): TourValidationError[] {
+  const errors: TourValidationError[] = [];
+
+  if (!repo.id || typeof repo.id !== 'string') {
+    errors.push(
+      new TourValidationError(`repos[${index}]: Missing or invalid 'id'`, `repos[${index}].id`, repo.id)
+    );
+  }
+  if (!repo.name || typeof repo.name !== 'string') {
+    errors.push(
+      new TourValidationError(`repos[${index}]: Missing or invalid 'name'`, `repos[${index}].name`, repo.name)
+    );
+  }
+
+  if (repo.remote !== undefined) {
+    const validHost =
+      repo.remote.host === 'github' || repo.remote.host === 'gitlab' || repo.remote.host === 'bitbucket';
+    if (!validHost) {
+      errors.push(
+        new TourValidationError(
+          `repos[${index}]: 'remote.host' must be 'github', 'gitlab', or 'bitbucket'`,
+          `repos[${index}].remote.host`,
+          repo.remote.host
+        )
+      );
+    }
+  }
+
+  if (repo.roots !== undefined) {
+    if (!Array.isArray(repo.roots)) {
+      errors.push(
+        new TourValidationError(`repos[${index}]: 'roots' must be an array`, `repos[${index}].roots`, repo.roots)
+      );
+    } else {
+      repo.roots.forEach((root, rootIndex) => {
+        if (typeof root !== 'string' || !isValidRelativePath(root)) {
+          errors.push(
+            new TourValidationError(
+              `repos[${index}], roots[${rootIndex}]: must be a relative path (no leading slash)`,
+              `repos[${index}].roots[${rootIndex}]`,
+              root
+            )
+          );
+        }
+      });
+    }
+  }
+
+  return errors;
+}
+
+/**
  * Validates a complete tour
  */
 function validateTour(tour: IntroductionTour): TourValidationError[] {
@@ -325,6 +380,22 @@ function validateTour(tour: IntroductionTour): TourValidationError[] {
         )
       );
     }
+  }
+
+  // Validate required repos — a tour must name at least one repo it's anchored
+  // to (see IntroductionTour.repos). repos[0] is the primary repo.
+  if (!tour.repos || !Array.isArray(tour.repos) || tour.repos.length === 0) {
+    errors.push(
+      new TourValidationError(
+        "'repos' must contain at least one repository the tour is anchored to",
+        'repos',
+        tour.repos
+      )
+    );
+  } else {
+    tour.repos.forEach((repo, index) => {
+      errors.push(...validateRepoRef(repo, index));
+    });
   }
 
   // Validate optional audience (any string is valid)

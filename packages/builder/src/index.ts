@@ -68,6 +68,7 @@ export type { FileHighlightLayersResult, FileHighlightLayersOptions } from './la
 export type {
   IntroductionTour,
   IntroductionTourStep,
+  TourRepoRef,
   HighlightLayerConfig,
   InteractiveAction,
   InteractiveActionType,
