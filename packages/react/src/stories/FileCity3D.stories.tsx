@@ -17,6 +17,7 @@ import {
   type CityDistrict,
   type HighlightLayer,
   type IsolationMode,
+  type OnCameraFrame,
 } from '../components/FileCity3D';
 import { createFileColorHighlightLayers } from '../utils/fileColorHighlightLayers';
 
@@ -2895,6 +2896,204 @@ export const AsyncDataLoadingTest: Story = {
           'Simulates async data loading (file tree fetch -> build city data -> setState) to reproduce the race condition ' +
           'where the camera would initialize at (0,0,0) before city bounds were available. ' +
           'Click "Reload Data" to test the initialization sequence multiple times.',
+      },
+    },
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Camera-init "stuck zoomed-in" repro — DETERMINISTIC.
+//
+// Symptom (seen when an auto-shown tour opens in web-ade): the top-down
+// overview is correct in every respect — centered, aimed at the origin, tilt 0
+// — EXCEPT the camera height `y`, which is far too low, so the city renders
+// zoomed all the way in ("camera at 0,0,0"). Confirmed from the panel toggle
+// story: a good mount settles at e.g. pos(0, 1158, 0); a bad one at
+// pos(0, 10, 0) — same tgt(0,0,0), same ang/tilt 0.
+//
+// Root cause: the overview height comes only from
+// `getInitial2DPosition()` → `citySize / (2·tan(fov/2)·aspect) · 1.08`.
+// `AnimatedCamera` computes it ONCE, on the first `useFrame`
+// (`frameCount.current === 1`), and the re-frame effect that could redo it
+// depends on `[focusTarget, isFlat]` — NOT `citySize`. So if Frame 1 runs
+// while `cityData.bounds` is still degenerate (a small/empty `citySize`), the
+// tiny height is locked in and is never recomputed when the real city bounds
+// arrive a frame later. (In the panel it's intermittent because Frame 1 only
+// sometimes wins the race against the full city populating.)
+//
+// This harness makes it DETERMINISTIC: it mounts FileCity3D with a degenerate
+// (tiny-bounds) city so Frame 1 locks a tiny height, then delivers the full
+// city ~250ms later. `citySize` jumps from ~8 to ~90, but under the current
+// code the camera height stays at the tiny value — chip goes red. After the fix
+// (re-frame the overview when citySize changes) it should self-correct to the
+// full overview height — chip goes green. "Replay" re-runs the sequence.
+// ---------------------------------------------------------------------------
+
+// Full city (sampleCityData) spans ~90 units → correct overview height ≈ 100.
+// The degenerate city spans 8 units → tiny height ≈ 9. A settled height below
+// this cutoff after the full city arrives means the overview never re-framed.
+const FRAMED_MIN_Y = 40;
+
+// A city whose bounds are momentarily degenerate (collapsed to a tiny span)
+// while the buildings are already present — the state observed in the panel
+// toggle, where the city rendered zoomed-in. Only `bounds` feeds `citySize`/the
+// overview height, so this is all it takes to make Frame 1 lock a tiny height.
+const DEGENERATE_CITY: CityData = {
+  ...sampleCityData,
+  bounds: { minX: -4, maxX: 4, minZ: -4, maxZ: 4 },
+};
+
+type Verdict = 'pending' | 'framed' | 'stuck';
+
+const CameraInitRaceTemplate: React.FC = () => {
+  const [runKey, setRunKey] = React.useState(0);
+  const [grown, setGrown] = React.useState(false);
+  const [readout, setReadout] = React.useState<{
+    x: number;
+    y: number;
+    z: number;
+    w: number;
+    h: number;
+  } | null>(null);
+  const [verdict, setVerdict] = React.useState<Verdict>('pending');
+  const latestYRef = React.useRef(0);
+
+  // Each run: mount with the degenerate city, then deliver the full city after
+  // a beat so Frame 1 has already locked the tiny height.
+  React.useEffect(() => {
+    setGrown(false);
+    setVerdict('pending');
+    setReadout(null);
+    latestYRef.current = 0;
+    const t = setTimeout(() => setGrown(true), 250);
+    return () => clearTimeout(t);
+  }, [runKey]);
+
+  // Verdict ~1.2s after the full city is delivered (enough for any re-frame
+  // animation to settle).
+  React.useEffect(() => {
+    if (!grown) return;
+    const t = setTimeout(() => {
+      setVerdict(latestYRef.current < FRAMED_MIN_Y ? 'stuck' : 'framed');
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [grown]);
+
+  const cityData = grown ? sampleCityData : DEGENERATE_CITY;
+
+  const handleFrame = React.useCallback<OnCameraFrame>((camera, size) => {
+    const { x, y, z } = camera.position;
+    latestYRef.current = y;
+    setReadout({
+      x: Math.round(x * 10) / 10,
+      y: Math.round(y * 10) / 10,
+      z: Math.round(z * 100) / 100,
+      w: size.width,
+      h: size.height,
+    });
+  }, []);
+
+  const verdictColor =
+    verdict === 'framed' ? '#22c55e' : verdict === 'stuck' ? '#ef4444' : '#f59e0b';
+
+  return (
+    <div
+      style={{
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: '#0f172a',
+      }}
+    >
+      <div
+        style={{
+          padding: 12,
+          borderBottom: '1px solid #334155',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          flexWrap: 'wrap',
+          fontFamily: 'system-ui, sans-serif',
+          color: '#e2e8f0',
+        }}
+      >
+        <strong style={{ fontSize: 14 }}>Camera-init stuck-zoom repro</strong>
+
+        <button
+          onClick={() => setRunKey(k => k + 1)}
+          style={{
+            padding: '6px 14px',
+            background: '#3b82f6',
+            color: 'white',
+            border: '1px solid #334155',
+            borderRadius: 6,
+            cursor: 'pointer',
+            fontSize: 13,
+            fontWeight: 600,
+          }}
+        >
+          Replay
+        </button>
+
+        <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#94a3b8' }}>
+          city: {grown ? 'FULL (span ~90)' : 'degenerate bounds (span 8)'}
+        </span>
+
+        <span
+          style={{
+            padding: '4px 10px',
+            borderRadius: 999,
+            background: verdictColor,
+            color: '#0f172a',
+            fontSize: 12,
+            fontWeight: 700,
+          }}
+        >
+          {verdict === 'pending'
+            ? 'OBSERVING…'
+            : verdict === 'framed'
+              ? 'FRAMED OK'
+              : 'STUCK ZOOMED-IN'}
+        </span>
+
+        <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#94a3b8' }}>
+          {readout
+            ? `cam y=${readout.y} (x=${readout.x} z=${readout.z}) · canvas ${readout.w}×${readout.h} · framed when y≳${FRAMED_MIN_Y}`
+            : 'no frames yet'}
+        </span>
+      </div>
+
+      {/* 3D view — props mirror the tour panel (pinned flat via isGrown=false,
+          default animation, controls hidden). */}
+      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        <FileCity3D
+          cityData={cityData}
+          height="100%"
+          width="100%"
+          heightScaling="linear"
+          linearScale={0.5}
+          isGrown={false}
+          showControls={false}
+          backgroundColor="#0f172a"
+          onCameraFrame={handleFrame}
+        />
+      </div>
+    </div>
+  );
+};
+
+export const CameraInitRaceRepro: Story = {
+  render: () => <CameraInitRaceTemplate />,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Regression guard for the "camera stuck zoomed-in at the origin" bug seen when an auto-shown tour opens. ' +
+          'FileCity3D mounts with degenerate bounds (buildings present, span collapsed) so Frame 1 locks a tiny ' +
+          'overview height, then the full bounds arrive ~250ms later. Before the fix, the height was computed once ' +
+          'and never recovered (cam y stuck ~9). With the fix, the overview re-frames when citySize changes and ' +
+          'SNAPS to the correct height (cam y ≈ 100) — no easing zoom-out. The ~250ms delay here exaggerates the ' +
+          'pre-correction window; in the app the bounds arrive within a frame or two. Click "Replay" to re-run.',
       },
     },
   },

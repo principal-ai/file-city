@@ -1471,6 +1471,9 @@ interface FocusTarget {
 interface AnimatedCameraProps {
   citySize: number;
   isFlat: boolean;
+  /** Whether the city has content to frame. The one-shot initial framing waits
+   * for this so it never locks onto a degenerate (empty) citySize. */
+  cityReady?: boolean;
   focusTarget?: FocusTarget | null;
   maxBuildingHeight?: number;
   cameraControls?: CameraControlsConfig;
@@ -1693,6 +1696,7 @@ function CameraFrameBridge({ onCameraFrame }: { onCameraFrame?: OnCameraFrame })
 const AnimatedCamera = React.memo(function AnimatedCamera({
   citySize,
   isFlat,
+  cityReady = true,
   focusTarget,
   maxBuildingHeight = 0,
   cameraControls,
@@ -1926,13 +1930,60 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusTarget, isFlat]);
 
+  // Re-frame the plain top-down overview when `citySize` changes after init.
+  //
+  // The overview height is derived from `citySize` (via getInitial2DPosition)
+  // and is otherwise applied only once, on Frame 1, plus on isFlat/focusTarget
+  // changes — none of which fire when only the city bounds change. So if
+  // FileCity3D's Frame 1 runs while `cityData.bounds` is still degenerate (the
+  // city hasn't fully populated yet), the height is computed from a tiny
+  // `citySize` and stays locked, leaving the camera zoomed in at the origin
+  // even after the real bounds arrive. Recomputing here lets the overview
+  // catch up once the city is in place.
+  const prevCitySizeRef = useRef(citySize);
+  useEffect(() => {
+    if (prevCitySizeRef.current === citySize) return;
+    prevCitySizeRef.current = citySize;
+    // Wait for the one-shot init; it will use the latest citySize.
+    if (!hasAppliedInitial.current) return;
+    // Only correct the plain overview — focus framing and 3D have their own
+    // paths and shouldn't be yanked back to the top-down view.
+    if (!isFlat || focusTarget) return;
+    // Snap to the corrected overview rather than animating: if Frame 1 locked a
+    // height from a stale/degenerate citySize, easing to the right height reads
+    // as a visible zoom-out flash. Setting the camera + controls + spring
+    // directly (the same way Frame 1 does) jumps straight to the right framing.
+    const pos = getInitial2DPosition();
+    camera.position.set(pos.x, pos.y, pos.z);
+    if (controlsRef.current) {
+      controlsRef.current.target.set(pos.targetX, pos.targetY, pos.targetZ);
+      controlsRef.current.update();
+    }
+    api.set({
+      camX: pos.x,
+      camY: pos.y,
+      camZ: pos.z,
+      lookX: pos.targetX,
+      lookY: pos.targetY,
+      lookZ: pos.targetZ,
+    });
+  }, [citySize, isFlat, focusTarget, getInitial2DPosition, api, camera]);
+
   // Update camera each frame
   useFrame(() => {
     frameCount.current++;
 
-    // On Frame 1: Set camera to initial 2D position and mark as ready
-    // Component always starts in 2D mode, so we just need to set the correct position once
-    if (frameCount.current === 1) {
+    // One-shot initial 2D framing. Component always starts in 2D mode, so we
+    // set the correct top-down position once — but on the first frame where the
+    // city is actually framable (has content) AND the controls ref is attached,
+    // not literally frame 1. Firing only on frame 1 meant that if the city
+    // bounds weren't populated yet (or MapControls hadn't mounted), the camera
+    // locked onto a degenerate `citySize` — a tiny height that reads as "zoomed
+    // in at the origin" — and never recovered. Retrying until ready frames the
+    // overview correctly on the first paintable frame, with no wrong-camera flash.
+    if (!hasAppliedInitial.current) {
+      if (!cityReady || !controlsRef.current) return; // wait until framable
+
       // Ensure camera FOV is correct (defaults to 75 before prop applies)
       const perspCam = camera as THREE.PerspectiveCamera;
       if (perspCam.fov !== 50) {
@@ -1944,36 +1995,32 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       const initialPos = getInitial2DPosition();
 
       camera.position.set(initialPos.x, initialPos.y, initialPos.z);
+      controlsRef.current.target.set(initialPos.targetX, initialPos.targetY, initialPos.targetZ);
+      controlsRef.current.update();
 
-      // Wait for controls to be ready, then set target and sync spring
-      if (controlsRef.current) {
-        controlsRef.current.target.set(initialPos.targetX, initialPos.targetY, initialPos.targetZ);
-        controlsRef.current.update();
+      // Sync spring to match camera position (use immediate to avoid animation)
+      api.start({
+        camX: initialPos.x,
+        camY: initialPos.y,
+        camZ: initialPos.z,
+        lookX: initialPos.targetX,
+        lookY: initialPos.targetY,
+        lookZ: initialPos.targetZ,
+        immediate: true,
+      });
 
-        // Sync spring to match camera position (use immediate to avoid animation)
-        api.start({
-          camX: initialPos.x,
-          camY: initialPos.y,
-          camZ: initialPos.z,
-          lookX: initialPos.targetX,
-          lookY: initialPos.targetY,
-          lookZ: initialPos.targetZ,
-          immediate: true,
-        });
+      hasAppliedInitial.current = true;
 
-        hasAppliedInitial.current = true;
-
-        // Notify parent that camera is ready
-        if (!hasNotifiedReady.current && onCameraReady) {
-          hasNotifiedReady.current = true;
-          onCameraReady();
-        }
+      // Notify parent that camera is ready
+      if (!hasNotifiedReady.current && onCameraReady) {
+        hasNotifiedReady.current = true;
+        onCameraReady();
       }
       return;
     }
 
-    // Wait for controls and initialization to complete
-    if (!controlsRef.current || !hasAppliedInitial.current) return;
+    // Wait for controls before driving the camera.
+    if (!controlsRef.current) return;
 
     // Handle orbit animation (horizontal rotation along arc)
     if (isOrbitingRef.current && orbitParamsRef.current) {
@@ -2421,6 +2468,16 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
         makeDefault
         fov={50}
         near={1}
+        // Seed the camera at the top-down overview height from the start.
+        // Without an explicit position the camera mounts at R3F's default
+        // (~distance 5), and MapControls — which connects asynchronously and
+        // clamps to `minDistance` (10) — seeds its orbit radius from that
+        // default. When MapControls finishes connecting AFTER the frame-1
+        // init, it re-applies that radius-10 state and pins the camera at
+        // y≈10 ("zoomed in at the origin"), overriding the init's correct
+        // height. Starting at the overview height makes MapControls connect to
+        // the right radius regardless of ordering, killing that race.
+        position={[0, calculateFlatCameraHeight(1), 0.001]}
         // far must comfortably exceed the camera's maxDistance, otherwise
         // the city clips out of view when consumers raise maxDistance.
         far={Math.max(citySize * 10, (controlsConfig.maxDistance ?? citySize * 3) * 1.5)}
@@ -3136,6 +3193,7 @@ function CityScene({
       <AnimatedCamera
         citySize={citySize}
         isFlat={growProgress === 0}
+        cityReady={cityData.buildings.length > 0}
         focusTarget={focusTarget}
         maxBuildingHeight={maxBuildingHeight}
         cameraControls={cameraControls}
