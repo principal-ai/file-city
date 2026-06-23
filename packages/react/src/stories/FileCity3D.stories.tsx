@@ -1330,7 +1330,8 @@ const TourScenarioTesterTemplate: React.FC = () => {
         isolationMode={scenario.isolationMode}
         dimOpacity={0.12}
         animation={{
-          startFlat: false,
+          startFlat: true,
+          autoStartDelay: null,
           staggerDelay: 8,
           tension: 140,
           friction: 14,

@@ -1724,13 +1724,12 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
+  // Frame-loop drive gate. True only while a deliberate camera move (focus,
+  // 2D<->3D, exported moves) is in flight; set/cleared by `driveCameraTo`. While
+  // false the per-frame handler leaves the camera to MapControls. react-spring's
+  // deferred mount animation toward the seed never flips this, so it can't drag
+  // the camera to the stale seed height.
   const isAnimatingRef = useRef(false);
-  // Only let the position spring drive the camera when WE start a deliberate
-  // transition (focus, 2D<->3D, exported camera moves). react-spring runs a
-  // deferred mount animation toward the `useSpring` seed; without this gate its
-  // onStart would flip `isAnimatingRef` and the per-frame handler would ease the
-  // camera to that stale seed height — the framing bug.
-  const allowSpringDrive = useRef(false);
   const isOrbitingRef = useRef(false);
   const hasAppliedInitial = useRef(false);
   const frameCount = useRef(0);
@@ -1821,17 +1820,51 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       lookY: 0,
       lookZ: 0,
       config: { tension: 60, friction: 20 },
-      onStart: () => {
-        if (hasAppliedInitial.current && allowSpringDrive.current) {
-          isAnimatingRef.current = true;
-        }
-      },
-      onRest: () => {
-        isAnimatingRef.current = false;
-        allowSpringDrive.current = false;
-      },
+      // No onStart/onRest here on purpose. The frame-loop drive gate
+      // (`isAnimatingRef`) is owned by `driveCameraTo` below — set synchronously
+      // when we issue a move, cleared when that move's promise resolves. Driving
+      // the gate from react-spring's async onStart was racy: an `api.set`
+      // (resync/snap) settling the spring fired onRest and cleared the gate
+      // *after* the effect opened it, so the next onStart saw it closed and the
+      // camera never moved (the "focus change freezes" bug).
     };
   });
+
+  // Issue a deliberate camera move and own the frame-loop drive gate directly.
+  // Setting `isAnimatingRef` synchronously here (rather than from the spring's
+  // async onStart) removes the api.set/onStart race entirely. A monotonic token
+  // ensures only the most recent move clears the gate — so rapid step changes
+  // that interrupt each other (their promises resolving `finished:false`) can't
+  // switch driving off while a newer move is still running.
+  const cameraMoveToken = useRef(0);
+  const driveCameraTo = useCallback(
+    (to: Record<string, unknown>) => {
+      if (!hasAppliedInitial.current) return; // one-shot owns the first framing
+      // Resync the spring's stored value to the live camera first. MapControls
+      // (drag/wheel) and the api.set snap paths move the camera without touching
+      // the spring, so its stored value can drift; without this, a target equal
+      // to the stale stored value would be a no-op and leave the visible camera
+      // stranded. Safe now that onRest no longer owns the drive gate.
+      if (controlsRef.current) {
+        api.set({
+          camX: camera.position.x,
+          camY: camera.position.y,
+          camZ: camera.position.z,
+          lookX: controlsRef.current.target.x,
+          lookY: controlsRef.current.target.y,
+          lookZ: controlsRef.current.target.z,
+        });
+      }
+      isAnimatingRef.current = true;
+      const token = ++cameraMoveToken.current;
+      const results = api.start(to as Parameters<typeof api.start>[0]);
+      const promises = (Array.isArray(results) ? results : [results]) as Promise<unknown>[];
+      Promise.all(promises).then(() => {
+        if (cameraMoveToken.current === token) isAnimatingRef.current = false;
+      });
+    },
+    [api, camera],
+  );
 
   // Separate spring for orbit angle animation (animates along horizontal arc)
   const [{ orbitAngle }, orbitApi] = useSpring(() => ({
@@ -1906,8 +1939,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
           targetZ: 0,
         };
 
-    allowSpringDrive.current = true;
-    api.start({
+    driveCameraTo({
       camX: newPos.x,
       camY: newPos.y,
       camZ: newPos.z,
@@ -1972,8 +2004,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       };
     }
 
-    allowSpringDrive.current = true;
-    api.start({
+    driveCameraTo({
       camX: newPos.x,
       camY: newPos.y,
       camZ: newPos.z,
@@ -2209,8 +2240,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     const targetHeight = citySize * 1.1;
     const targetZ = citySize * 1.3;
 
-    allowSpringDrive.current = true;
-    api.start({
+    driveCameraTo({
       camX: 0,
       camY: targetHeight,
       camZ: targetZ,
@@ -2218,15 +2248,14 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       lookY: 0,
       lookZ: 0,
     });
-  }, [citySize, api]);
+  }, [citySize, driveCameraTo]);
 
   const moveTo = useCallback((x: number, z: number, size?: number) => {
     const effectiveSize = size ?? citySize * 0.3;
     const distance = Math.max(effectiveSize * 2, 50);
     const height = Math.max(effectiveSize * 1.5, 40);
 
-    allowSpringDrive.current = true;
-    api.start({
+    driveCameraTo({
       camX: x,
       camY: height,
       camZ: z + distance,
@@ -2234,7 +2263,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       lookY: 0,
       lookZ: z,
     });
-  }, [citySize, api]);
+  }, [citySize, driveCameraTo]);
 
   // Position the camera directly above a target at a given height (flat /
   // top-down view). Useful for fitting the city into a visible sub-rect of
@@ -2242,23 +2271,8 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   // zoom in. Pairs with `setTarget` for pan-only changes.
   const setFlatView = useCallback(
     (x: number, z: number, height: number, options?: RotateOptions) => {
-      // MapControls (drag/wheel) mutates camera.position and controls.target
-      // directly without touching our spring. If we don't resync first, a
-      // call here can no-op when the spring's stored values happen to equal
-      // the requested target even though the visible camera is elsewhere.
-      if (controlsRef.current) {
-        api.set({
-          camX: camera.position.x,
-          camY: camera.position.y,
-          camZ: camera.position.z,
-          lookX: controlsRef.current.target.x,
-          lookY: controlsRef.current.target.y,
-          lookZ: controlsRef.current.target.z,
-        });
-      }
       const config = options?.duration ? { duration: options.duration } : undefined;
-      allowSpringDrive.current = true;
-      api.start({
+      driveCameraTo({
         camX: x,
         camY: height,
         camZ: z + 0.001, // tiny offset to avoid gimbal lock when looking straight down
@@ -2268,7 +2282,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
         ...(config ? { config } : {}),
       });
     },
-    [api, camera],
+    [driveCameraTo],
   );
 
   // Set camera target (look-at point), maintaining current distance and angles
@@ -2292,8 +2306,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       ? { duration: options.duration, easing: (t: number) => t }
       : { tension: 60, friction: 20 };
 
-    allowSpringDrive.current = true;
-    api.start({
+    driveCameraTo({
       camX: newCamX,
       camY: newCamY,
       camZ: newCamZ,
@@ -2302,7 +2315,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       lookZ: z,
       config: animConfig,
     });
-  }, [camera, api]);
+  }, [camera, driveCameraTo]);
 
   // Convert cardinal direction to angle in degrees
   const directionToAngle = (dir: 'north' | 'south' | 'east' | 'west'): number => {
@@ -2587,6 +2600,22 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     TWO: touchTwoAction(controlsConfig.twoFingerTouch),
   }), [controlsConfig.oneFingerTouch, controlsConfig.twoFingerTouch]);
 
+  // Stable seed position for the PerspectiveCamera. drei applies the `position`
+  // prop whenever its reference changes, so a fresh `[0, h, 0.001]` array built
+  // inline on every render re-applied the top-down OVERVIEW on every re-render —
+  // including hover/highlight re-renders while the camera was focused on a
+  // directory and the spring was at rest. With nothing driving the camera back,
+  // that yanked it to the city center ("zoom out all the way on hover"). Memoize
+  // on the only inputs the height actually depends on — the viewport aspect and
+  // the city footprint — so the seed still updates when the canvas measures or
+  // the city resizes (the init-race fix this prop exists for), but stays
+  // referentially stable across unrelated re-renders so drei stops re-applying it.
+  const seedCameraPosition = useMemo<[number, number, number]>(
+    () => [0, calculateFlatCameraHeight(getViewportAspect()), 0.001],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [viewportSize.width, viewportSize.height, cityWidth, cityDepth],
+  );
+
   return (
     <>
       <PerspectiveCamera
@@ -2609,7 +2638,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
         // next render — the "fits height instead of width in portrait" bug. Tied
         // to `getViewportAspect()` (which depends on the measured `viewportSize`),
         // the seed re-applies at the correct height once the canvas is measured.
-        position={[0, calculateFlatCameraHeight(getViewportAspect()), 0.001]}
+        position={seedCameraPosition}
         // far must comfortably exceed the camera's maxDistance, otherwise
         // the city clips out of view when consumers raise maxDistance.
         far={Math.max(citySize * 10, (controlsConfig.maxDistance ?? citySize * 3) * 1.5)}
