@@ -1745,6 +1745,14 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   isFlatRef.current = isFlat;
   const focusTargetRef = useRef(focusTarget);
   focusTargetRef.current = focusTarget;
+  // True once a consumer takes over flat framing via `setFlatView` / `setTarget`
+  // (e.g. the trail panel fitting the city into the band under its overlays).
+  // While set, the citySize / viewport-resize overview correctors below stand
+  // down: their default `getInitial2DPosition()` framing fills the whole canvas
+  // and would clobber the consumer's inset framing on the next resize ("eases to
+  // the right place, then fills the view"). The consumer owns re-framing on
+  // resize via its own size observer. `resetToInitial` hands ownership back.
+  const hostFlatViewRef = useRef(false);
 
   // The authoritative viewport aspect. Prefer R3F's measured canvas size
   // (`viewportSize`) — it's the source of truth that `perspCam.aspect` is derived
@@ -2041,6 +2049,9 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     prevCitySizeRef.current = citySize;
     // Wait for the one-shot init; it will use the latest citySize.
     if (!hasAppliedInitial.current) return;
+    // A consumer owns flat framing (setFlatView/setTarget) — its inset framing
+    // isn't the default overview, so don't correct it; the consumer reframes.
+    if (hostFlatViewRef.current) return;
     // Don't clobber a deliberate move in flight (focus, 2D<->3D, exported
     // setFlatView/moveTo/setTarget). `api.set` here would interrupt that
     // move's spring and strand the camera. Safe under the synchronous gate:
@@ -2088,6 +2099,11 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   useEffect(() => {
     if (!hasAppliedInitial.current) return; // the one-shot owns the first framing
     if (!isFlatRef.current) return; // 3D view has its own framing path
+    // A consumer owns flat framing (setFlatView/setTarget). Reframing to the
+    // default full-canvas overview here would override its inset framing on the
+    // chrome-layout resize that lands right after Start — "eases to the right
+    // place, then fills the view." The consumer reframes off its own observer.
+    if (hostFlatViewRef.current) return;
     // Don't fight an active user-driven rotation...
     if (isOrbitingRef.current || isTiltingRef.current) return;
     // ...nor a deliberate camera move in flight. A host `setFlatView` reframe
@@ -2257,6 +2273,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   });
 
   const resetToInitial = useCallback(() => {
+    hostFlatViewRef.current = false; // hand overview framing back to file-city
     const targetHeight = citySize * 1.1;
     const targetZ = citySize * 1.3;
 
@@ -2291,6 +2308,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   // zoom in. Pairs with `setTarget` for pan-only changes.
   const setFlatView = useCallback(
     (x: number, z: number, height: number, options?: RotateOptions) => {
+      hostFlatViewRef.current = true; // consumer owns flat framing from here on
       const config = options?.duration ? { duration: options.duration } : undefined;
       driveCameraTo({
         camX: x,
@@ -2307,6 +2325,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
 
   // Set camera target (look-at point), maintaining current distance and angles
   const setTarget = useCallback((x: number, y: number, z: number, options?: RotateOptions) => {
+    hostFlatViewRef.current = true; // consumer owns flat framing from here on
     // Get current offset from target
     const currentTargetX = controlsRef.current?.target.x ?? 0;
     const currentTargetY = controlsRef.current?.target.y ?? 0;

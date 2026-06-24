@@ -1,6 +1,6 @@
 {
   "name": "@principal-ai/file-city-react",
-  "version": "0.5.60",
+  "version": "0.5.61",
   "type": "module",
   "description": "React components for File City visualization",
   "main": "dist/index.js",
