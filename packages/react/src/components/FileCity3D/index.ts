@@ -21,6 +21,7 @@ export {
 } from './FileCity3D';
 export type {
   FileCity3DProps,
+  SafeArea,
   AnimationConfig,
   HighlightLayer,
   LayerItem,
