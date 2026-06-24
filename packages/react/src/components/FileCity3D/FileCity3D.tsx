@@ -2253,19 +2253,16 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       });
     }
     // Handle position animation (spring-driven 2D<->3D / focus / imperative moves)
-    else if (isAnimatingRef.current) {
-      camera.position.set(camX.get(), camY.get(), camZ.get());
-      controlsRef.current.target.set(lookX.get(), lookY.get(), lookZ.get());
-      controlsRef.current.update();
-    }
-    // THE flat-framing owner. In flat mode, with no spring move in flight and no
-    // focus override, this is the SINGLE writer of the camera: every frame it
-    // eases toward the one pose `computeFlatPose` defines from the current
-    // footprint + viewport + safeArea. Because it runs after React commit, it
-    // overrides drei re-applying the seed; because it reads inputs live, it
-    // absorbs resize / citySize / safeArea changes with no separate corrector to
-    // compete. It stands down while the user is interacting so MapControls owns
-    // the camera; a reframe trigger re-engages it (see the effect above).
+    // THE flat-framing owner. In flat mode this is the SINGLE writer of the
+    // camera, and it takes PRIORITY over the spring branch below — so a stale
+    // `isAnimatingRef` (a deliberate move whose promise never resolved) can't
+    // starve it and leave an imperative `setFlatView` override unapplied (the
+    // "panel stays full" bug). The spring branch only drives NON-flat moves
+    // (2D<->3D / focus transitions), where `isFlat` is false. The owner eases
+    // toward the one pose `computeFlatPose` defines; runs after React commit (so
+    // it overrides drei re-applying the seed); reads inputs live (absorbing
+    // resize / citySize / safeArea with no separate corrector); and stands down
+    // while the user is interacting so MapControls owns the camera.
     else if (isFlat && !focusTarget && !userInteractingRef.current) {
       // Source of the target pose: an imperative override (setFlatView /
       // setTarget) wins; otherwise the declarative safeArea framing.
@@ -2310,6 +2307,14 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
         lookY: controlsRef.current.target.y,
         lookZ: controlsRef.current.target.z,
       });
+    }
+    // Spring-driven non-flat moves: 2D<->3D and focus transitions, and 3D
+    // setTarget. Only runs when the owner above didn't (i.e. not flat, or a
+    // focus override is active).
+    else if (isAnimatingRef.current) {
+      camera.position.set(camX.get(), camY.get(), camZ.get());
+      controlsRef.current.target.set(lookX.get(), lookY.get(), lookZ.get());
+      controlsRef.current.update();
     }
   });
 
