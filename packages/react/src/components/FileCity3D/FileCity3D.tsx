@@ -1858,9 +1858,19 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       isAnimatingRef.current = true;
       const token = ++cameraMoveToken.current;
       const results = api.start(to as Parameters<typeof api.start>[0]);
-      const promises = (Array.isArray(results) ? results : [results]) as Promise<unknown>[];
-      Promise.all(promises).then(() => {
-        if (cameraMoveToken.current === token) isAnimatingRef.current = false;
+      const promises = (Array.isArray(results) ? results : [results]) as Promise<
+        { finished?: boolean } | undefined
+      >[];
+      Promise.all(promises).then((settled) => {
+        // Only release the gate when the move actually RAN TO COMPLETION. An
+        // `api.set` from the overview-correction effects (citySize / resize)
+        // interrupts the spring and resolves these promises with
+        // `finished:false`; clearing on that would freeze the camera partway
+        // ("moves a little then stops"). A genuinely superseding move bumps the
+        // token, so the stale `.then` is filtered out by the token check below.
+        const finished = settled.every((r) => r?.finished !== false);
+        if (cameraMoveToken.current === token && finished)
+          isAnimatingRef.current = false;
       });
     },
     [api, camera],
@@ -2031,6 +2041,12 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     prevCitySizeRef.current = citySize;
     // Wait for the one-shot init; it will use the latest citySize.
     if (!hasAppliedInitial.current) return;
+    // Don't clobber a deliberate move in flight (focus, 2D<->3D, exported
+    // setFlatView/moveTo/setTarget). `api.set` here would interrupt that
+    // move's spring and strand the camera. Safe under the synchronous gate:
+    // `isAnimatingRef` is false at init, so this never blocks the init-race
+    // correction below.
+    if (isAnimatingRef.current) return;
     // Only correct the plain overview — focus framing and 3D have their own
     // paths and shouldn't be yanked back to the top-down view.
     if (!isFlat || focusTarget) return;
@@ -2072,12 +2088,16 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   useEffect(() => {
     if (!hasAppliedInitial.current) return; // the one-shot owns the first framing
     if (!isFlatRef.current) return; // 3D view has its own framing path
-    // Don't fight an active user-driven rotation. (Note: we do NOT bail on the
-    // framing spring `isAnimatingRef` — the common case is the real measurement
-    // landing one frame after the one-shot, while that very spring is still
-    // easing to the stale-aspect target; bailing here would leave the overview
-    // frozen at the wrong framing, which was the bug.)
+    // Don't fight an active user-driven rotation...
     if (isOrbitingRef.current || isTiltingRef.current) return;
+    // ...nor a deliberate camera move in flight. A host `setFlatView` reframe
+    // (e.g. the trail panel framing the city under its overlays on Start)
+    // resizes the canvas as the chrome lays out; the resulting `api.set` snap
+    // here would interrupt that move's spring and freeze the camera partway.
+    // Under the 0.5.59 synchronous gate, `isAnimatingRef` is false at init, so
+    // bailing here no longer reintroduces the measurement-race freeze the old
+    // comment warned about — the host re-frames against its own size observer.
+    if (isAnimatingRef.current) return;
 
     const focus = focusTargetRef.current;
     const pos = focus
