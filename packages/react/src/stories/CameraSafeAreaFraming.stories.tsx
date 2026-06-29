@@ -111,6 +111,12 @@ const SafeAreaTemplate: React.FC = () => {
   const [safeAreaOn, setSafeAreaOn] = React.useState(false);
   const safeArea = safeAreaOn ? OVERLAY : undefined;
 
+  // Directories live OFF-center (src/components to the right, tests toward the
+  // back), so a focus that respects the safe area must pan the directory into
+  // the green inner rect — not drop it dead-center of the full canvas.
+  const [focusDir, setFocusDir] = React.useState<string | null>(null);
+  const FOCUS_DIRS = ['src', 'src/components', 'tests'];
+
   const [target, setTarget] = React.useState<{ x: number; z: number } | null>(null);
   const [camHeight, setCamHeight] = React.useState<number | null>(null);
   const fitRef = React.useRef<{ x: number; z: number; h: number } | null>(null);
@@ -150,6 +156,10 @@ const SafeAreaTemplate: React.FC = () => {
     setSafeAreaOn(true);
     captureAfterSettle();
   };
+  const focus = (dir: string | null) => {
+    setFocusDir(dir);
+    captureAfterSettle();
+  };
   const clearSafeArea = () => {
     setSafeAreaOn(false);
     setMoved(null);
@@ -165,6 +175,7 @@ const SafeAreaTemplate: React.FC = () => {
         height="100vh"
         showControls={false}
         safeArea={safeArea}
+        focusDirectory={focusDir}
         animation={{ startFlat: true, autoStartDelay: null }}
       />
 
@@ -209,6 +220,25 @@ const SafeAreaTemplate: React.FC = () => {
           <button onClick={clearSafeArea} style={{ ...btn }}>Clear</button>
         </div>
 
+        <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>
+          Focus a directory — with the safe area on it should land inside the
+          green rect, not dead-center of the canvas.
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+          {FOCUS_DIRS.map((dir) => (
+            <button
+              key={dir}
+              onClick={() => focus(dir)}
+              style={{ ...btn, background: focusDir === dir ? '#2563eb' : '#334155', border: '1px solid #3b82f6' }}
+            >
+              {dir}
+            </button>
+          ))}
+          <button onClick={() => focus(null)} style={{ ...btn, background: focusDir === null ? '#2563eb' : '#334155' }}>
+            Overview
+          </button>
+        </div>
+
         <div
           style={{
             marginTop: 4,
@@ -229,7 +259,7 @@ const SafeAreaTemplate: React.FC = () => {
         </div>
 
         <div style={{ fontSize: 11, color: '#94a3b8', borderTop: '1px solid #334155', paddingTop: 8, marginTop: 10 }}>
-          safeArea: {safeAreaOn ? 'on' : 'off'} · target: {target ? `(${target.x}, ${target.z})` : '—'} · height: {camHeight ?? '—'}
+          safeArea: {safeAreaOn ? 'on' : 'off'} · focus: {focusDir ?? 'overview'} · target: {target ? `(${target.x}, ${target.z})` : '—'} · height: {camHeight ?? '—'}
         </div>
       </div>
     </div>
@@ -257,7 +287,7 @@ export const SafeAreaFraming: Story = {
     docs: {
       description: {
         story:
-          'Single-owner declarative framing. Click **Apply safe area** — the per-frame owner eases the city into the green inner rect and holds it (badge **HELD ✓**) across re-renders and resize. **Clear** returns to the full-canvas overview. Drag to pan/zoom; the owner stands down during interaction and re-engages on the next reframe (Apply/Clear/resize).',
+          'Single-owner declarative framing. Click **Apply safe area** — the per-frame owner eases the city into the green inner rect and holds it (badge **HELD ✓**) across re-renders and resize. **Clear** returns to the full-canvas overview. Drag to pan/zoom; the owner stands down during interaction and re-engages on the next reframe (Apply/Clear/resize).\n\nTurn the safe area on, then **Focus a directory** (`src/components`, `tests`) — the focused footprint should be framed inside the green inner rect (clear of the overlay zones), not centered on the full canvas. This exercises the safe-area-aware focus path that routes through the same `computeFlatPose` authority.',
       },
     },
   },

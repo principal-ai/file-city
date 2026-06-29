@@ -1835,8 +1835,15 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   // nothing competes. With no safeArea it is the full-canvas overview.
   // ===========================================================================
   const computeFlatPose = useCallback(
-    (sa?: SafeArea) => {
+    (sa?: SafeArea, footprint?: { width: number; depth: number; centerX: number; centerZ: number }) => {
       const aspect = getViewportAspect();
+      // Default to the whole-city footprint centered at the origin; a focused
+      // directory passes its own footprint + center so the same safe-area math
+      // frames the directory into the inner rect instead of the full city.
+      const fpWidth = footprint?.width ?? cityWidth;
+      const fpDepth = footprint?.depth ?? cityDepth;
+      const cx = footprint?.centerX ?? 0;
+      const cz = footprint?.centerZ ?? 0;
       const clamp01 = (n: number | undefined) => Math.min(0.9, Math.max(0, n ?? 0));
       const l = clamp01(sa?.left);
       const r = clamp01(sa?.right);
@@ -1844,22 +1851,22 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       const b = clamp01(sa?.bottom);
       const fracW = Math.max(0.05, 1 - l - r);
       const fracH = Math.max(0.05, 1 - t - b);
-      // Inflate the footprint by the inset fractions so fitFlatHeight frames the
-      // city into the inner rect rather than the full canvas.
-      const height = fitFlatHeight(cityWidth / fracW, cityDepth / fracH, aspect);
+      // Inflate the footprint by the inset fractions so fitFlatHeight frames it
+      // into the inner rect rather than the full canvas.
+      const height = fitFlatHeight(fpWidth / fracW, fpDepth / fracH, aspect);
       const w = viewportSize.width;
       const h = viewportSize.height;
-      let targetX = 0;
-      let targetZ = 0;
+      let targetX = cx;
+      let targetZ = cz;
       if (w && h && (l || r || t || b)) {
-        // Pan so the city center lands at the inner-rect center. The camera
+        // Pan so the footprint center lands at the inner-rect center. The camera
         // target projects to canvas center; world-per-px is uniform top-down.
         const tanHalfFov = Math.tan((50 * Math.PI) / 180 / 2);
         const worldPerPx = (2 * height * tanHalfFov) / h;
         const visibleCenterX = (l * w + (w - r * w)) / 2;
         const visibleCenterY = (t * h + (h - b * h)) / 2;
-        targetX = (w / 2 - visibleCenterX) * worldPerPx;
-        targetZ = (h / 2 - visibleCenterY) * worldPerPx;
+        targetX = cx + (w / 2 - visibleCenterX) * worldPerPx;
+        targetZ = cz + (h / 2 - visibleCenterY) * worldPerPx;
       }
       return {
         camX: targetX,
@@ -2064,42 +2071,50 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       targetZ: number;
     };
 
+    // FLAT mode: the per-frame owner is the single writer. Feed it an imperative
+    // pose via flatOverrideRef (the focused footprint, or null to fall back to the
+    // safeArea overview) and let it ease there and HOLD it. Routing flat focus
+    // through the spring (driveCameraTo) let the useSpring seed's standing OVERVIEW
+    // goal re-assert and drag the camera back out ("eases in, then fills the whole
+    // view"). The owner runs every frame and overrides the spring, so the seed
+    // can't win. This mirrors how setCameraFlatView frames a sub-rect.
     if (isFlat) {
       if (focusTarget) {
-        // Same rect-fit as the overview, but framing the focused directory's
-        // footprint so it fills the viewport without the single-dimension
-        // over-zoom of the old `size / (2*tan * min(1,aspect))` form.
-        const height = fitFlatHeight(focusTarget.width, focusTarget.depth, getViewportAspect());
-        newPos = {
+        // Same rect-fit as the overview, framing the focused directory's
+        // footprint through the safe-area authority, so the directory lands in the
+        // inner rect (clear of overlay insets) rather than dead center.
+        flatOverrideRef.current = computeFlatPose(safeAreaRef.current, {
+          width: focusTarget.width,
+          depth: focusTarget.depth,
+          centerX: focusTarget.x,
+          centerZ: focusTarget.z,
+        });
+      } else {
+        // Unfocus: drop the override so the owner returns to the safeArea overview.
+        flatOverrideRef.current = null;
+      }
+      userInteractingRef.current = false;
+      return;
+    }
+
+    // 3D mode: animate via the spring (the owner only runs while flat).
+    newPos = focusTarget
+      ? {
           x: focusTarget.x,
-          y: height,
-          z: focusTarget.z + 0.001,
+          y: Math.max(focusTarget.size * 1.5, 40),
+          z: focusTarget.z + Math.max(focusTarget.size * 2, 50),
           targetX: focusTarget.x,
           targetY: 0,
           targetZ: focusTarget.z,
+        }
+      : {
+          x: 0,
+          y: maxBuildingHeight > 0 ? Math.max(citySize * 1.1, maxBuildingHeight * 2.5) : citySize * 1.1,
+          z: citySize * 1.3,
+          targetX: 0,
+          targetY: 0,
+          targetZ: 0,
         };
-      } else {
-        newPos = getInitial2DPosition();
-      }
-    } else if (focusTarget) {
-      newPos = {
-        x: focusTarget.x,
-        y: Math.max(focusTarget.size * 1.5, 40),
-        z: focusTarget.z + Math.max(focusTarget.size * 2, 50),
-        targetX: focusTarget.x,
-        targetY: 0,
-        targetZ: focusTarget.z,
-      };
-    } else {
-      newPos = {
-        x: 0,
-        y: maxBuildingHeight > 0 ? Math.max(citySize * 1.1, maxBuildingHeight * 2.5) : citySize * 1.1,
-        z: citySize * 1.3,
-        targetX: 0,
-        targetY: 0,
-        targetZ: 0,
-      };
-    }
 
     driveCameraTo({
       camX: newPos.x,
@@ -2263,9 +2278,10 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     // it overrides drei re-applying the seed); reads inputs live (absorbing
     // resize / citySize / safeArea with no separate corrector); and stands down
     // while the user is interacting so MapControls owns the camera.
-    else if (isFlat && !focusTarget && !userInteractingRef.current) {
-      // Source of the target pose: an imperative override (setFlatView /
-      // setTarget) wins; otherwise the declarative safeArea framing.
+    else if (isFlat && !userInteractingRef.current) {
+      // Source of the target pose: an imperative override (setFlatView / setTarget,
+      // OR a flat focus on a directory) wins; otherwise the declarative safeArea
+      // framing.
       const pose = flatOverrideRef.current ?? computeFlatPose(safeAreaRef.current);
       // Make sure the controls/projection can actually REACH this pose. A deep
       // inset (small visible band) demands a tall camera; an imperative override
@@ -2703,11 +2719,35 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   // the city footprint — so the seed still updates when the canvas measures or
   // the city resizes (the init-race fix this prop exists for), but stays
   // referentially stable across unrelated re-renders so drei stops re-applying it.
+  //
+  // Seed the SAFE-AREA-INDEPENDENT overview pose, NOT computeFlatPose(safeArea).
+  // drei re-applies this `position` prop whenever the memo's value changes, so
+  // keying it on the insets made every safeArea set/clear snap camera.position
+  // (the height) at commit — before the per-frame owner could ease it. The pan
+  // (controls target) isn't seeded, so it eased while the zoom jumped; on Clear,
+  // where the visible motion IS the zoom, the transition looked like it didn't
+  // animate.
+  //
+  // The seed only needs to give MapControls a sane connect-radius at mount; the
+  // inset framing is owned downstream (the one-shot init snaps to it via
+  // getInitial2DPosition, then the per-frame owner eases to it), and both read
+  // the live safeArea. Because the value is ALWAYS the overview height, drei can
+  // never re-apply an inset height — so the height never snaps, on toggle OR on
+  // resize. The owner owns both axes of the transition; height eases like the pan.
   const seedCameraPosition = useMemo<[number, number, number]>(() => {
-    const p = computeFlatPose(safeArea);
+    const p = computeFlatPose();
     return [p.camX, p.camY, p.camZ];
+    // Depend on the STABLE PRIMITIVE inputs, NOT the `computeFlatPose` callback.
+    // computeFlatPose's identity churns every render (getViewportAspect closes
+    // over the viewportSize OBJECT), so keying the memo on it recomputed the seed
+    // every frame — drei then re-applied the overview camera.position on a loop.
+    // Harmless at the overview (the owner writes the same pose), but during a
+    // focus the owner stands down and this loop yanked the camera back to the
+    // overview ("starts moving then fills the whole thing"). The overview height
+    // only actually changes when the viewport or the city footprint changes, so
+    // those primitives are the real dependencies.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [computeFlatPose, safeArea?.top, safeArea?.bottom, safeArea?.left, safeArea?.right]);
+  }, [viewportSize.width, viewportSize.height, cityWidth, cityDepth]);
 
   // MapControls clamps the camera distance to `maxDistance`. The inset framing
   // raises the camera well above the full-canvas overview (height inflates by
