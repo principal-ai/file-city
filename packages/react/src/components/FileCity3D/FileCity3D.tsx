@@ -1703,6 +1703,7 @@ export function getCameraTilt() {
   return cameraApi?.getCurrentTilt() ?? null;
 }
 
+
 /**
  * Bridge for piping the live camera + canvas size out of the R3F Canvas on
  * every frame. Mounted as a child of `<Canvas>` so it has access to the R3F
@@ -1748,6 +1749,21 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   // deferred mount animation toward the seed never flips this, so it can't drag
   // the camera to the stale seed height.
   const isAnimatingRef = useRef(false);
+  // True only while the user is mid-gesture on MapControls (between onStart and
+  // onEnd). The grown-3D hold owner stands down during the gesture so MapControls
+  // can move freely, then re-asserts the captured pose once the gesture ends.
+  const draggingRef = useRef(false);
+  // Last user-posed grown-3D camera pose, captured on every MapControls change.
+  // The hold owner re-applies this each frame so the re-applied camera seed (and
+  // MapControls residual) can't snap a rotated/zoomed 3D view back to the seed.
+  const held3DPoseRef = useRef<{
+    camX: number;
+    camY: number;
+    camZ: number;
+    lookX: number;
+    lookY: number;
+    lookZ: number;
+  } | null>(null);
   const isOrbitingRef = useRef(false);
   const hasAppliedInitial = useRef(false);
   const frameCount = useRef(0);
@@ -1880,6 +1896,84 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     [getViewportAspect, fitFlatHeight, cityWidth, cityDepth, viewportSize.width, viewportSize.height],
   );
 
+  // ===========================================================================
+  // safeArea-aware 3D (grown) overview framing — the angled analog of
+  // computeFlatPose. Two moves, mirroring the flat authority:
+  //
+  //   1. FIT — pull the rig back so the grown city SHRINKS to fit the safe-area
+  //      inner rect, not just nudge. The camera height that fits a footprint
+  //      scales linearly with the footprint, so the ratio of inset-fit to base-fit
+  //      (the same fracW/fracH inflation computeFlatPose uses) is the distance
+  //      multiplier. camY and camZ scale together, so the tilt/angle is preserved.
+  //   2. PAN — slide the whole rig (camera AND look-at by the same world offset)
+  //      so the city center lands at the inner-rect center instead of canvas center.
+  //
+  // With no insets fitScale is 1 and the pan is 0, so it returns the original
+  // origin-centered overview and unframed consumers see no change.
+  //
+  // Horizontal (X) centering is exact: world X is parallel to the screen at this
+  // azimuth. Vertical centering is first-order: a screen-vertical shift maps to a
+  // world-Z move foreshortened by the camera tilt, so the Z pan is divided by
+  // sin(tilt). Enough to seat the city in the inner rect; not the pixel-exact fit
+  // the top-down path gets.
+  // ===========================================================================
+  const compute3DPose = useCallback(
+    (sa?: SafeArea, footprint?: { centerX: number; centerZ: number }) => {
+      const cx = footprint?.centerX ?? 0;
+      const cz = footprint?.centerZ ?? 0;
+      const baseCamY =
+        maxBuildingHeight > 0 ? Math.max(citySize * 1.1, maxBuildingHeight * 2.5) : citySize * 1.1;
+      const baseCamZ = citySize * 1.3; // camera sits this far behind the look-at on +Z
+      const w = viewportSize.width;
+      const h = viewportSize.height;
+      const clamp01 = (n: number | undefined) => Math.min(0.9, Math.max(0, n ?? 0));
+      const l = clamp01(sa?.left);
+      const r = clamp01(sa?.right);
+      const t = clamp01(sa?.top);
+      const b = clamp01(sa?.bottom);
+      const hasInset = !!(w && h && (l || r || t || b));
+      const aspect = getViewportAspect();
+
+      // FIT: distance multiplier = inset-fit height / base-fit height. The padding
+      // factor in fitFlatHeight cancels in the ratio.
+      const fracW = Math.max(0.05, 1 - l - r);
+      const fracH = Math.max(0.05, 1 - t - b);
+      const fitScale = hasInset
+        ? fitFlatHeight(cityWidth / fracW, cityDepth / fracH, aspect) /
+          Math.max(1e-6, fitFlatHeight(cityWidth, cityDepth, aspect))
+        : 1;
+      const camY = baseCamY * fitScale;
+      const camZ = baseCamZ * fitScale;
+
+      // PAN: convert the inner-rect-center pixel offset to a world shift at the
+      // (scaled) look-at distance.
+      let targetX = cx;
+      let targetZ = cz;
+      if (hasInset) {
+        const tanHalfFov = Math.tan((50 * Math.PI) / 180 / 2);
+        const dist = Math.hypot(camY, camZ);
+        const sinTilt = dist > 0 ? camY / dist : 1;
+        const worldPerPxX = (2 * dist * tanHalfFov * aspect) / w;
+        const worldPerPxY = (2 * dist * tanHalfFov) / h;
+        const visibleCenterX = (l * w + (w - r * w)) / 2;
+        const visibleCenterY = (t * h + (h - b * h)) / 2;
+        // X is parallel to the screen; Z is foreshortened by the tilt, so divide
+        // it back out.
+        targetX = cx + (w / 2 - visibleCenterX) * worldPerPxX;
+        targetZ = cz + ((h / 2 - visibleCenterY) * worldPerPxY) / Math.max(0.2, sinTilt);
+      }
+      return {
+        camX: targetX,
+        camY,
+        camZ: targetZ + camZ,
+        lookX: targetX,
+        lookY: 0,
+        lookZ: targetZ,
+      };
+    },
+    [getViewportAspect, fitFlatHeight, cityWidth, cityDepth, citySize, maxBuildingHeight, viewportSize.width, viewportSize.height],
+  );
+
   // Calculate initial 2D position (component always starts in 2D mode). Derives
   // from the single flat-framing authority above (reads latest safeArea via ref).
   const getInitial2DPosition = useCallback(() => {
@@ -1976,6 +2070,11 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     config: { tension: 80, friction: 18 },
     onStart: () => {
       isOrbitingRef.current = true;
+      // Claim the camera like a manual drag: a programmatic orbit chooses a
+      // heading the grown-3D owner doesn't (the owner pins the framed azimuth),
+      // so without this the owner eases the rotation straight back when the orbit
+      // settles. Holds until the next reframe trigger re-engages the owner.
+      userInteractingRef.current = true;
     },
     onRest: () => {
       isOrbitingRef.current = false;
@@ -1989,6 +2088,8 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     config: { tension: 80, friction: 18 },
     onStart: () => {
       isTiltingRef.current = true;
+      // Same as orbit: a chosen tilt is the user's, so stand the owner down.
+      userInteractingRef.current = true;
     },
     onRest: () => {
       isTiltingRef.current = false;
@@ -2022,7 +2123,9 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
 
     prevIsFlatRef.current = isFlat;
 
-    // Calculate target position for 3D view
+    // Calculate target position for 3D view. The grown overview frames through
+    // compute3DPose so it lands in the safe-area inner rect, not the full canvas.
+    const overview3D = compute3DPose(safeAreaRef.current);
     const newPos = isFlat
       ? getInitial2DPosition() // Going back to 2D
       : focusTarget
@@ -2035,12 +2138,12 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
           targetZ: focusTarget.z,
         }
       : {
-          x: 0,
-          y: maxBuildingHeight > 0 ? Math.max(citySize * 1.1, maxBuildingHeight * 2.5) : citySize * 1.1,
-          z: citySize * 1.3,
-          targetX: 0,
-          targetY: 0,
-          targetZ: 0,
+          x: overview3D.camX,
+          y: overview3D.camY,
+          z: overview3D.camZ,
+          targetX: overview3D.lookX,
+          targetY: overview3D.lookY,
+          targetZ: overview3D.lookZ,
         };
 
     driveCameraTo({
@@ -2097,24 +2200,29 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       return;
     }
 
-    // 3D mode: animate via the spring (the owner only runs while flat).
-    newPos = focusTarget
-      ? {
-          x: focusTarget.x,
-          y: Math.max(focusTarget.size * 1.5, 40),
-          z: focusTarget.z + Math.max(focusTarget.size * 2, 50),
-          targetX: focusTarget.x,
-          targetY: 0,
-          targetZ: focusTarget.z,
-        }
-      : {
-          x: 0,
-          y: maxBuildingHeight > 0 ? Math.max(citySize * 1.1, maxBuildingHeight * 2.5) : citySize * 1.1,
-          z: citySize * 1.3,
-          targetX: 0,
-          targetY: 0,
-          targetZ: 0,
-        };
+    // 3D mode: animate via the spring (the owner only runs while flat). The
+    // unfocused overview frames through compute3DPose so it lands in the
+    // safe-area inner rect rather than the full canvas.
+    if (focusTarget) {
+      newPos = {
+        x: focusTarget.x,
+        y: Math.max(focusTarget.size * 1.5, 40),
+        z: focusTarget.z + Math.max(focusTarget.size * 2, 50),
+        targetX: focusTarget.x,
+        targetY: 0,
+        targetZ: focusTarget.z,
+      };
+    } else {
+      const p = compute3DPose(safeAreaRef.current);
+      newPos = {
+        x: p.camX,
+        y: p.camY,
+        z: p.camZ,
+        targetX: p.lookX,
+        targetY: p.lookY,
+        targetZ: p.lookZ,
+      };
+    }
 
     driveCameraTo({
       camX: newPos.x,
@@ -2146,6 +2254,12 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     flatOverrideRef.current = null;
     userInteractingRef.current = false;
   }, [safeArea?.top, safeArea?.bottom, safeArea?.left, safeArea?.right]);
+
+  // No 3D-specific reframe effect: the grown overview owner in the frame loop
+  // reads safeArea/viewport/footprint LIVE every frame, and the resize/safeArea
+  // effects above already drop userInteractingRef so the owner re-engages after
+  // interaction. Adding a driveCameraTo here would be a second writer competing
+  // with the owner — the exact bug class the single-owner design removes.
 
   // Update camera each frame
   useFrame((_state, delta) => {
@@ -2213,6 +2327,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     // Wait for controls before driving the camera.
     if (!controlsRef.current) return;
 
+
     // Handle orbit animation (horizontal rotation along arc)
     if (isOrbitingRef.current && orbitParamsRef.current) {
       const { centerX, centerZ, distance, height } = orbitParamsRef.current;
@@ -2226,15 +2341,11 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       controlsRef.current.target.set(centerX, 0, centerZ);
       controlsRef.current.update();
 
-      // Sync position spring to current orbit position
-      api.set({
-        camX: newX,
-        camY: height,
-        camZ: newZ,
-        lookX: centerX,
-        lookY: 0,
-        lookZ: centerZ,
-      });
+      // Sync position spring + the held pose to the current orbit position, so the
+      // 3D hold owner re-asserts the rotated pose once the orbit settles.
+      const orbitPose = { camX: newX, camY: height, camZ: newZ, lookX: centerX, lookY: 0, lookZ: centerZ };
+      api.set(orbitPose);
+      held3DPoseRef.current = orbitPose;
     }
     // Handle tilt animation (vertical rotation along arc)
     else if (isTiltingRef.current && tiltParamsRef.current) {
@@ -2257,15 +2368,11 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       controlsRef.current.target.set(centerX, centerY, centerZ);
       controlsRef.current.update();
 
-      // Sync position spring to current tilt position
-      api.set({
-        camX: newX,
-        camY: newY,
-        camZ: newZ,
-        lookX: centerX,
-        lookY: centerY,
-        lookZ: centerZ,
-      });
+      // Sync position spring + held pose to the current tilt position, so the 3D
+      // hold owner re-asserts the tilted pose once the tilt settles.
+      const tiltPose = { camX: newX, camY: newY, camZ: newZ, lookX: centerX, lookY: centerY, lookZ: centerZ };
+      api.set(tiltPose);
+      held3DPoseRef.current = tiltPose;
     }
     // Handle position animation (spring-driven 2D<->3D / focus / imperative moves)
     // THE flat-framing owner. In flat mode this is the SINGLE writer of the
@@ -2324,10 +2431,94 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
         lookZ: controlsRef.current.target.z,
       });
     }
-    // Spring-driven non-flat moves: 2D<->3D and focus transitions, and 3D
-    // setTarget. Only runs when the owner above didn't (i.e. not flat, or a
-    // focus override is active).
-    else if (isAnimatingRef.current) {
+    // THE grown (3D) owner — the angled analog of the flat owner above. It NEVER
+    // fully stands down in 3D (except during an active MapControls gesture), so
+    // there is always a per-frame writer defeating drei re-applying the camera
+    // seed and any MapControls residual — the second-writers that yank a 3D view
+    // back to the seed ("starts to move, then snaps back"). Two modes:
+    //   HOLD  (user has posed it): re-assert their captured pose every frame, so a
+    //         rotate/tilt/zoom/pan sticks instead of being clobbered to the seed.
+    //   FRAME (declarative): ease toward compute3DPose(safeArea) and keep it.
+    // Stands down only mid-gesture (draggingRef) so MapControls can move freely,
+    // and during a focus (the close-up is spring-driven below).
+    else if (!isFlat && !draggingRef.current && !focusTargetRef.current) {
+      if (userInteractingRef.current) {
+        const h = held3DPoseRef.current;
+        if (h) {
+          // Ease toward the held pose (so a rotate/tilt animates smoothly) and
+          // hold it. Ease the look-at AND the rig offset so the camera is always
+          // derived from target + offset — no independent drift, no yaw wobble.
+          // When already at held, lerp snaps to it, so this still defeats the seed
+          // every frame like a hard re-assert.
+          const a = 1 - Math.exp(-7 * delta);
+          const lerp = (cur: number, to: number) =>
+            Math.abs(to - cur) < 0.01 ? to : cur + (to - cur) * a;
+          const tx = lerp(controlsRef.current.target.x, h.lookX);
+          const ty = lerp(controlsRef.current.target.y, h.lookY);
+          const tz = lerp(controlsRef.current.target.z, h.lookZ);
+          const ox = lerp(camera.position.x - controlsRef.current.target.x, h.camX - h.lookX);
+          const oy = lerp(camera.position.y - controlsRef.current.target.y, h.camY - h.lookY);
+          const oz = lerp(camera.position.z - controlsRef.current.target.z, h.camZ - h.lookZ);
+          controlsRef.current.target.set(tx, ty, tz);
+          camera.position.set(tx + ox, ty + oy, tz + oz);
+          controlsRef.current.update();
+        }
+      } else {
+        const pose = compute3DPose(safeAreaRef.current);
+        // Reach: the inset fit pulls the rig back, so make sure the controls/
+        // projection can get there (drei resets these on render; re-bump after).
+        const reach =
+          Math.hypot(pose.camX - pose.lookX, pose.camY - pose.lookY, pose.camZ - pose.lookZ) * 1.25;
+        if (controlsRef.current.maxDistance < reach) controlsRef.current.maxDistance = reach;
+        const perspCam = camera as THREE.PerspectiveCamera;
+        if (perspCam.far < reach * 1.5) {
+          perspCam.far = reach * 1.5;
+          perspCam.updateProjectionMatrix();
+        }
+        const a = 1 - Math.exp(-7 * delta);
+        const lerp = (cur: number, to: number) =>
+          Math.abs(to - cur) < 0.01 ? to : cur + (to - cur) * a;
+        // Ease the look-at AND the rig offset (camera relative to target). Deriving
+        // the camera from target + offset — rather than lerping its absolute
+        // position independently — pins the azimuth, so the tilt eases in without a
+        // yaw wobble (the same reasoning as the flat owner's strictly-above trick).
+        const tx = lerp(controlsRef.current.target.x, pose.lookX);
+        const ty = lerp(controlsRef.current.target.y, pose.lookY);
+        const tz = lerp(controlsRef.current.target.z, pose.lookZ);
+        const ox = lerp(camera.position.x - controlsRef.current.target.x, pose.camX - pose.lookX);
+        const oy = lerp(camera.position.y - controlsRef.current.target.y, pose.camY - pose.lookY);
+        const oz = lerp(camera.position.z - controlsRef.current.target.z, pose.camZ - pose.lookZ);
+        controlsRef.current.target.set(tx, ty, tz);
+        camera.position.set(tx + ox, ty + oy, tz + oz);
+        controlsRef.current.update();
+        // Seed the held pose from the framed pose, so a later takeover holds from
+        // here, and keep the spring's stored value in step for a focus / 3D->2D move.
+        held3DPoseRef.current = {
+          camX: camera.position.x,
+          camY: camera.position.y,
+          camZ: camera.position.z,
+          lookX: controlsRef.current.target.x,
+          lookY: controlsRef.current.target.y,
+          lookZ: controlsRef.current.target.z,
+        };
+        api.set({
+          camX: camera.position.x,
+          camY: camera.position.y,
+          camZ: camera.position.z,
+          lookX: controlsRef.current.target.x,
+          lookY: controlsRef.current.target.y,
+          lookZ: controlsRef.current.target.z,
+        });
+      }
+    }
+    // Spring-driven non-flat moves: 3D focus close-up transitions. Gated on
+    // !userInteractingRef so it NEVER fights the user: the grown owner interrupts
+    // the toggle/overview spring (api.set each frame), which resolves its promise
+    // `finished:false` and leaves `isAnimatingRef` stuck true — without this gate
+    // the branch would re-assert the stored spring pose the instant the user grabs
+    // the camera ("touch it and it snaps back"). MapControls owns the camera while
+    // the user interacts, just like the flat path.
+    else if (isAnimatingRef.current && !userInteractingRef.current) {
       camera.position.set(camX.get(), camY.get(), camZ.get());
       controlsRef.current.target.set(lookX.get(), lookY.get(), lookZ.get());
       controlsRef.current.update();
@@ -2436,7 +2627,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     }
   };
 
-  // Get current angle (helper)
+  // Current azimuth (degrees, measured from +Z toward +X).
   const computeCurrentAngle = useCallback(() => {
     const targetX = controlsRef.current?.target.x ?? 0;
     const targetZ = controlsRef.current?.target.z ?? 0;
@@ -2447,157 +2638,128 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     return angle;
   }, [camera]);
 
-  // Rotate to absolute angle using shortest path
-  const rotateTo = useCallback((
-    angleOrDirection: number | 'north' | 'south' | 'east' | 'west',
-    options?: RotateOptions
-  ) => {
-    const targetAngle = typeof angleOrDirection === 'number'
-      ? angleOrDirection
-      : directionToAngle(angleOrDirection);
+  // Current polar angle (degrees from straight-up: 0 = top-down, 90 = level).
+  const computeCurrentTilt = useCallback(() => {
+    const targetX = controlsRef.current?.target.x ?? 0;
+    const targetY = controlsRef.current?.target.y ?? 0;
+    const targetZ = controlsRef.current?.target.z ?? 0;
+    const dx = camera.position.x - targetX;
+    const dy = camera.position.y - targetY;
+    const dz = camera.position.z - targetZ;
+    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (distance === 0) return 45;
+    return (Math.acos(dy / distance) * 180) / Math.PI;
+  }, [camera]);
 
-    // Get current state
-    const centerX = controlsRef.current?.target.x ?? 0;
-    const centerZ = controlsRef.current?.target.z ?? 0;
-    const currentAngle = computeCurrentAngle();
-    const distance = Math.sqrt(
-      Math.pow(camera.position.x - centerX, 2) +
-      Math.pow(camera.position.z - centerZ, 2)
-    );
-    const height = camera.position.y;
-
-    // Store orbit parameters
-    orbitParamsRef.current = { centerX, centerZ, distance, height };
-
-    // Calculate shortest path
-    let delta = targetAngle - currentAngle;
-    // Normalize to -180 to 180
-    while (delta > 180) delta -= 360;
-    while (delta < -180) delta += 360;
-
-    // Build animation config
-    const animConfig = options?.duration
-      ? { duration: options.duration }
-      : { tension: 80, friction: 18 };
-
-    // Animate from current angle to target using shortest path
-    orbitApi.set({ orbitAngle: currentAngle });
-    orbitApi.start({ orbitAngle: currentAngle + delta, config: animConfig });
-  }, [camera, computeCurrentAngle, orbitApi]);
-
-  // Rotate by relative degrees (positive = clockwise, negative = counter-clockwise)
-  const rotateBy = useCallback((degrees: number, options?: RotateOptions) => {
-    // Get current state
-    const centerX = controlsRef.current?.target.x ?? 0;
-    const centerZ = controlsRef.current?.target.z ?? 0;
-    const currentAngle = computeCurrentAngle();
-    const distance = Math.sqrt(
-      Math.pow(camera.position.x - centerX, 2) +
-      Math.pow(camera.position.z - centerZ, 2)
-    );
-    const height = camera.position.y;
-
-    // Store orbit parameters
-    orbitParamsRef.current = { centerX, centerZ, distance, height };
-
-    // Build animation config
-    const animConfig = options?.duration
-      ? { duration: options.duration }
-      : { tension: 80, friction: 18 };
-
-    // Animate from current angle by the specified degrees
-    orbitApi.set({ orbitAngle: currentAngle });
-    orbitApi.start({ orbitAngle: currentAngle + degrees, config: animConfig });
-  }, [camera, computeCurrentAngle, orbitApi]);
-
-  // Convert tilt preset to angle
   const tiltPresetToAngle = (preset: 'top' | 'level' | 'high' | 'low'): number => {
     switch (preset) {
-      case 'top': return 15;    // Near top-down
-      case 'high': return 35;   // High angle
-      case 'low': return 60;    // Low angle
-      case 'level': return 80;  // Near horizontal
+      case 'top': return 15; // Near top-down
+      case 'high': return 35; // High angle
+      case 'low': return 60; // Low angle
+      case 'level': return 80; // Near horizontal
     }
   };
 
-  // Compute current tilt angle (polar angle in degrees)
-  const computeCurrentTilt = useCallback(() => {
-    const centerX = controlsRef.current?.target.x ?? 0;
-    const centerY = controlsRef.current?.target.y ?? 0;
-    const centerZ = controlsRef.current?.target.z ?? 0;
-
-    const dx = camera.position.x - centerX;
-    const dy = camera.position.y - centerY;
-    const dz = camera.position.z - centerZ;
-    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-    if (distance === 0) return 45; // Default
-
-    // Polar angle: arccos(dy / distance)
-    const polarRadians = Math.acos(dy / distance);
-    return (polarRadians * 180) / Math.PI;
+  // 3D distance from the camera to its look-at target.
+  const cameraTargetDistance = useCallback(() => {
+    const tx = controlsRef.current?.target.x ?? 0;
+    const ty = controlsRef.current?.target.y ?? 0;
+    const tz = controlsRef.current?.target.z ?? 0;
+    return Math.hypot(camera.position.x - tx, camera.position.y - ty, camera.position.z - tz);
   }, [camera]);
 
-  // Tilt to absolute angle or preset
-  const tiltTo = useCallback((
-    angleOrPreset: number | 'top' | 'level' | 'high' | 'low',
-    options?: RotateOptions
-  ) => {
-    const targetTilt = typeof angleOrPreset === 'number'
-      ? angleOrPreset
-      : tiltPresetToAngle(angleOrPreset);
+  // The rotation/tilt path. Place the held grown-3D pose from spherical coords
+  // around the look-at target and claim the camera, so the per-frame hold owner
+  // eases the camera there and HOLDS it. This bypasses the orbit/tilt springs
+  // entirely (they did not animate to their goal reliably — a single start landed
+  // at 0->18->0) and reuses the one writer we know holds: the 3D hold owner.
+  const setHeldFromSpherical = useCallback(
+    (azimuthDeg: number, polarDeg: number, dist: number, tx: number, ty: number, tz: number) => {
+      const az = (azimuthDeg * Math.PI) / 180;
+      // Clamp polar away from straight-down / under-ground to avoid gimbal flips.
+      const po = (Math.max(5, Math.min(88, polarDeg)) * Math.PI) / 180;
+      const horiz = dist * Math.sin(po);
+      held3DPoseRef.current = {
+        camX: tx + horiz * Math.sin(az),
+        camY: ty + dist * Math.cos(po),
+        camZ: tz + horiz * Math.cos(az),
+        lookX: tx,
+        lookY: ty,
+        lookZ: tz,
+      };
+      userInteractingRef.current = true;
+      isAnimatingRef.current = false;
+    },
+    [],
+  );
 
-    // Get current state
-    const centerX = controlsRef.current?.target.x ?? 0;
-    const centerY = controlsRef.current?.target.y ?? 0;
-    const centerZ = controlsRef.current?.target.z ?? 0;
+  // Rotate to an absolute azimuth (degrees or compass direction), keeping tilt.
+  const rotateTo = useCallback(
+    (angleOrDirection: number | 'north' | 'south' | 'east' | 'west', _options?: RotateOptions) => {
+      if (!controlsRef.current) return;
+      const targetAngle =
+        typeof angleOrDirection === 'number' ? angleOrDirection : directionToAngle(angleOrDirection);
+      setHeldFromSpherical(
+        targetAngle,
+        computeCurrentTilt(),
+        cameraTargetDistance(),
+        controlsRef.current.target.x,
+        controlsRef.current.target.y,
+        controlsRef.current.target.z,
+      );
+    },
+    [computeCurrentTilt, cameraTargetDistance, setHeldFromSpherical],
+  );
 
-    const dx = camera.position.x - centerX;
-    const dy = camera.position.y - centerY;
-    const dz = camera.position.z - centerZ;
-    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    const currentTilt = computeCurrentTilt();
-    const azimuthAngle = computeCurrentAngle();
+  // Rotate by a relative azimuth delta (positive = clockwise), keeping tilt.
+  const rotateBy = useCallback(
+    (degrees: number, _options?: RotateOptions) => {
+      if (!controlsRef.current) return;
+      setHeldFromSpherical(
+        computeCurrentAngle() + degrees,
+        computeCurrentTilt(),
+        cameraTargetDistance(),
+        controlsRef.current.target.x,
+        controlsRef.current.target.y,
+        controlsRef.current.target.z,
+      );
+    },
+    [computeCurrentAngle, computeCurrentTilt, cameraTargetDistance, setHeldFromSpherical],
+  );
 
-    // Store tilt parameters
-    tiltParamsRef.current = { centerX, centerY, centerZ, distance, azimuthAngle };
+  // Tilt to an absolute polar angle or preset, keeping azimuth.
+  const tiltTo = useCallback(
+    (angleOrPreset: number | 'top' | 'level' | 'high' | 'low', _options?: RotateOptions) => {
+      if (!controlsRef.current) return;
+      const targetTilt =
+        typeof angleOrPreset === 'number' ? angleOrPreset : tiltPresetToAngle(angleOrPreset);
+      setHeldFromSpherical(
+        computeCurrentAngle(),
+        targetTilt,
+        cameraTargetDistance(),
+        controlsRef.current.target.x,
+        controlsRef.current.target.y,
+        controlsRef.current.target.z,
+      );
+    },
+    [computeCurrentAngle, cameraTargetDistance, setHeldFromSpherical],
+  );
 
-    // Build animation config
-    const animConfig = options?.duration
-      ? { duration: options.duration }
-      : { tension: 80, friction: 18 };
-
-    // Animate from current tilt to target
-    tiltApi.set({ tiltAngle: currentTilt });
-    tiltApi.start({ tiltAngle: targetTilt, config: animConfig });
-  }, [camera, computeCurrentTilt, computeCurrentAngle, tiltApi]);
-
-  // Tilt by relative degrees (positive = down towards top-down, negative = up towards level)
-  const tiltBy = useCallback((degrees: number, options?: RotateOptions) => {
-    // Get current state
-    const centerX = controlsRef.current?.target.x ?? 0;
-    const centerY = controlsRef.current?.target.y ?? 0;
-    const centerZ = controlsRef.current?.target.z ?? 0;
-
-    const dx = camera.position.x - centerX;
-    const dy = camera.position.y - centerY;
-    const dz = camera.position.z - centerZ;
-    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    const currentTilt = computeCurrentTilt();
-    const azimuthAngle = computeCurrentAngle();
-
-    // Store tilt parameters
-    tiltParamsRef.current = { centerX, centerY, centerZ, distance, azimuthAngle };
-
-    // Build animation config
-    const animConfig = options?.duration
-      ? { duration: options.duration }
-      : { tension: 80, friction: 18 };
-
-    // Animate from current tilt by the specified degrees
-    tiltApi.set({ tiltAngle: currentTilt });
-    tiltApi.start({ tiltAngle: currentTilt + degrees, config: animConfig });
-  }, [camera, computeCurrentTilt, computeCurrentAngle, tiltApi]);
+  // Tilt by a relative polar delta, keeping azimuth.
+  const tiltBy = useCallback(
+    (degrees: number, _options?: RotateOptions) => {
+      if (!controlsRef.current) return;
+      setHeldFromSpherical(
+        computeCurrentAngle(),
+        computeCurrentTilt() + degrees,
+        cameraTargetDistance(),
+        controlsRef.current.target.x,
+        controlsRef.current.target.y,
+        controlsRef.current.target.z,
+      );
+    },
+    [computeCurrentAngle, computeCurrentTilt, cameraTargetDistance, setHeldFromSpherical],
+  );
 
   const getCurrentPosition = useCallback(() => {
     return {
@@ -2755,9 +2917,15 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   // default `citySize * 3` — the owner would then ease toward the inset pose and
   // get clamped short ("starts moving, then adjusts to the component"). Grow the
   // ceiling to cover the active flat framing.
+  const pose3D = compute3DPose(safeArea);
   const effectiveMaxDistance = Math.max(
     controlsConfig.maxDistance ?? citySize * 3,
     computeFlatPose(safeArea).camY * 1.25,
+    // The grown 3D fit pulls the rig back by the same inset inflation; without
+    // covering it here MapControls clamps the pulled-back camera short and the
+    // city won't shrink into the inner rect.
+    Math.hypot(pose3D.camX - pose3D.lookX, pose3D.camY - pose3D.lookY, pose3D.camZ - pose3D.lookZ) *
+      1.25,
     // Headroom for imperative `setFlatView` overrides (which can demand a tall
     // inset framing and aren't reactive here): cover up to ~3x the full-canvas
     // overview height. Rarely dominates the citySize*3 default for no insets.
@@ -2804,10 +2972,38 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
         panSpeed={controlsConfig.panSpeed ?? 1}
         rotateSpeed={controlsConfig.rotateSpeed ?? 1}
         zoomSpeed={controlsConfig.zoomSpeed ?? 1}
-        // User grabbed the camera — the flat owner stands down so they can move
-        // freely; a reframe trigger (safeArea / viewport / footprint) re-engages it.
+        // User grabbed the camera — the per-frame owner (flat or grown-3D) stands
+        // down so they can move freely; a reframe trigger (safeArea / viewport /
+        // footprint) re-engages it.
         onStart={() => {
           userInteractingRef.current = true;
+          // Cancel any in-flight spring move so it can't fight the drag / re-assert
+          // its goal when the grab ends (the stuck-isAnimatingRef snap-back).
+          isAnimatingRef.current = false;
+          // Mid-gesture: the grown-3D hold owner stands down so MapControls moves
+          // freely; onChange below captures the evolving pose.
+          draggingRef.current = true;
+        }}
+        onEnd={() => {
+          draggingRef.current = false;
+        }}
+        onChange={() => {
+          // Capture the live grown-3D pose so the hold owner can re-assert it every
+          // frame (defeating the re-applied seed). ONLY while the user is actively
+          // dragging — otherwise the hold owner's own update() (which fires this
+          // change event) feeds its slightly-nudged pose back into held, and held
+          // creeps back to the framed azimuth every frame (the "rotate, then drifts
+          // back" bug). Orbit/tilt write held directly, so they don't need this.
+          if (!isFlatRef.current && draggingRef.current && controlsRef.current) {
+            held3DPoseRef.current = {
+              camX: camera.position.x,
+              camY: camera.position.y,
+              camZ: camera.position.z,
+              lookX: controlsRef.current.target.x,
+              lookY: controlsRef.current.target.y,
+              lookZ: controlsRef.current.target.z,
+            };
+          }
         }}
       />
     </>

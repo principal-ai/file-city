@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-06
 **Component:** `FileCity3D` (`@principal-ai/file-city-react`)
-**Status:** Proposal — not yet implemented
+**Status:** Implemented (2026-06-29) — see "How it landed" below
 **Filed from:** `industry-themed-file-city-panels` /
   `FileCityTrailExplorerPanel`
 
@@ -117,10 +117,52 @@ gets overwritten.
   / staggering — `AnimationConfig` is already sufficient.
 - The flat-mode framing already works; we don't want changes there.
 
-## Until this lands
+## How it landed
 
-The panel's 3D button is disabled. The city renders flat, with real
-heights baked into the building geometry but not visualized through
-elevation. See `FileCityTrailExplorerPanel.tsx` — the header still owns
-the `show3D` state machine so the feature can be turned back on with a
-single line once the library supports one of the options above.
+The fix is **declarative**, not the imperative `setCamera3DView` helper
+Option A sketched. Since this doc was filed, flat framing was refactored
+into a single per-frame owner that derives every flat pose from one
+`safeArea`-aware authority (`computeFlatPose`). The 3D path was the last
+holdout: it still built an origin-centered overview pose that ignored
+`safeArea`, so a grown city framed to the full canvas and slid under the
+overlays.
+
+The renderer now owns 3D framing the same way it owns flat framing:
+
+- **`compute3DPose(safeArea)`** — an angled analog of `computeFlatPose`.
+  It keeps the library's tilted overview angle and does the same two moves
+  the flat authority does: (1) **fit** — pull the rig back so the grown
+  city *shrinks* to fit the inner rect (distance multiplier = the same
+  `fracW`/`fracH` inset inflation `computeFlatPose` uses; camY and camZ
+  scale together so the angle is preserved), and (2) **pan** — slide the
+  whole rig (camera + look-at by the same world offset) so the city center
+  lands at the inner-rect center. Horizontal centering is exact; vertical
+  is a first-order tilt correction (the screen-vertical shift is
+  foreshortened, so the world-Z pan is divided by `sin(tilt)`). With no
+  insets fitScale is 1 and the pan is 0, so it returns the original
+  origin-centered overview and unframed consumers are unaffected.
+  `effectiveMaxDistance` is raised to cover the pulled-back fit distance —
+  otherwise `MapControls` clamps the camera short and the city won't shrink
+  into the rect.
+- A **per-frame grown-overview owner** in the frame loop — the angled
+  analog of the flat owner — eases toward `compute3DPose(safeArea)` every
+  frame and holds it. This was the load-bearing fix: 3D originally drove
+  the pose with a one-shot spring and then had no defender, so drei
+  re-applying the camera seed (and the spring's standing overview goal)
+  yanked the city back to the full-canvas overview ("starts to move, then
+  fills the whole view"). Like the flat owner it reads `safeArea` /
+  viewport / footprint live, stands down while the user orbits
+  (`userInteractingRef`), and re-engages on the next reframe trigger. It
+  derives the camera from the look-at target plus a fixed rig offset, so
+  the tilt eases in without a yaw wobble.
+- The owner stands down during a directory **focus** (`focusTarget` set);
+  that close-up stays spring-driven.
+
+The host needs no `setCamera3DView` call, no `preserveCameraOnGrow` flag,
+and no `onGrowComplete` corrective pass: passing `safeArea` is enough, and
+one framing authority now covers both modes for every consumer.
+
+**Follow-up not yet done:** the focused-directory *close-up* in 3D
+(`focusTarget` set) still uses its own zoom-in pose and is not yet
+inset-aware. The topic's gap was the overview; the close-up is a separate
+distance regime and is tracked as a later refinement.

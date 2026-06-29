@@ -4,6 +4,8 @@ import {
   FileCity3D,
   getCameraTarget,
   getCameraPosition,
+  rotateCameraBy,
+  tiltCameraTo,
   type CityData,
   type CityBuilding,
   type CityDistrict,
@@ -111,6 +113,12 @@ const SafeAreaTemplate: React.FC = () => {
   const [safeAreaOn, setSafeAreaOn] = React.useState(false);
   const safeArea = safeAreaOn ? OVERLAY : undefined;
 
+  // 2D (flat) vs 3D (grown). The grown overview now frames through the
+  // safeArea-aware compute3DPose, so toggling to 3D with the safe area on should
+  // keep the city inside the green inner rect instead of centering on the full
+  // canvas.
+  const [grown, setGrown] = React.useState(false);
+
   // Directories live OFF-center (src/components to the right, tests toward the
   // back), so a focus that respects the safe area must pan the directory into
   // the green inner rect — not drop it dead-center of the full canvas.
@@ -176,6 +184,7 @@ const SafeAreaTemplate: React.FC = () => {
         showControls={false}
         safeArea={safeArea}
         focusDirectory={focusDir}
+        isGrown={grown}
         animation={{ startFlat: true, autoStartDelay: null }}
       />
 
@@ -214,10 +223,36 @@ const SafeAreaTemplate: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+          <button
+            onClick={() => { setGrown(false); captureAfterSettle(); }}
+            style={{ ...btn, flex: 1, background: !grown ? '#2563eb' : '#334155', border: '1px solid #3b82f6' }}
+          >
+            2D (flat)
+          </button>
+          <button
+            onClick={() => { setGrown(true); captureAfterSettle(); }}
+            style={{ ...btn, flex: 1, background: grown ? '#2563eb' : '#334155', border: '1px solid #3b82f6' }}
+          >
+            3D (grown)
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
           <button onClick={applySafeArea} style={{ ...btn, flex: 1, background: safeAreaOn ? '#2563eb' : '#334155', border: '1px solid #3b82f6' }}>
             Apply safe area
           </button>
           <button onClick={clearSafeArea} style={{ ...btn }}>Clear</button>
+        </div>
+
+        <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>
+          Rotate / tilt (3D only) — the camera holds the new angle until the next
+          reframe (Apply / Clear / resize), which re-engages framing.
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+          <button onClick={() => rotateCameraBy(-45)} disabled={!grown} style={{ ...btn, opacity: grown ? 1 : 0.4 }}>⟲ 45°</button>
+          <button onClick={() => rotateCameraBy(45)} disabled={!grown} style={{ ...btn, opacity: grown ? 1 : 0.4 }}>45° ⟳</button>
+          <button onClick={() => tiltCameraTo('high')} disabled={!grown} style={{ ...btn, opacity: grown ? 1 : 0.4 }}>Tilt high</button>
+          <button onClick={() => tiltCameraTo('low')} disabled={!grown} style={{ ...btn, opacity: grown ? 1 : 0.4 }}>Tilt low</button>
         </div>
 
         <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>
@@ -259,7 +294,7 @@ const SafeAreaTemplate: React.FC = () => {
         </div>
 
         <div style={{ fontSize: 11, color: '#94a3b8', borderTop: '1px solid #334155', paddingTop: 8, marginTop: 10 }}>
-          safeArea: {safeAreaOn ? 'on' : 'off'} · focus: {focusDir ?? 'overview'} · target: {target ? `(${target.x}, ${target.z})` : '—'} · height: {camHeight ?? '—'}
+          mode: {grown ? '3D' : '2D'} · safeArea: {safeAreaOn ? 'on' : 'off'} · focus: {focusDir ?? 'overview'} · target: {target ? `(${target.x}, ${target.z})` : '—'} · height: {camHeight ?? '—'}
         </div>
       </div>
     </div>
@@ -287,7 +322,7 @@ export const SafeAreaFraming: Story = {
     docs: {
       description: {
         story:
-          'Single-owner declarative framing. Click **Apply safe area** — the per-frame owner eases the city into the green inner rect and holds it (badge **HELD ✓**) across re-renders and resize. **Clear** returns to the full-canvas overview. Drag to pan/zoom; the owner stands down during interaction and re-engages on the next reframe (Apply/Clear/resize).\n\nTurn the safe area on, then **Focus a directory** (`src/components`, `tests`) — the focused footprint should be framed inside the green inner rect (clear of the overlay zones), not centered on the full canvas. This exercises the safe-area-aware focus path that routes through the same `computeFlatPose` authority.',
+          'Single-owner declarative framing. Click **Apply safe area** — the per-frame owner eases the city into the green inner rect and holds it (badge **HELD ✓**) across re-renders and resize. **Clear** returns to the full-canvas overview. Drag to pan/zoom; the owner stands down during interaction and re-engages on the next reframe (Apply/Clear/resize).\n\nToggle **3D (grown)** — the grown overview now frames through `compute3DPose`, the safeArea-aware angled analog of `computeFlatPose`, so with the safe area on the city sits inside the green inner rect (clear of the overlay zones) instead of centering on the full canvas. Apply the safe area before or after toggling; both paths reframe. Horizontal centering is exact; vertical is a first-order tilt correction, so expect the city centered in the green rect but not pixel-perfect.\n\nTurn the safe area on, then **Focus a directory** (`src/components`, `tests`) — in **2D** the focused footprint is framed inside the green inner rect via the same `computeFlatPose` authority. In **3D** the directory close-up is not yet inset-aware (tracked follow-up), so a 3D focus will not land in the green rect — that is expected, not a regression.',
       },
     },
   },
