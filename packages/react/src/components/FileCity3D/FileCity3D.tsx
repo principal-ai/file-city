@@ -80,7 +80,14 @@ export interface AnimationConfig {
   startFlat?: boolean;
   /** Auto-start the grow animation after this delay (ms). Set to null to disable. */
   autoStartDelay?: number | null;
-  /** Duration of the grow animation in ms */
+  /**
+   * Target time (ms) for the ENTIRE grow ripple to finish, from the first
+   * building starting to the last building topping out. When set, the
+   * per-building stagger is derived from it (and the building count) so the
+   * whole city finishes in roughly this time regardless of how many buildings
+   * there are. Overrides `staggerDelay` when present. Leave unset to control
+   * the ripple manually via `staggerDelay`.
+   */
   growDuration?: number;
   /** Stagger delay between buildings in ms */
   staggerDelay?: number;
@@ -168,11 +175,43 @@ function matchFlatPattern(path: string, patterns: FlatPattern[]): number | undef
 const DEFAULT_ANIMATION: AnimationConfig = {
   startFlat: false,
   autoStartDelay: 500,
-  growDuration: 1500,
+  // growDuration is intentionally unset: by default the ripple is paced by
+  // staggerDelay. Set growDuration on the `animation` prop to instead target a
+  // fixed total time for the whole city to finish growing.
   staggerDelay: 15,
   tension: 120,
   friction: 14,
 };
+
+/**
+ * Per-building grow duration (ms) derived from the spring config. Higher
+ * tension = snappier, higher friction = slower. This is the time a single
+ * building takes to rise once its stagger delay has elapsed.
+ */
+function computeSpringDuration(animationConfig: AnimationConfig): number {
+  const tension = animationConfig.tension || 120;
+  const friction = animationConfig.friction || 14;
+  return Math.sqrt(1 / (tension * 0.001)) * friction * 20;
+}
+
+/**
+ * Per-building stagger delay (ms) between consecutive grow starts.
+ *
+ * When `growDuration` is set it is treated as the target time for the WHOLE
+ * ripple to finish: the last building must start at `growDuration -
+ * springDuration` so it tops out right at the target, and that spread is
+ * divided over the `buildingCount - 1` gaps between starts. This keeps the
+ * total time fixed regardless of how many buildings there are. Otherwise the
+ * explicit `staggerDelay` (default 15ms) is used per building.
+ */
+function resolveStaggerDelay(animationConfig: AnimationConfig, buildingCount: number): number {
+  if (animationConfig.growDuration && animationConfig.growDuration > 0) {
+    const gaps = Math.max(1, buildingCount - 1);
+    const spread = animationConfig.growDuration - computeSpringDuration(animationConfig);
+    return Math.max(0, spread / gaps);
+  }
+  return animationConfig.staggerDelay ?? 15;
+}
 
 /**
  * Calculate building height based on file metrics.
@@ -564,6 +603,7 @@ function BorderHighlights({
   // Pre-compute border edge data from buildings with border highlights
   const borderEdgeData = useMemo(() => {
     const edges: BorderEdgeData[] = [];
+    const staggerStep = resolveStaggerDelay(animationConfig, staggerIndices.length);
 
     buildings.forEach((building, buildingIndex) => {
       const matches = getLayerMatchesForPath(building.path, highlightLayers);
@@ -581,7 +621,7 @@ function BorderHighlights({
       const x = building.position.x - centerOffset.x;
       const z = building.position.z - centerOffset.z;
       const staggerIndex = staggerIndices[buildingIndex] ?? buildingIndex;
-      const staggerDelayMs = (animationConfig.staggerDelay || 15) * staggerIndex;
+      const staggerDelayMs = staggerStep * staggerIndex;
 
       const halfW = width / 2;
       const halfD = depth / 2;
@@ -671,7 +711,7 @@ function BorderHighlights({
     linearScale,
     flatPatterns,
     staggerIndices,
-    animationConfig.staggerDelay,
+    animationConfig,
   ]);
 
   // Animate border edges
@@ -927,6 +967,7 @@ function InstancedBuildings({
 
   // Pre-compute building data
   const buildingData = useMemo(() => {
+    const staggerStep = resolveStaggerDelay(animationConfig, staggerIndices.length);
     return buildings.map((building, index) => {
       const [width, , depth] = building.dimensions;
       const fullHeight = calculateBuildingHeight(building, heightScaling, linearScale, flatPatterns);
@@ -939,7 +980,7 @@ function InstancedBuildings({
       const z = building.position.z - centerOffset.z;
 
       const staggerIndex = staggerIndices[index] ?? index;
-      const staggerDelayMs = (animationConfig.staggerDelay || 15) * staggerIndex;
+      const staggerDelayMs = staggerStep * staggerIndex;
 
       return {
         building,
@@ -960,16 +1001,14 @@ function InstancedBuildings({
     linearScale,
     flatPatterns,
     staggerIndices,
-    animationConfig.staggerDelay,
+    animationConfig,
     highlightLayers,
     defaultBuildingColor,
   ]);
 
   const minHeight = 0.3;
   const baseOffset = 0.2;
-  const tension = animationConfig.tension || 120;
-  const friction = animationConfig.friction || 14;
-  const springDuration = Math.sqrt(1 / (tension * 0.001)) * friction * 20;
+  const springDuration = computeSpringDuration(animationConfig);
 
   // Initialize all buildings (only on first render or when building data changes)
   // DO NOT include focusDirectory here - that would bypass the animation
@@ -2249,9 +2288,25 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
 
   // An explicit safeArea change is the declarative path asserting itself: drop
   // any imperative setFlatView/setTarget override so the owner frames from
-  // safeArea, and re-engage after interaction.
+  // safeArea, and re-engage after interaction. EXCEPT when a focusDirectory is
+  // active — that's a declarative focus that must survive the reframe, so
+  // re-derive its pose into the NEW safeArea (the same rect-fit the focus
+  // effect uses) rather than reverting to the full-city overview. Without this,
+  // anything that shrinks the map viewport (e.g. opening the file-tree side
+  // panel) changes safeArea, drops the override, and the city rezooms back out
+  // to the whole skyline.
   useEffect(() => {
-    flatOverrideRef.current = null;
+    const focus = focusTargetRef.current;
+    if (isFlatRef.current && focus) {
+      flatOverrideRef.current = computeFlatPose(safeAreaRef.current, {
+        width: focus.width,
+        depth: focus.depth,
+        centerX: focus.x,
+        centerZ: focus.z,
+      });
+    } else {
+      flatOverrideRef.current = null;
+    }
     userInteractingRef.current = false;
   }, [safeArea?.top, safeArea?.bottom, safeArea?.left, safeArea?.right]);
 
