@@ -463,6 +463,7 @@ function BuildingEdges({
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const startTimeRef = useRef<number | null>(null);
   const tempObject = useMemo(() => new THREE.Object3D(), []);
+  const invalidate = useThree((s) => s.invalidate);
 
   // 4 corner edges per building
   const numEdges = buildings.length * 4;
@@ -494,6 +495,10 @@ function BuildingEdges({
     const currentTime = clock.elapsedTime * 1000;
     const animStartTime = startTimeRef.current ?? currentTime;
 
+    // In on-demand mode, keep requesting frames while the grow-in is still
+    // running (some building hasn't reached full height yet); stop once settled.
+    let stillAnimating = false;
+
     edgeData.forEach((edge, idx) => {
       const { x, z, fullHeight, staggerDelayMs, buildingIndex } = edge;
 
@@ -518,8 +523,10 @@ function BuildingEdges({
         const t = Math.min(elapsed / springDuration, 1);
         const eased = 1 - Math.pow(1 - t, 3);
         animProgress = eased * growProgress;
+        if (t < 1) stillAnimating = true;
       } else if (growProgress > 0 && elapsed < 0) {
         animProgress = 0;
+        stillAnimating = true; // stagger hasn't started yet
       }
 
       // Apply both grow animation and collapse multiplier
@@ -534,6 +541,7 @@ function BuildingEdges({
     });
 
     meshRef.current.instanceMatrix.needsUpdate = true;
+    if (stillAnimating) invalidate();
   });
 
   if (numEdges === 0) return null;
@@ -599,6 +607,7 @@ function BorderHighlights({
   const startTimeRef = useRef<number | null>(null);
   const tempObject = useMemo(() => new THREE.Object3D(), []);
   const tempColor = useMemo(() => new THREE.Color(), []);
+  const invalidate = useThree((s) => s.invalidate);
 
   // Pre-compute border edge data from buildings with border highlights
   const borderEdgeData = useMemo(() => {
@@ -725,6 +734,9 @@ function BorderHighlights({
     const currentTime = clock.elapsedTime * 1000;
     const animStartTime = startTimeRef.current ?? currentTime;
 
+    // On-demand: keep frames coming while the grow-in is still running.
+    let stillAnimating = false;
+
     borderEdgeData.forEach((edge, idx) => {
       const { x, z, fullHeight, staggerDelayMs, buildingIndex, color, borderWidth, edgeType, width, depth } = edge;
 
@@ -739,8 +751,10 @@ function BorderHighlights({
         const t = Math.min(elapsed / springDuration, 1);
         const eased = 1 - Math.pow(1 - t, 3);
         animProgress = eased * growProgress;
+        if (t < 1) stillAnimating = true;
       } else if (growProgress > 0 && elapsed < 0) {
         animProgress = 0;
+        stillAnimating = true; // stagger hasn't started yet
       }
 
       // Apply both grow animation and collapse multiplier
@@ -781,6 +795,7 @@ function BorderHighlights({
     if (meshRef.current.instanceColor) {
       meshRef.current.instanceColor.needsUpdate = true;
     }
+    if (stillAnimating) invalidate();
   });
 
   if (borderEdgeData.length === 0) return null;
@@ -848,6 +863,7 @@ function InstancedBuildings({
   const startTimeRef = useRef<number | null>(null);
   const tempObject = useMemo(() => new THREE.Object3D(), []);
   const tempColor = useMemo(() => new THREE.Color(), []);
+  const invalidate = useThree((s) => s.invalidate);
 
   // Track animated height multipliers for each building (for collapse animation)
   const heightMultipliersRef = useRef<Float32Array | null>(null);
@@ -1059,6 +1075,13 @@ function InstancedBuildings({
     // Animation speed for collapse/expand (lerp factor per frame)
     const collapseSpeed = 0.08;
 
+    // On-demand: this frame requests another only while something is still
+    // moving — the grow-in stagger OR the collapse/dim lerps converging. The
+    // lerps are asymptotic, so we snap them to their target within an epsilon
+    // and stop; otherwise demand mode would keep rendering forever.
+    let stillAnimating = false;
+    const SETTLE_EPS = 0.001;
+
     buildingData.forEach((data, instanceIndex) => {
       const { width, depth, fullHeight, x, z, staggerDelayMs } = data;
 
@@ -1075,14 +1098,18 @@ function InstancedBuildings({
       // Animate height multiplier towards target
       const currentMultiplier = heightMultipliersRef.current![instanceIndex];
       const targetMultiplier = targetMultipliersRef.current![instanceIndex];
-      const newMultiplier =
+      let newMultiplier =
         currentMultiplier + (targetMultiplier - currentMultiplier) * collapseSpeed;
+      if (Math.abs(targetMultiplier - newMultiplier) < SETTLE_EPS) newMultiplier = targetMultiplier;
+      else stillAnimating = true;
       heightMultipliersRef.current![instanceIndex] = newMultiplier;
 
       // Animate dim multiplier towards target
       const currentDim = dimMultipliersRef.current![instanceIndex];
       const targetDim = targetDimRef.current![instanceIndex];
-      const newDim = currentDim + (targetDim - currentDim) * collapseSpeed;
+      let newDim = currentDim + (targetDim - currentDim) * collapseSpeed;
+      if (Math.abs(targetDim - newDim) < SETTLE_EPS) newDim = targetDim;
+      else stillAnimating = true;
       dimMultipliersRef.current![instanceIndex] = newDim;
 
       // Calculate grow animation progress
@@ -1093,8 +1120,10 @@ function InstancedBuildings({
         const t = Math.min(elapsed / springDuration, 1);
         const eased = 1 - Math.pow(1 - t, 3);
         animProgress = eased * growProgress;
+        if (t < 1) stillAnimating = true;
       } else if (growProgress > 0 && elapsed < 0) {
         animProgress = 0;
+        stillAnimating = true; // stagger hasn't started yet
       }
 
       // Apply both grow animation and collapse multiplier
@@ -1138,6 +1167,8 @@ function InstancedBuildings({
 
     // Update bounding sphere for raycasting as buildings grow/animate
     meshRef.current.computeBoundingSphere();
+
+    if (stillAnimating) invalidate();
   });
 
   const handlePointerMove = useCallback(
@@ -1772,6 +1803,14 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   // This prevents re-renders on pointer movement
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
+  const invalidate = useThree((state) => state.invalidate);
+  // On-demand kick: AnimatedCamera re-renders on exactly the reframe triggers
+  // (isFlat, focusTarget, viewport/aspect, cameraControls, citySize). Requesting
+  // one frame per commit lets the per-frame owner run and START easing to the new
+  // pose; the owner then self-sustains via invalidate() below until it settles.
+  useEffect(() => {
+    invalidate();
+  });
   // Subscribe to the measured canvas size so the flat overview re-frames when the
   // viewport aspect changes (resize, or the first real measurement landing after
   // the one-shot). Only changes on resize, so it doesn't cause pointer-move churn.
@@ -2083,6 +2122,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
         });
       }
       isAnimatingRef.current = true;
+      invalidate(); // on-demand kick: start rendering the spring move
       const token = ++cameraMoveToken.current;
       const results = api.start(to as Parameters<typeof api.start>[0]);
       const promises = (Array.isArray(results) ? results : [results]) as Promise<
@@ -2100,7 +2140,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
           isAnimatingRef.current = false;
       });
     },
-    [api, camera],
+    [api, camera, invalidate],
   );
 
   // Separate spring for orbit angle animation (animates along horizontal arc)
@@ -2109,6 +2149,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     config: { tension: 80, friction: 18 },
     onStart: () => {
       isOrbitingRef.current = true;
+      invalidate(); // on-demand kick: start rendering the orbit
       // Claim the camera like a manual drag: a programmatic orbit chooses a
       // heading the grown-3D owner doesn't (the owner pins the framed azimuth),
       // so without this the owner eases the rotation straight back when the orbit
@@ -2127,6 +2168,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     config: { tension: 80, friction: 18 },
     onStart: () => {
       isTiltingRef.current = true;
+      invalidate(); // on-demand kick: start rendering the tilt
       // Same as orbit: a chosen tilt is the user's, so stand the owner down.
       userInteractingRef.current = true;
     },
@@ -2329,7 +2371,10 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     // in at the origin" — and never recovered. Retrying until ready frames the
     // overview correctly on the first paintable frame, with no wrong-camera flash.
     if (!hasAppliedInitial.current) {
-      if (!cityReady || !controlsRef.current) return; // wait until framable
+      if (!cityReady || !controlsRef.current) {
+        invalidate(); // keep polling frames until the city is framable
+        return;
+      }
       // Also wait until the canvas has a real measured size. Framing before the
       // measurement lands would compute the flat height from the default aspect
       // (1) and freeze it — the "fits height instead of width in a portrait
@@ -2338,7 +2383,10 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       const measured = viewportSize.width > 0 && viewportSize.height > 0;
       const domMeasured =
         gl.domElement && gl.domElement.clientWidth > 0 && gl.domElement.clientHeight > 0;
-      if (!measured && !domMeasured) return;
+      if (!measured && !domMeasured) {
+        invalidate(); // keep polling frames until the canvas is measured
+        return;
+      }
 
       // Ensure camera FOV is correct (defaults to 75 before prop applies)
       const perspCam = camera as THREE.PerspectiveCamera;
@@ -2376,15 +2424,23 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
         hasNotifiedReady.current = true;
         onCameraReady();
       }
+      invalidate(); // let the per-frame owner engage on the next frame
       return;
     }
 
     // Wait for controls before driving the camera.
     if (!controlsRef.current) return;
 
+    // On-demand drive gate: this frame requests another only while the camera is
+    // actually moving (orbit/tilt/spring active, or an owner still easing to its
+    // pose). Once every lerp snaps to target, needsFrame stays false and demand
+    // mode goes quiet — no per-frame writer churning while the view is at rest.
+    let needsFrame = false;
+
 
     // Handle orbit animation (horizontal rotation along arc)
     if (isOrbitingRef.current && orbitParamsRef.current) {
+      needsFrame = true; // spring-driven; runs until orbitApi's onRest clears the ref
       const { centerX, centerZ, distance, height } = orbitParamsRef.current;
       const currentAngle = orbitAngle.get();
       const radians = (currentAngle * Math.PI) / 180;
@@ -2404,6 +2460,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     }
     // Handle tilt animation (vertical rotation along arc)
     else if (isTiltingRef.current && tiltParamsRef.current) {
+      needsFrame = true; // spring-driven; runs until tiltApi's onRest clears the ref
       const { centerX, centerY, centerZ, distance, azimuthAngle } = tiltParamsRef.current;
       const currentTilt = tiltAngle.get();
 
@@ -2460,8 +2517,11 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       // Exponential smoothing — frame-rate independent. Snap the last fraction
       // so it settles cleanly instead of asymptoting forever.
       const a = 1 - Math.exp(-7 * delta);
-      const lerp = (cur: number, to: number) =>
-        Math.abs(to - cur) < 0.01 ? to : cur + (to - cur) * a;
+      const lerp = (cur: number, to: number) => {
+        if (Math.abs(to - cur) < 0.01) return to;
+        needsFrame = true; // still easing — request another frame
+        return cur + (to - cur) * a;
+      };
       // Lerp the look-at target and the height, then place the camera STRICTLY
       // above the (interpolated) target. Lerping camera.position and target
       // independently lets the horizontal offset between them be briefly nonzero
@@ -2506,8 +2566,11 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
           // When already at held, lerp snaps to it, so this still defeats the seed
           // every frame like a hard re-assert.
           const a = 1 - Math.exp(-7 * delta);
-          const lerp = (cur: number, to: number) =>
-            Math.abs(to - cur) < 0.01 ? to : cur + (to - cur) * a;
+          const lerp = (cur: number, to: number) => {
+            if (Math.abs(to - cur) < 0.01) return to;
+            needsFrame = true; // still easing toward the held pose
+            return cur + (to - cur) * a;
+          };
           const tx = lerp(controlsRef.current.target.x, h.lookX);
           const ty = lerp(controlsRef.current.target.y, h.lookY);
           const tz = lerp(controlsRef.current.target.z, h.lookZ);
@@ -2531,8 +2594,11 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
           perspCam.updateProjectionMatrix();
         }
         const a = 1 - Math.exp(-7 * delta);
-        const lerp = (cur: number, to: number) =>
-          Math.abs(to - cur) < 0.01 ? to : cur + (to - cur) * a;
+        const lerp = (cur: number, to: number) => {
+          if (Math.abs(to - cur) < 0.01) return to;
+          needsFrame = true; // still easing toward the framed 3D pose
+          return cur + (to - cur) * a;
+        };
         // Ease the look-at AND the rig offset (camera relative to target). Deriving
         // the camera from target + offset — rather than lerping its absolute
         // position independently — pins the azimuth, so the tilt eases in without a
@@ -2574,10 +2640,13 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     // the camera ("touch it and it snaps back"). MapControls owns the camera while
     // the user interacts, just like the flat path.
     else if (isAnimatingRef.current && !userInteractingRef.current) {
+      needsFrame = true; // spring move in flight; driveCameraTo clears the gate on rest
       camera.position.set(camX.get(), camY.get(), camZ.get());
       controlsRef.current.target.set(lookX.get(), lookY.get(), lookZ.get());
       controlsRef.current.update();
     }
+
+    if (needsFrame) invalidate();
   });
 
   const resetToInitial = useCallback(() => {
@@ -2631,8 +2700,9 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
         lookZ: z,
       };
       userInteractingRef.current = false;
+      invalidate(); // on-demand kick: ref-only change, so the owner won't run without it
     },
-    [],
+    [invalidate],
   );
 
   // Set camera target (look-at point). In flat mode this is a top-down pan fed
@@ -2649,6 +2719,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
         lookZ: z,
       };
       userInteractingRef.current = false;
+      invalidate(); // on-demand kick: ref-only change in flat mode
       return;
     }
     // 3D: maintain current offset from target, animate via the spring.
@@ -2670,7 +2741,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       lookZ: z,
       config: animConfig,
     });
-  }, [camera, driveCameraTo]);
+  }, [camera, driveCameraTo, invalidate]);
 
   // Convert cardinal direction to angle in degrees
   const directionToAngle = (dir: 'north' | 'south' | 'east' | 'west'): number => {
@@ -3252,6 +3323,13 @@ function ElevatedScopePanelMesh({
   const startTimeRef = useRef<number | null>(null);
   const finishedRef = useRef(false);
   const [fullyDismissed, setFullyDismissed] = useState(false);
+  const invalidate = useThree((s) => s.invalidate);
+
+  // On-demand kick: when dismissal starts, request a frame so the useFrame loop
+  // below begins (and then self-sustains via invalidate() until it finishes).
+  useEffect(() => {
+    if (dismissing) invalidate();
+  }, [dismissing, invalidate]);
 
   useFrame(({ clock }) => {
     if (!dismissing || finishedRef.current) return;
@@ -3278,6 +3356,8 @@ function ElevatedScopePanelMesh({
       finishedRef.current = true;
       setFullyDismissed(true);
       onDismissed?.(panel.id);
+    } else {
+      invalidate(); // keep the dismiss animation running to completion
     }
   });
 
@@ -3538,6 +3618,18 @@ function CityScene({
   defaultBuildingColor,
   onCameraReady,
 }: CitySceneProps & { onCameraReady?: () => void }) {
+  // On-demand safety net. Most in-scene visuals are driven imperatively inside
+  // useFrame (instanced-mesh hover/selection scale, colors) rather than through
+  // React three props, so R3F's built-in "render on prop change" won't schedule
+  // a frame for them. Requesting one render per CityScene commit means any state
+  // change that reaches this subtree — hover, selection, grow toggle, data /
+  // safeArea props — paints exactly one frame, then goes quiet again. It costs a
+  // single frame per React commit (bounded, event-driven), NOT a continuous loop.
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => {
+    invalidate();
+  });
+
   const centerOffset = useMemo(
     () => ({
       x: (cityData.bounds.minX + cityData.bounds.maxX) / 2,
@@ -4227,6 +4319,13 @@ export function FileCity3D({
       <Canvas
         shadows
         flat // Disables tone mapping for true colors
+        // On-demand rendering: render only when something actually changes
+        // (invalidate() calls in the animation drivers + a per-render net in
+        // CityScene/AnimatedCamera). Without this, R3F defaults to
+        // frameloop="always" — a permanent rAF loop + ~8 useFrame callbacks
+        // firing 60x/sec even while idle, which saturates the main thread and
+        // starves hover repaints (the "repo page hover lag" bug).
+        frameloop="demand"
         style={{
           position: 'absolute',
           top: 0,
