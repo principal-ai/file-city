@@ -4111,6 +4111,14 @@ export interface FileCity3DProps {
    * Memoize the callback to avoid re-mounting the bridge.
    */
   onCameraFrame?: OnCameraFrame;
+
+  /**
+   * Fires once when the camera has been positioned in the safe area and the
+   * initial frame has rendered. The host can use this to reveal the canvas
+   * (e.g. `visibility: hidden` until ready) so the city never appears mid-layout
+   * or mid-animation.
+   */
+  onCameraReady?: () => void;
 }
 
 /**
@@ -4158,6 +4166,7 @@ export function FileCity3D({
   defaultBuildingColor,
   cameraControls,
   onCameraFrame,
+  onCameraReady: onCameraReadyProp,
 }: FileCity3DProps) {
   const [hoveredBuilding, setHoveredBuilding] = useState<CityBuilding | null>(null);
   const [internalIsGrown, setInternalIsGrown] = useState(false);
@@ -4361,7 +4370,10 @@ export function FileCity3D({
           onPanelDismissed={onPanelDismissed}
           cameraControls={cameraControls}
           defaultBuildingColor={defaultBuildingColor}
-          onCameraReady={() => setCameraReady(true)}
+          onCameraReady={() => {
+            setCameraReady(true);
+            onCameraReadyProp?.();
+          }}
         />
         {onCameraFrame && <CameraFrameBridge onCameraFrame={onCameraFrame} />}
       </Canvas>
