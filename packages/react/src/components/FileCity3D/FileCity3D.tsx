@@ -4342,7 +4342,7 @@ export function FileCity3D({
           width: '100%',
           height: '100%',
           opacity: cameraReady ? 1 : 0,
-          transition: 'opacity 0.1s ease-in',
+          transition: onCameraReadyProp ? 'none' : 'opacity 0.1s ease-in',
         }}
       >
         <CityScene
