@@ -1,3 +1,4 @@
+import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 
 import { FileCity3D } from '../components/FileCity3D';
@@ -38,6 +39,7 @@ const FLAT_ANIMATION = {
 const Stage = ({ children }: { children: React.ReactNode }) => (
   <div
     style={{
+      position: 'relative',
       width: '100vw',
       height: '100vh',
       backgroundColor: '#0f1419',
@@ -315,5 +317,119 @@ export const BorderWidthSweep: StoryObj = {
         />
       </Stage>
     );
+  },
+};
+
+// ---------------------------------------------------------------------------
+// 6. Host-style repro (web-ade PR aggregate / activity heatmap):
+//    flat top-down city + multi-file fill layers + isolation hide + click log.
+//    Matches FileCityGuidePanel idle + host layers + defaultIsolationMode hide.
+// ---------------------------------------------------------------------------
+const HOST_STYLE_FILL_LAYERS: HighlightLayer[] = [
+  {
+    id: 'churn-cool',
+    name: 'Churn cool',
+    enabled: true,
+    color: '#93c5fd',
+    opacity: 0.4,
+    priority: 40,
+    items: [{ path: TARGETS.ts, type: 'file', renderStrategy: 'fill' }],
+  },
+  {
+    id: 'churn-mid',
+    name: 'Churn mid',
+    enabled: true,
+    color: '#3b82f6',
+    opacity: 0.7,
+    priority: 41,
+    items: [{ path: TARGETS.tsx, type: 'file', renderStrategy: 'fill' }],
+  },
+  {
+    id: 'churn-hot',
+    name: 'Churn hot',
+    enabled: true,
+    color: '#1d4ed8',
+    opacity: 1,
+    priority: 42,
+    items: [{ path: TARGETS.route, type: 'file', renderStrategy: 'fill' }],
+  },
+];
+
+function HostStyleFillHideWithClickInner() {
+  const [lastClick, setLastClick] = React.useState<string | null>(null);
+  const [hoverPath, setHoverPath] = React.useState<string | null>(null);
+
+  return (
+    <Stage>
+      <FileCity3D
+        cityData={cityData}
+        width="100%"
+        height="100%"
+        isGrown={false}
+        animation={FLAT_ANIMATION}
+        highlightLayers={HOST_STYLE_FILL_LAYERS}
+        defaultBuildingColor={NEUTRAL_BUILDING}
+        isolationMode="hide"
+        backgroundColor="#0f1419"
+        showControls={true}
+        onBuildingHover={(b) => setHoverPath(b?.path ?? null)}
+        onBuildingClick={(b) => {
+          setLastClick(b.path);
+          console.info('[HostStyleFillHideWithClick] onBuildingClick', b.path);
+        }}
+      />
+      <div
+        role="status"
+        aria-live="polite"
+        style={{
+          position: 'absolute',
+          top: 12,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 20,
+          maxWidth: 'min(560px, 92vw)',
+          padding: '8px 14px',
+          borderRadius: 8,
+          border: '1px solid rgba(148, 163, 184, 0.45)',
+          background: 'rgba(15, 23, 42, 0.92)',
+          color: '#e2e8f0',
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          fontSize: 12,
+          lineHeight: 1.45,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+          pointerEvents: 'none',
+          textAlign: 'center',
+        }}
+      >
+        <div style={{ color: '#94a3b8', marginBottom: 4 }}>
+          flat · fill layers · isolation hide · hover/click
+        </div>
+        <div>
+          hover:{' '}
+          <span style={{ color: hoverPath ? '#38bdf8' : '#64748b' }}>
+            {hoverPath ?? '—'}
+          </span>
+        </div>
+        <div>
+          click:{' '}
+          <span style={{ color: lastClick ? '#4ade80' : '#64748b' }}>
+            {lastClick ?? '—'}
+          </span>
+        </div>
+      </div>
+    </Stage>
+  );
+}
+
+export const HostStyleFillHideWithClick: StoryObj = {
+  name: '6. host-style fill + hide + click (flat)',
+  render: () => <HostStyleFillHideWithClickInner />,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Recreates the web-ade idle File City under a host heatmap (PR aggregate / activity churn): **flat** top-down view, multi-file **fill** highlight layers, **`isolationMode="hide"`**, and live hover/click readout. If hover path does not track the cursor, raycasting is misaligned; if hover tracks but click stays empty, the click path is broken.',
+      },
+    },
   },
 };

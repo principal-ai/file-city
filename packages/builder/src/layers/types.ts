@@ -44,6 +44,8 @@ export interface LayerItem {
   type: 'file' | 'directory';
   /** Optional render strategy override */
   renderStrategy?: LayerRenderStrategy;
+  /** Whether this item responds to pointer events (click, hover) */
+  interactive?: boolean;
   /** Cover-specific rendering options */
   coverOptions?: {
     opacity?: number;

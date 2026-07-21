@@ -809,6 +809,207 @@ function BorderHighlights({
 }
 
 // ============================================================================
+// Directory Fills - Semi-transparent planes over directory bounds
+// ============================================================================
+
+interface DirectoryFillsProps {
+  districts: CityDistrict[];
+  centerOffset: { x: number; z: number };
+  highlightLayers: HighlightLayer[];
+  growProgress: number;
+  onHighlightClick?: (path: string, layer: HighlightLayer, event: MouseEvent) => void;
+}
+
+function DirectoryFills({
+  districts,
+  centerOffset,
+  highlightLayers,
+  growProgress,
+  onHighlightClick,
+}: DirectoryFillsProps) {
+  const invalidate = useThree((s) => s.invalidate);
+  const hoveredRef = useRef<string | null>(null);
+  const materialRefs = useRef<Map<string, THREE.MeshBasicMaterial>>(new Map());
+  const originalsRef = useRef<Map<string, { color: THREE.Color; opacity: number }>>(new Map());
+  const cursorCleanupRef = useRef<(() => void) | null>(null);
+
+  // Find all directory-type fill layer items
+  const fillItems = useMemo(() => {
+    const items: Array<{ layer: HighlightLayer; item: LayerItem }> = [];
+    for (const layer of highlightLayers) {
+      if (!layer.enabled) continue;
+      for (const item of layer.items) {
+        if (item.type === 'directory' && (item.renderStrategy ?? 'border') === 'fill') {
+          items.push({ layer, item });
+        }
+      }
+    }
+    // Sort by priority (highest first)
+    return items.sort((a, b) => b.layer.priority - a.layer.priority);
+  }, [highlightLayers]);
+
+  // Match fill items to districts
+  const fillPlanes = useMemo(() => {
+    const planes: Array<{
+      district: CityDistrict;
+      color: string;
+      opacity: number;
+      priority: number;
+      interactive: boolean;
+      layer: HighlightLayer;
+    }> = [];
+
+    for (const { layer, item } of fillItems) {
+      const dir = item.path.replace(/^\/+|\/+$/g, '');
+      const district = districts.find(
+        (d) => d.path === dir || d.path === item.path,
+      );
+      if (!district) continue;
+
+      // Skip if a higher-priority fill already covers this district
+      const existing = planes.find(
+        (p) => p.district.path === district.path,
+      );
+      if (existing && existing.priority >= (layer.priority ?? 0)) continue;
+
+      // Replace if we have a higher priority
+      if (existing) {
+        const idx = planes.indexOf(existing);
+        planes[idx] = {
+          district,
+          color: layer.color,
+          opacity: layer.opacity ?? 0.3,
+          priority: layer.priority ?? 0,
+          interactive: item.interactive ?? false,
+          layer,
+        };
+      } else {
+        planes.push({
+          district,
+          color: layer.color,
+          opacity: layer.opacity ?? 0.3,
+          priority: layer.priority ?? 0,
+          interactive: item.interactive ?? false,
+          layer,
+        });
+      }
+    }
+
+    return planes;
+  }, [fillItems, districts]);
+
+  useEffect(() => {
+    invalidate();
+  }, [fillPlanes, invalidate]);
+
+  if (fillPlanes.length === 0) {
+    if (fillItems.length > 0) {
+      console.warn('[DirectoryFills] fillItems found but no districts matched:', fillItems.map(i => i.item.path), 'district paths:', districts.map(d => d.path));
+    }
+    return null;
+  }
+
+  const applyHover = (path: string, hovered: boolean) => {
+    const mat = materialRefs.current.get(path);
+    const orig = originalsRef.current.get(path);
+    if (!mat || !orig) return;
+
+    if (hovered) {
+      mat.color.set('#ffffff');
+      mat.opacity = Math.min(orig.opacity + 0.15, 1);
+      document.body.style.cursor = 'pointer';
+      cursorCleanupRef.current = () => { document.body.style.cursor = ''; };
+    } else {
+      mat.color.copy(orig.color);
+      mat.opacity = orig.opacity;
+      cursorCleanupRef.current?.();
+      cursorCleanupRef.current = null;
+    }
+    // Defer invalidate so the current pointer event finishes propagating
+    // before the next frame re-evaluates raycasting.
+    requestAnimationFrame(() => invalidate());
+  };
+
+  // Plane sits above the tallest buildings so it occludes them.
+  const FILL_HEIGHT = 12;
+
+  return (
+    <group>
+      {fillPlanes.map(({ district, color, opacity, interactive, layer }) => {
+        const { worldBounds } = district;
+        const width = worldBounds.maxX - worldBounds.minX;
+        const depth = worldBounds.maxZ - worldBounds.minZ;
+        const centerX = (worldBounds.minX + worldBounds.maxX) / 2 - centerOffset.x;
+        const centerZ = (worldBounds.minZ + worldBounds.maxZ) / 2 - centerOffset.z;
+
+        const handlePointerMove = interactive
+          ? (e: ThreeEvent<PointerEvent>) => {
+              e.stopPropagation();
+              if (hoveredRef.current !== district.path) {
+                // Unhover previous
+                if (hoveredRef.current) {
+                  applyHover(hoveredRef.current, false);
+                }
+                hoveredRef.current = district.path;
+                applyHover(district.path, true);
+              }
+            }
+          : undefined;
+
+        const handlePointerOut = interactive
+          ? (e: ThreeEvent<PointerEvent>) => {
+              e.stopPropagation();
+              if (hoveredRef.current === district.path) {
+                hoveredRef.current = null;
+                applyHover(district.path, false);
+              }
+            }
+          : undefined;
+
+        const handleClick = interactive
+          ? (e: ThreeEvent<MouseEvent>) => {
+              e.stopPropagation();
+              onHighlightClick?.(district.path, layer, e.nativeEvent);
+            }
+          : undefined;
+
+        const meshKey = district.path;
+
+        return (
+          <mesh
+            key={`fill-${meshKey}`}
+            position={[centerX, FILL_HEIGHT * growProgress, centerZ]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            renderOrder={1}
+            onPointerMove={handlePointerMove}
+            onPointerOut={handlePointerOut}
+            onClick={handleClick}
+          >
+            <planeGeometry args={[width, depth]} />
+            <meshBasicMaterial
+              ref={(mat) => {
+                if (mat) {
+                  materialRefs.current.set(meshKey, mat);
+                  originalsRef.current.set(meshKey, {
+                    color: new THREE.Color(color),
+                    opacity,
+                  });
+                }
+              }}
+              color={color}
+              transparent
+              opacity={opacity}
+              depthWrite={false}
+              depthTest={false}
+            />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
+// ============================================================================
 // Instanced Buildings - High performance rendering for large scenes
 // ============================================================================
 
@@ -877,6 +1078,21 @@ function InstancedBuildings({
   const hasActiveHighlightLayers = useMemo(() => {
     return visibilityLayers.some(layer => layer.enabled && layer.items.length > 0);
   }, [visibilityLayers]);
+
+  // Directory paths covered by an interactive fill layer — buildings under
+  // these paths should not fire click/hover events (the fill overlay owns them).
+  const interactiveFillDirs = useMemo(() => {
+    const dirs: string[] = [];
+    for (const layer of highlightLayers) {
+      if (!layer.enabled) continue;
+      for (const item of layer.items) {
+        if (item.type === 'directory' && (item.renderStrategy ?? 'border') === 'fill' && item.interactive) {
+          dirs.push(item.path);
+        }
+      }
+    }
+    return dirs;
+  }, [highlightLayers]);
 
   // Directories matched by a directory-type item from a user-supplied layer
   // that also contain a file-type item from any user-supplied layer. Inside
@@ -987,10 +1203,7 @@ function InstancedBuildings({
     return buildings.map((building, index) => {
       const [width, , depth] = building.dimensions;
       const fullHeight = calculateBuildingHeight(building, heightScaling, linearScale, flatPatterns);
-      // Get all layer matches and find first fill match for building color
-      const matches = getLayerMatchesForPath(building.path, highlightLayers);
-      const fillMatch = matches.find(m => m.renderStrategy === 'fill');
-      const color = fillMatch?.color ?? defaultBuildingColor ?? getColorForFile(building);
+      const color = defaultBuildingColor ?? getColorForFile(building);
 
       const x = building.position.x - centerOffset.x;
       const z = building.position.z - centerOffset.z;
@@ -1018,7 +1231,6 @@ function InstancedBuildings({
     flatPatterns,
     staggerIndices,
     animationConfig,
-    highlightLayers,
     defaultBuildingColor,
   ]);
 
@@ -1056,9 +1268,15 @@ function InstancedBuildings({
     if (meshRef.current.instanceColor) {
       meshRef.current.instanceColor.needsUpdate = true;
     }
+    // Raycasting uses the bounding sphere. After a host-layer strip (PR
+    // aggregate / hide isolation) the instance count + matrices change and
+    // demand-mode may not run a frame before the next pointer event — without
+    // this recompute, hover/click miss while pan (MapControls) still works.
+    meshRef.current.computeBoundingSphere();
+    invalidate();
 
     initializedRef.current = true;
-  }, [buildingData, growProgress, tempObject, tempColor, minHeight, baseOffset]);
+  }, [buildingData, growProgress, tempObject, tempColor, minHeight, baseOffset, invalidate]);
 
   // Animate buildings each frame
   useFrame(({ clock }) => {
@@ -1171,30 +1389,49 @@ function InstancedBuildings({
     if (stillAnimating) invalidate();
   });
 
-  const handlePointerMove = useCallback(
-    (e: ThreeEvent<PointerEvent>) => {
-      e.stopPropagation();
-      if (e.instanceId !== undefined && e.instanceId < buildingData.length) {
-        const data = buildingData[e.instanceId];
-        onHover?.(data.building);
-      }
-    },
-    [buildingData, onHover],
+  const isPathUnderInteractiveFill = useCallback(
+    (path: string) => interactiveFillDirs.some(dir => path === dir || path.startsWith(dir + '/')),
+    [interactiveFillDirs],
   );
 
-  const handlePointerOut = useCallback(() => {
-    onHover?.(null);
-  }, [onHover]);
+  const handlePointerMove = useCallback(
+    (e: ThreeEvent<PointerEvent>) => {
+      if (e.instanceId !== undefined && e.instanceId < buildingData.length) {
+        const data = buildingData[e.instanceId];
+        if (!isPathUnderInteractiveFill(data.building.path)) {
+          e.stopPropagation();
+          onHover?.(data.building);
+        }
+      }
+    },
+    [buildingData, onHover, isPathUnderInteractiveFill],
+  );
+
+  const handlePointerOut = useCallback(
+    (e: ThreeEvent<PointerEvent>) => {
+      if (
+        e.instanceId != null &&
+        e.instanceId < buildingData.length &&
+        isPathUnderInteractiveFill(buildingData[e.instanceId].building.path)
+      ) {
+        return;
+      }
+      onHover?.(null);
+    },
+    [buildingData, onHover, isPathUnderInteractiveFill],
+  );
 
   const handleClick = useCallback(
     (e: ThreeEvent<MouseEvent>) => {
-      e.stopPropagation();
       if (e.instanceId !== undefined && e.instanceId < buildingData.length) {
         const data = buildingData[e.instanceId];
-        onClick?.(data.building, e.nativeEvent);
+        if (!isPathUnderInteractiveFill(data.building.path)) {
+          e.stopPropagation();
+          onClick?.(data.building, e.nativeEvent);
+        }
       }
     },
-    [buildingData, onClick],
+    [buildingData, onClick, isPathUnderInteractiveFill],
   );
 
   if (buildingData.length === 0) return null;
@@ -2351,6 +2588,17 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     }
     userInteractingRef.current = false;
   }, [safeArea?.top, safeArea?.bottom, safeArea?.left, safeArea?.right]);
+
+  // When cityData changes (new cityWidth/cityDepth), reset the one-shot guard so
+  // the useFrame block re-fires the initial framing. Without this, switching repos
+  // while FileCity3D stays mounted would lerp from the old camera position to the
+  // new one via the flat owner (~660ms visible animation) instead of snapping
+  // instantly. Resetting hasNotifiedReady lets onCameraReady fire again so the
+  // host can re-hide visibility until the new frame lands.
+  useEffect(() => {
+    hasAppliedInitial.current = false;
+    hasNotifiedReady.current = false;
+  }, [cityWidth, cityDepth]);
 
   // No 3D-specific reframe effect: the grown overview owner in the frame loop
   // reads safeArea/viewport/footprint LIVE every frame, and the resize/safeArea
@@ -3564,10 +3812,11 @@ function SelectionRing({
 // Main scene component
 interface CitySceneProps {
   cityData: CityData;
-  /** Inset rect the flat overview frames into. See {@link SafeArea}. */
+  /** Inset rect the flat overview frames itself into. See {@link SafeArea}. */
   safeArea?: SafeArea;
   onBuildingHover?: (building: CityBuilding | null) => void;
   onBuildingClick?: (building: CityBuilding, event: MouseEvent) => void;
+  onHighlightClick?: (path: string, layer: HighlightLayer, event: MouseEvent) => void;
   hoveredBuilding: CityBuilding | null;
   selectedBuilding: CityBuilding | null;
   selectedDistrict: CityDistrict | null;
@@ -3596,6 +3845,7 @@ function CityScene({
   safeArea,
   onBuildingHover,
   onBuildingClick,
+  onHighlightClick,
   hoveredBuilding,
   selectedBuilding,
   selectedDistrict,
@@ -3934,6 +4184,14 @@ function CityScene({
         defaultBuildingColor={defaultBuildingColor}
       />
 
+      <DirectoryFills
+        districts={cityData.districts}
+        centerOffset={centerOffset}
+        highlightLayers={highlightLayers}
+        growProgress={growProgress}
+        onHighlightClick={onHighlightClick}
+      />
+
       <BuildingIcons
         buildings={cityData.buildings}
         centerOffset={centerOffset}
@@ -4155,7 +4413,7 @@ export function FileCity3D({
   flatPatterns = DEFAULT_FLAT_PATTERNS,
   focusDirectory: externalFocusDirectory,
   focusColor: externalFocusColor,
-  onDirectorySelect: _onDirectorySelect,
+  onDirectorySelect,
   backgroundColor = '#0f172a',
   textColor = '#94a3b8',
   selectedBuilding = null,
@@ -4178,6 +4436,13 @@ export function FileCity3D({
       onBuildingHover?.(building);
     },
     [onBuildingHover],
+  );
+
+  const handleHighlightClick = useCallback(
+    (path: string, _layer: HighlightLayer, _event: MouseEvent) => {
+      onDirectorySelect?.(path);
+    },
+    [onDirectorySelect],
   );
 
   const animationConfig = useMemo(() => ({ ...DEFAULT_ANIMATION, ...animation }), [animation]);
@@ -4322,6 +4587,9 @@ export function FileCity3D({
         position: 'relative',
         background: backgroundColor,
         overflow: 'hidden',
+        // Ensure the WebGL layer can receive hits when stacked under chrome
+        // that uses pointer-events: none (GuideStage overlay pattern).
+        pointerEvents: 'auto',
         ...style,
       }}
     >
@@ -4350,6 +4618,7 @@ export function FileCity3D({
           safeArea={safeArea}
           onBuildingHover={handleBuildingHover}
           onBuildingClick={onBuildingClick}
+          onHighlightClick={handleHighlightClick}
           hoveredBuilding={hoveredBuilding}
           selectedBuilding={resolvedSelection.building}
           selectedDistrict={resolvedSelection.district}
