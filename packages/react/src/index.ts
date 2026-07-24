@@ -59,6 +59,10 @@ export { MultiVersionCityBuilder } from '@principal-ai/file-city-builder';
 export { useCodeCityData } from './hooks/useCodeCityData';
 export type { UseCodeCityDataOptions, UseCodeCityDataReturn } from './hooks/useCodeCityData';
 
+// Export the useCityTransition hook for animating between city data states
+export { useCityTransition } from './hooks/useCityTransition';
+export type { UseCityTransitionOptions, UseCityTransitionReturn } from './hooks/useCityTransition';
+
 // Re-export FileTree type for convenience
 export type { FileTree } from '@principal-ai/file-city-builder';
 

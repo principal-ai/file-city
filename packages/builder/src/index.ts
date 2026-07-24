@@ -97,3 +97,15 @@ export {
   calculateAnimationDuration,
 } from './zoom/zoomCalculations.js';
 export type { TargetBounds, ZoomTarget, ScaleAndOffset } from './zoom/zoomCalculations.js';
+
+// City transition utilities (diff and interpolate between city data states)
+export { diffCityData, interpolateCityData, toCityData } from './cityTransition.js';
+export type {
+  BuildingDiff,
+  CityDiff,
+  DistrictDiff,
+  BuildingChangeType,
+  InterpolatedBuilding,
+  InterpolatedDistrict,
+  InterpolatedCityData,
+} from './types/cityTransition.js';
