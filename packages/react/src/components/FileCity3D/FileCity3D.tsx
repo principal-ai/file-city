@@ -7,7 +7,7 @@
  * Supports animated transition from 2D (flat) to 3D (grown buildings).
  */
 
-import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useRef, useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import { useTheme } from '@principal-ade/industry-theme';
 import { Canvas, useFrame, ThreeEvent, useThree } from '@react-three/fiber';
 
@@ -818,6 +818,7 @@ interface DirectoryFillsProps {
   highlightLayers: HighlightLayer[];
   growProgress: number;
   onHighlightClick?: (path: string, layer: HighlightLayer, event: MouseEvent) => void;
+  onHighlightHover?: (path: string | null, layer: HighlightLayer | null) => void;
 }
 
 function DirectoryFills({
@@ -826,6 +827,7 @@ function DirectoryFills({
   highlightLayers,
   growProgress,
   onHighlightClick,
+  onHighlightHover,
 }: DirectoryFillsProps) {
   const invalidate = useThree((s) => s.invalidate);
   const hoveredRef = useRef<string | null>(null);
@@ -915,12 +917,10 @@ function DirectoryFills({
     if (!mat || !orig) return;
 
     if (hovered) {
-      mat.color.set('#ffffff');
-      mat.opacity = Math.min(orig.opacity + 0.15, 1);
+      mat.opacity = Math.max(orig.opacity - 0.15, 0);
       document.body.style.cursor = 'pointer';
       cursorCleanupRef.current = () => { document.body.style.cursor = ''; };
     } else {
-      mat.color.copy(orig.color);
       mat.opacity = orig.opacity;
       cursorCleanupRef.current?.();
       cursorCleanupRef.current = null;
@@ -952,6 +952,7 @@ function DirectoryFills({
                 }
                 hoveredRef.current = district.path;
                 applyHover(district.path, true);
+                onHighlightHover?.(district.path, layer);
               }
             }
           : undefined;
@@ -962,6 +963,7 @@ function DirectoryFills({
               if (hoveredRef.current === district.path) {
                 hoveredRef.current = null;
                 applyHover(district.path, false);
+                onHighlightHover?.(null, null);
               }
             }
           : undefined;
@@ -1033,6 +1035,8 @@ interface InstancedBuildingsProps {
   visibilityLayers: HighlightLayer[];
   isolationMode: IsolationMode;
   defaultBuildingColor?: string;
+  /** Files modified in the current transition — used for automatic isolation. */
+  modifiedFiles?: Record<string, { lineDelta: number }>;
 }
 
 // Helper to check if a path is inside a directory
@@ -1059,6 +1063,7 @@ function InstancedBuildings({
   visibilityLayers,
   isolationMode,
   defaultBuildingColor,
+  modifiedFiles,
 }: InstancedBuildingsProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const startTimeRef = useRef<number | null>(null);
@@ -1078,6 +1083,9 @@ function InstancedBuildings({
   const hasActiveHighlightLayers = useMemo(() => {
     return visibilityLayers.some(layer => layer.enabled && layer.items.length > 0);
   }, [visibilityLayers]);
+
+  // Whether modifiedFiles should drive isolation
+  const hasModifiedFilesIsolation = !!modifiedFiles;
 
   // Directory paths covered by an interactive fill layer — buildings under
   // these paths should not fire click/hover events (the fill overlay owns them).
@@ -1120,7 +1128,10 @@ function InstancedBuildings({
     return narrowed;
   }, [visibilityLayers]);
 
-  // Initialize height and dim multiplier arrays
+  // Initialize height and dim multiplier arrays.
+  // When modifiedFiles isolation is active, start buildings at gray (dim=0)
+  // so highlighted files brighten from gray instead of everything collapsing
+  // from full color — this eliminates the flash at transition start.
   useEffect(() => {
     if (buildings.length > 0) {
       if (
@@ -1129,12 +1140,43 @@ function InstancedBuildings({
       ) {
         heightMultipliersRef.current = new Float32Array(buildings.length).fill(1);
         targetMultipliersRef.current = new Float32Array(buildings.length).fill(1);
-        dimMultipliersRef.current = new Float32Array(buildings.length).fill(1);
-        targetDimRef.current = new Float32Array(buildings.length).fill(1);
+        const initialDim = hasModifiedFilesIsolation ? 0 : 1;
+        dimMultipliersRef.current = new Float32Array(buildings.length).fill(initialDim);
+        targetDimRef.current = new Float32Array(buildings.length).fill(initialDim);
         hiddenRef.current = new Uint8Array(buildings.length);
       }
     }
-  }, [buildings.length]);
+  }, [buildings.length, hasModifiedFilesIsolation]);
+
+  // When isolation activates after mount, snap dim to 0 immediately so
+  // there's no flash of full color while the lerp catches up.
+  // Uses useLayoutEffect (not useEffect) so the snap runs before the
+  // browser paints — otherwise there's one frame of full color.
+  // Also force-updates the mesh instanceColor so R3F doesn't render one
+  // frame with stale full-color values before useFrame catches up.
+  const prevHasIsolationRef = useRef(hasModifiedFilesIsolation);
+  useLayoutEffect(() => {
+    if (hasModifiedFilesIsolation && !prevHasIsolationRef.current && dimMultipliersRef.current) {
+      dimMultipliersRef.current.fill(0);
+      // Force mesh colors to gray immediately so the next R3F render
+      // doesn't show a flash of full color.
+      if (meshRef.current && buildingData.length > 0) {
+        buildingData.forEach((data, i) => {
+          tempColor.set(data.color);
+          const gray = 0.3;
+          tempColor.r = gray;
+          tempColor.g = gray;
+          tempColor.b = gray;
+          meshRef.current!.setColorAt(i, tempColor);
+        });
+        if (meshRef.current.instanceColor) {
+          meshRef.current.instanceColor.needsUpdate = true;
+        }
+        invalidate();
+      }
+    }
+    prevHasIsolationRef.current = hasModifiedFilesIsolation;
+  }, [hasModifiedFilesIsolation]);
 
   // Update target multipliers when focusDirectory or highlightLayers change
   useEffect(() => {
@@ -1154,7 +1196,9 @@ function InstancedBuildings({
         : [];
       const isHighlighted = hasActiveHighlightLayers
         ? layerMatches.length > 0
-        : true; // No highlights means all are "highlighted"
+        : hasModifiedFilesIsolation
+          ? modifiedFiles![building.path] !== undefined  // modifiedFiles marks active files
+          : true; // No highlights means all are "highlighted"
 
       // A directory match doesn't count as "specifically highlighted" when
       // that directory has been narrowed by file-level matches — the
@@ -1163,23 +1207,25 @@ function InstancedBuildings({
         ? layerMatches.some(m =>
             m.item.type === 'file' || !narrowedDirectories.has(m.item.path),
           )
-        : true;
+        : hasModifiedFilesIsolation
+          ? modifiedFiles![building.path] !== undefined  // modifiedFiles marks specific files
+          : true;
 
       // Determine collapse/dim/hide behavior based on what's active. The
       // "specifically highlighted" check applies in both collapse and hide
       // modes so directory matches narrowed by file-level matches don't keep
       // every sibling visible.
-      if (focusDirectory && hasActiveHighlightLayers && isolationMode === 'collapse') {
+      if (focusDirectory && (hasActiveHighlightLayers || hasModifiedFilesIsolation) && isolationMode === 'collapse') {
         shouldCollapse = !isInFocusDirectory;
         shouldDim = isInFocusDirectory && !isSpecificallyHighlighted;
-      } else if (focusDirectory && hasActiveHighlightLayers && isolationMode === 'hide') {
+      } else if (focusDirectory && (hasActiveHighlightLayers || hasModifiedFilesIsolation) && isolationMode === 'hide') {
         shouldCollapse = !isInFocusDirectory;
         shouldHide = isInFocusDirectory && !isSpecificallyHighlighted;
       } else if (focusDirectory) {
         shouldCollapse = !isInFocusDirectory;
-      } else if (hasActiveHighlightLayers && isolationMode === 'collapse') {
+      } else if ((hasActiveHighlightLayers || hasModifiedFilesIsolation) && isolationMode === 'collapse') {
         shouldCollapse = !isSpecificallyHighlighted;
-      } else if (hasActiveHighlightLayers && isolationMode === 'hide') {
+      } else if ((hasActiveHighlightLayers || hasModifiedFilesIsolation) && isolationMode === 'hide') {
         shouldHide = !isSpecificallyHighlighted;
       }
 
@@ -1195,7 +1241,7 @@ function InstancedBuildings({
       // Hidden ref controls full invisibility (mesh + edges + icon)
       hiddenRef.current![index] = shouldHide ? 1 : 0;
     });
-  }, [focusDirectory, buildings, visibilityLayers, isolationMode, hasActiveHighlightLayers, narrowedDirectories]);
+  }, [focusDirectory, buildings, visibilityLayers, isolationMode, hasActiveHighlightLayers, narrowedDirectories, hasModifiedFilesIsolation, modifiedFiles]);
 
   // Pre-compute building data
   const buildingData = useMemo(() => {
@@ -1245,6 +1291,17 @@ function InstancedBuildings({
   useEffect(() => {
     if (!meshRef.current || buildingData.length === 0) return;
 
+    // When buildingData changes, snap dimMultipliersRef to targetDimRef so
+    // useFrame doesn't start lerping from a stale value. Without this, a
+    // file that was modified in the prior commit (dim=1) but is no longer
+    // modified (target=0) would lerp from 1→0 over ~583ms, showing full
+    // color the whole time because 1 > 0.5 passes the gray threshold.
+    if (hasModifiedFilesIsolation && dimMultipliersRef.current && targetDimRef.current) {
+      for (let i = 0; i < dimMultipliersRef.current.length; i++) {
+        dimMultipliersRef.current[i] = targetDimRef.current[i];
+      }
+    }
+
     buildingData.forEach((data, instanceIndex) => {
       const { width, depth, x, z, color, fullHeight } = data;
 
@@ -1260,7 +1317,19 @@ function InstancedBuildings({
 
       meshRef.current!.setMatrixAt(instanceIndex, tempObject.matrix);
 
+      // Use targetDim (not dimMultipliersRef) so we always render the correct
+      // state. targetDimRef is already up-to-date because the target useEffect
+      // runs before this effect. dimMultipliersRef may still hold stale values
+      // from a prior commit's lerp, which would flash the wrong color.
+      const dim = targetDimRef.current?.[instanceIndex] ?? 1;
       tempColor.set(color);
+      if (dim < 0.5) {
+        const grayAmount = 1 - dim * 2;
+        const gray = 0.3;
+        tempColor.r = tempColor.r * (1 - grayAmount) + gray * grayAmount;
+        tempColor.g = tempColor.g * (1 - grayAmount) + gray * grayAmount;
+        tempColor.b = tempColor.b * (1 - grayAmount) + gray * grayAmount;
+      }
       meshRef.current!.setColorAt(instanceIndex, tempColor);
     });
 
@@ -1506,6 +1575,8 @@ interface BuildingIconsProps {
   visibilityLayers: HighlightLayer[];
   isolationMode: IsolationMode;
   hasActiveHighlights: boolean;
+  /** Files modified in the current transition — used for automatic isolation. */
+  modifiedFiles?: Record<string, { lineDelta: number }>;
 }
 
 // Individual animated icon component
@@ -1589,6 +1660,7 @@ function BuildingIcons({
   visibilityLayers,
   isolationMode,
   hasActiveHighlights,
+  modifiedFiles,
 }: BuildingIconsProps) {
   // Same narrowing rule as InstancedBuildings, scoped to user highlight layers
   // only (file-color layers don't narrow visibility).
@@ -1614,6 +1686,9 @@ function BuildingIcons({
     return narrowed;
   }, [visibilityLayers]);
 
+  // Whether modifiedFiles should drive isolation
+  const hasModifiedFilesIsolation = !!modifiedFiles;
+
   // Pre-compute buildings with icons
   const buildingsWithIcons = useMemo(() => {
     return buildings
@@ -1626,9 +1701,9 @@ function BuildingIcons({
         const isSpecificallyHighlighted = matches.some(
           m => m.item.type === 'file' || !narrowedDirectories.has(m.item.path),
         );
-        const shouldDim = hasActiveHighlights && !isSpecificallyHighlighted;
+        const shouldDim = (hasActiveHighlights || hasModifiedFilesIsolation) && !isSpecificallyHighlighted && !(hasModifiedFilesIsolation && modifiedFiles?.[building.path] !== undefined);
         const shouldHide =
-          hasActiveHighlights && isolationMode === 'hide' && !isSpecificallyHighlighted;
+          (hasActiveHighlights || hasModifiedFilesIsolation) && (isolationMode === 'hide' || (hasModifiedFilesIsolation && modifiedFiles?.[building.path] === undefined)) && !isSpecificallyHighlighted;
         const shouldCollapse = shouldDim && isolationMode === 'collapse';
 
         // Hide icons for buildings that are hidden or collapsed
@@ -1667,6 +1742,8 @@ function BuildingIcons({
     linearScale,
     flatPatterns,
     narrowedDirectories,
+    hasModifiedFilesIsolation,
+    modifiedFiles,
   ]);
 
   // Icons are now always rendered (flat or grown)
@@ -1703,6 +1780,44 @@ function BuildingIcons({
   );
 }
 
+// Floating indicator for modified files showing +/- line delta
+interface ModifiedIndicatorProps {
+  building: CityBuilding;
+  centerOffset: { x: number; z: number };
+  lineDelta: number;
+  opacity: number;
+}
+
+function ModifiedIndicator({ building, centerOffset, lineDelta, opacity }: ModifiedIndicatorProps) {
+  const sign = lineDelta > 0 ? '+' : '';
+  const text = `${sign}${lineDelta}`;
+  const color = lineDelta > 0 ? '#22c55e' : '#ef4444';
+
+  const x = building.position.x - centerOffset.x;
+  const z = building.position.z - centerOffset.z;
+  const y = 10;
+
+  const fontSize = Math.max(15, Math.min(30, building.dimensions[0] / 8));
+
+  return (
+    <Text
+      position={[x, y, z]}
+      rotation={[-Math.PI / 2, 0, 0]}
+      fontSize={fontSize}
+      color={color}
+      anchorX="center"
+      anchorY="middle"
+      outlineWidth={fontSize * 0.06}
+      outlineColor="#000000"
+      renderOrder={999}
+      frustumCulled={false}
+    >
+      {text}
+      <meshBasicMaterial depthTest={false} />
+    </Text>
+  );
+}
+
 // District floor component
 interface DistrictFloorProps {
   district: CityDistrict;
@@ -1710,9 +1825,24 @@ interface DistrictFloorProps {
   opacity: number;
   highlightColor?: string | null;
   growProgress: number;
+  appearingProgress?: number;
 }
 
-function DistrictFloor({ district, centerOffset, highlightColor, growProgress }: DistrictFloorProps) {
+function easeOutBack(t: number): number {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+function DistrictFloor({ district, centerOffset, highlightColor, growProgress, appearingProgress = 0 }: DistrictFloorProps) {
   const { worldBounds } = district;
   const width = worldBounds.maxX - worldBounds.minX;
   const depth = worldBounds.maxZ - worldBounds.minZ;
@@ -1724,13 +1854,17 @@ function DistrictFloor({ district, centerOffset, highlightColor, growProgress }:
   const pathDepth = district.path.split('/').length;
   const floorY = -5 - pathDepth * 0.1;
 
-  const borderColor = highlightColor || '#475569';
-  const lineWidth = highlightColor ? 3 : 1;
-  const labelColor = highlightColor || '#cbd5e1';
+  // Bright accent color for appearing districts, fades to default
+  const accentColor = '#22d3ee'; // cyan-400
+  const borderColor = appearingProgress > 0
+    ? (highlightColor || accentColor)
+    : (highlightColor || '#475569');
+  const lineWidth = (highlightColor || appearingProgress > 0) ? 3 : 1;
+  const labelColor = appearingProgress > 0
+    ? (highlightColor || accentColor)
+    : (highlightColor || '#cbd5e1');
 
   // Interpolate text rotation and position based on growProgress
-  // Flat: -Math.PI / 2 (facing up), positioned at center of district
-  // Grown: -Math.PI / 6 (angled), positioned at edge of district
   const flatRotationX = -Math.PI / 2;
   const grownRotationX = -Math.PI / 6;
   const textRotationX = flatRotationX + (grownRotationX - flatRotationX) * growProgress;
@@ -1739,9 +1873,23 @@ function DistrictFloor({ district, centerOffset, highlightColor, growProgress }:
   const grownY = 1.5;
   const textY = flatY + (grownY - flatY) * growProgress;
 
-  const flatZ = depth / 2 - 6; // Near bottom of district when flat, with padding
-  const grownZ = depth / 2 + 2; // Just outside edge when grown
+  const flatZ = depth / 2 - 6;
+  const grownZ = depth / 2 + 2;
   const textZ = flatZ + (grownZ - flatZ) * growProgress;
+
+  // When appearing, label starts at center, pauses, then slides down to flatZ
+  const positionT = appearingProgress > 0
+    ? easeOutCubic(Math.max(0, (appearingProgress - 0.5) / 0.5))
+    : 0;
+  const appearingZ = appearingProgress > 0
+    ? lerp(0, flatZ, positionT)
+    : undefined;
+  const finalTextZ = appearingZ !== undefined ? appearingZ : textZ;
+
+  // Label starts large and shrinks to final size as it slides into position
+  const labelScale = appearingProgress > 0
+    ? lerp(10, 1, easeOutCubic(Math.max(0, (appearingProgress - 0.5) / 0.5)))
+    : 1;
 
   return (
     <group position={[centerX, 0, centerZ]}>
@@ -1751,19 +1899,20 @@ function DistrictFloor({ district, centerOffset, highlightColor, growProgress }:
         <lineBasicMaterial color={borderColor} linewidth={lineWidth} depthWrite={false} />
       </lineSegments>
 
-      {/* Always show directory name label */}
-      <Text
-        position={[0, textY, textZ]}
-        rotation={[textRotationX, 0, 0]}
-        fontSize={Math.max(6, Math.min(12, width / 3))}
-        color={labelColor}
-        anchorX="center"
-        anchorY="middle"
-        outlineWidth={0.15}
-        outlineColor="#0f172a"
-      >
-        {dirName}
-      </Text>
+      {/* Directory name label with pop-in scale */}
+      <group position={[0, textY, finalTextZ]} scale={[labelScale, labelScale, labelScale]}>
+        <Text
+          rotation={[textRotationX, 0, 0]}
+          fontSize={Math.max(6, Math.min(12, width / 3))}
+          color={labelColor}
+          anchorX="center"
+          anchorY="middle"
+          outlineWidth={0.15}
+          outlineColor="#0f172a"
+        >
+          {dirName}
+        </Text>
+      </group>
     </group>
   );
 }
@@ -3817,6 +3966,7 @@ interface CitySceneProps {
   onBuildingHover?: (building: CityBuilding | null) => void;
   onBuildingClick?: (building: CityBuilding, event: MouseEvent) => void;
   onHighlightClick?: (path: string, layer: HighlightLayer, event: MouseEvent) => void;
+  onHighlightHover?: (path: string | null, layer: HighlightLayer | null) => void;
   hoveredBuilding: CityBuilding | null;
   selectedBuilding: CityBuilding | null;
   selectedDistrict: CityDistrict | null;
@@ -3838,6 +3988,9 @@ interface CitySceneProps {
   onPanelDismissed?: (id: string) => void;
   cameraControls?: CameraControlsConfig;
   defaultBuildingColor?: string;
+  districtAppearingProgress?: Record<string, number>;
+  modifiedFiles?: Record<string, { lineDelta: number }>;
+  transitionProgress?: number;
 }
 
 function CityScene({
@@ -3846,6 +3999,7 @@ function CityScene({
   onBuildingHover,
   onBuildingClick,
   onHighlightClick,
+  onHighlightHover,
   hoveredBuilding,
   selectedBuilding,
   selectedDistrict,
@@ -3867,6 +4021,9 @@ function CityScene({
   cameraControls,
   defaultBuildingColor,
   onCameraReady,
+  districtAppearingProgress,
+  modifiedFiles,
+  transitionProgress = 0,
 }: CitySceneProps & { onCameraReady?: () => void }) {
   // On-demand safety net. Most in-scene visuals are driven imperatively inside
   // useFrame (instanced-mesh hover/selection scale, colors) rather than through
@@ -4100,6 +4257,11 @@ function CityScene({
     return cityData.buildings.findIndex(b => b.path === selectedBuilding.path);
   }, [selectedBuilding, cityData.buildings]);
 
+  // Use original building colors (line delta indicators are shown separately via ModifiedIndicator)
+  const displayBuildings = useMemo(() => {
+    return cityData.buildings;
+  }, [cityData.buildings]);
+
   return (
     <>
       <AnimatedCamera
@@ -4160,12 +4322,13 @@ function CityScene({
             opacity={1}
             highlightColor={districtColor}
             growProgress={growProgress}
+            appearingProgress={districtAppearingProgress?.[district.path] ?? 0}
           />
         );
       })}
 
       <InstancedBuildings
-        buildings={cityData.buildings}
+        buildings={displayBuildings}
         centerOffset={centerOffset}
         onHover={onBuildingHover}
         onClick={onBuildingClick}
@@ -4182,6 +4345,7 @@ function CityScene({
         visibilityLayers={visibilityLayers}
         isolationMode={isolationMode}
         defaultBuildingColor={defaultBuildingColor}
+        modifiedFiles={modifiedFiles}
       />
 
       <DirectoryFills
@@ -4190,10 +4354,11 @@ function CityScene({
         highlightLayers={highlightLayers}
         growProgress={growProgress}
         onHighlightClick={onHighlightClick}
+        onHighlightHover={onHighlightHover}
       />
 
       <BuildingIcons
-        buildings={cityData.buildings}
+        buildings={displayBuildings}
         centerOffset={centerOffset}
         growProgress={growProgress}
         heightScaling={heightScaling}
@@ -4203,7 +4368,20 @@ function CityScene({
         visibilityLayers={visibilityLayers}
         isolationMode={isolationMode}
         hasActiveHighlights={activeHighlights}
+        modifiedFiles={modifiedFiles}
       />
+
+      {modifiedFiles && transitionProgress > 0 && transitionProgress < 1 && cityData.buildings
+        .filter(b => modifiedFiles[b.path] && modifiedFiles[b.path].lineDelta !== 0)
+        .map(building => (
+          <ModifiedIndicator
+            key={`modified-${building.path}`}
+            building={building}
+            centerOffset={centerOffset}
+            lineDelta={modifiedFiles[building.path].lineDelta}
+            opacity={1}
+          />
+        ))}
 
       {growProgress === 0 &&
         elevatedScopePanels?.map(panel => (
@@ -4295,6 +4473,8 @@ export interface FileCity3DProps {
   focusColor?: string | null;
   /** Callback when user clicks on a district to navigate */
   onDirectorySelect?: (directory: string | null) => void;
+  /** Callback when user hovers over a directory fill layer */
+  onDirectoryHover?: (directory: string | null) => void;
   /** Background color for the canvas container */
   backgroundColor?: string;
   /** Text color for secondary/placeholder text */
@@ -4377,6 +4557,27 @@ export interface FileCity3DProps {
    * or mid-animation.
    */
   onCameraReady?: () => void;
+
+  /**
+   * Per-district appearing progress (0-1) keyed by district path.
+   * Used to animate new directory borders expanding from center with a
+   * bright accent color, and labels popping in.
+   */
+  districtAppearingProgress?: Record<string, number>;
+
+  /**
+   * Files modified in the current commit, keyed by path.
+   * Each entry includes a lineDelta (lines added minus lines removed).
+   * During a transition (transitionProgress between 0 and 1), these
+   * buildings flash yellow and show a floating +/- indicator.
+   */
+  modifiedFiles?: Record<string, { lineDelta: number }>;
+
+  /**
+   * Current transition progress (0-1). When combined with modifiedFiles,
+   * buildings flash yellow and show +/- indicators during the transition.
+   */
+  transitionProgress?: number;
 }
 
 /**
@@ -4414,6 +4615,7 @@ export function FileCity3D({
   focusDirectory: externalFocusDirectory,
   focusColor: externalFocusColor,
   onDirectorySelect,
+  onDirectoryHover,
   backgroundColor = '#0f172a',
   textColor = '#94a3b8',
   selectedBuilding = null,
@@ -4425,6 +4627,9 @@ export function FileCity3D({
   cameraControls,
   onCameraFrame,
   onCameraReady: onCameraReadyProp,
+  districtAppearingProgress,
+  modifiedFiles,
+  transitionProgress,
 }: FileCity3DProps) {
   const [hoveredBuilding, setHoveredBuilding] = useState<CityBuilding | null>(null);
   const [internalIsGrown, setInternalIsGrown] = useState(false);
@@ -4443,6 +4648,13 @@ export function FileCity3D({
       onDirectorySelect?.(path);
     },
     [onDirectorySelect],
+  );
+
+  const handleHighlightHover = useCallback(
+    (path: string | null, _layer: HighlightLayer | null) => {
+      onDirectoryHover?.(path);
+    },
+    [onDirectoryHover],
   );
 
   const animationConfig = useMemo(() => ({ ...DEFAULT_ANIMATION, ...animation }), [animation]);
@@ -4619,6 +4831,7 @@ export function FileCity3D({
           onBuildingHover={handleBuildingHover}
           onBuildingClick={onBuildingClick}
           onHighlightClick={handleHighlightClick}
+          onHighlightHover={handleHighlightHover}
           hoveredBuilding={hoveredBuilding}
           selectedBuilding={resolvedSelection.building}
           selectedDistrict={resolvedSelection.district}
@@ -4643,6 +4856,9 @@ export function FileCity3D({
             setCameraReady(true);
             onCameraReadyProp?.();
           }}
+          districtAppearingProgress={districtAppearingProgress}
+          modifiedFiles={modifiedFiles}
+          transitionProgress={transitionProgress}
         />
         {onCameraFrame && <CameraFrameBridge onCameraFrame={onCameraFrame} />}
       </Canvas>

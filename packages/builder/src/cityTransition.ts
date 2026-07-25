@@ -1,4 +1,5 @@
-import { CityBuilding, CityData } from './types/cityData.js';
+import { CityData } from './types/cityData.js';
+import { getFileConfig } from './config/getFileConfig.js';
 import {
   BuildingDiff,
   CityDiff,
@@ -91,12 +92,31 @@ export function diffCityData(before: CityData, after: CityData): CityDiff {
     removedCount,
     movedCount,
     unchangedCount,
-    hasMixedChanges: (addedCount > 0 ? 1 : 0) + (removedCount > 0 ? 1 : 0) + (movedCount > 0 ? 1 : 0) >= 2,
+    hasMixedChanges: (addedCount > 0 ? 1 : 0) + (removedCount > 0 ? 1 : 0) + (movedCount > 0 ? 1 : 0) >= 2
+      || districts.some(d => d.changeType === 'added'),
   };
 }
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
+}
+
+function lerpColor(from: string, to: string, t: number): string {
+  const f = hexToRgb(from);
+  const to_ = hexToRgb(to);
+  const r = Math.round(lerp(f.r, to_.r, t));
+  const g = Math.round(lerp(f.g, to_.g, t));
+  const b = Math.round(lerp(f.b, to_.b, t));
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const h = hex.replace('#', '');
+  return {
+    r: parseInt(h.substring(0, 2), 16),
+    g: parseInt(h.substring(2, 4), 16),
+    b: parseInt(h.substring(4, 6), 16),
+  };
 }
 
 /**
@@ -118,18 +138,24 @@ export function interpolateCityData(
   const hasRemovals = diff.removedCount > 0;
   const hasMoves = diff.movedCount > 0;
   const hasAdds = diff.addedCount > 0;
-  const activeStages = (hasRemovals ? 1 : 0) + (hasMoves ? 1 : 0) + (hasAdds ? 1 : 0);
+  const hasAddedDistricts = diff.districts.some(d => d.changeType === 'added');
 
-  // Determine which stage each change type occupies (in order: remove → move → add)
+  // Split "add" into districtAdd → buildingAdd when there are new directories
+  const splitAdd = hasAdds && hasAddedDistricts;
+  const activeStages = (hasRemovals ? 1 : 0) + (hasMoves ? 1 : 0) + (splitAdd ? 2 : (hasAdds ? 1 : 0));
+
+  // Determine which stage each change type occupies
+  // Order: remove → move → districtAdd → buildingAdd
   let currentStage = 0;
   const removeStage = hasRemovals ? currentStage++ : -1;
   const moveStage = hasMoves ? currentStage++ : -1;
-  const addStage = hasAdds ? currentStage++ : -1;
+  const districtAddStage = splitAdd ? currentStage++ : -1;
+  const buildingAddStage = hasAdds ? (splitAdd ? currentStage++ : (districtAddStage >= 0 ? districtAddStage : currentStage++)) : -1;
 
-  // Compute stage start/end boundaries
+  // Compute stage start/end boundaries (support up to 4 stages)
   const stageWidth = activeStages > 0 ? 1 / activeStages : 1;
-  const stageStarts = [0, stageWidth, stageWidth * 2];
-  const stageEnds = [stageWidth, stageWidth * 2, 1];
+  const stageStarts = [0, stageWidth, stageWidth * 2, stageWidth * 3];
+  const stageEnds = [stageWidth, stageWidth * 2, stageWidth * 3, 1];
 
   const buildings: InterpolatedBuilding[] = diff.buildings.map(d => {
     if (diff.hasMixedChanges) {
@@ -158,10 +184,10 @@ export function interpolateCityData(
         };
       }
 
-      // Added buildings: animate during their stage only
-      if (d.changeType === 'added' && addStage >= 0) {
-        const sStart = stageStarts[addStage];
-        const sEnd = stageEnds[addStage];
+      // Added buildings: animate during their stage
+      if (d.changeType === 'added' && buildingAddStage >= 0) {
+        const sStart = stageStarts[buildingAddStage];
+        const sEnd = stageEnds[buildingAddStage];
         if (t < sStart) {
           // Hidden before their stage
           const a = d.after!;
@@ -171,16 +197,16 @@ export function interpolateCityData(
             dimensions: [0, 0, 0],
             opacity: 0,
             changeType: 'added',
-            color: '#22c55e',
+            color: a.color,
             fileExtension: a.fileExtension,
             size: a.size,
             lineCount: a.lineCount,
           };
         }
-        // Pop in during their stage
         const stageT = Math.min((t - sStart) / (sEnd - sStart), 1);
         const eased = easeOutBack(easeInOutCubic(stageT));
         const a = d.after!;
+        const finalColor = a.color ?? getFileConfig(a.path).color;
         return {
           path: d.path,
           position: { x: a.position.x, y: a.position.y, z: a.position.z },
@@ -191,7 +217,7 @@ export function interpolateCityData(
           ],
           opacity: stageT,
           changeType: 'added',
-          color: '#22c55e',
+          color: lerpColor('#22c55e', finalColor, stageT),
           fileExtension: a.fileExtension,
           size: a.size,
           lineCount: a.lineCount,
@@ -304,6 +330,7 @@ export function interpolateCityData(
       case 'added': {
         const a = d.after!;
         const popScale = easeOutBack(eased);
+        const finalColor = a.color ?? getFileConfig(a.path).color;
         return {
           path: d.path,
           position: { x: a.position.x, y: a.position.y, z: a.position.z },
@@ -314,7 +341,7 @@ export function interpolateCityData(
           ],
           opacity: eased,
           changeType: 'added',
-          color: '#22c55e',
+          color: lerpColor('#22c55e', finalColor, t),
           fileExtension: a.fileExtension,
           size: a.size,
           lineCount: a.lineCount,
@@ -335,6 +362,22 @@ export function interpolateCityData(
           opacity: 1 - eased,
           changeType: 'removed',
           color: '#ef4444',
+          fileExtension: b.fileExtension,
+          size: b.size,
+          lineCount: b.lineCount,
+        };
+      }
+
+      default: {
+        // Unchanged buildings
+        const b = d.after!;
+        return {
+          path: d.path,
+          position: { x: b.position.x, y: b.position.y, z: b.position.z },
+          dimensions: [...b.dimensions] as [number, number, number],
+          opacity: 1,
+          changeType: 'unchanged' as const,
+          color: b.color,
           fileExtension: b.fileExtension,
           size: b.size,
           lineCount: b.lineCount,
@@ -361,9 +404,9 @@ export function interpolateCityData(
         };
       }
 
-      if (d.changeType === 'added' && addStage >= 0) {
-        const sStart = stageStarts[addStage];
-        const sEnd = stageEnds[addStage];
+      if (d.changeType === 'added' && districtAddStage >= 0) {
+        const sStart = stageStarts[districtAddStage];
+        const sEnd = stageEnds[districtAddStage];
         if (t < sStart) {
           const a = d.after!;
           return {
@@ -373,17 +416,41 @@ export function interpolateCityData(
             changeType: 'added',
             fileCount: a.fileCount,
             label: a.label,
+            appearingProgress: 0,
           };
         }
         const stageT = Math.min((t - sStart) / (sEnd - sStart), 1);
+        // Stagger added districts by depth: parent first, then children
+        const addedDistricts = diff.districts
+          .filter(dd => dd.changeType === 'added')
+          .sort((a, b) => a.path.split('/').length - b.path.split('/').length || a.path.localeCompare(b.path));
+        const idx = addedDistricts.findIndex(dd => dd.path === d.path);
+        const count = addedDistricts.length;
+        const sliceWidth = 1 / count;
+        const sliceStart = idx * sliceWidth;
+        const sliceEnd = sliceStart + sliceWidth;
+        const localT = Math.max(0, Math.min((stageT - sliceStart) / (sliceEnd - sliceStart), 1));
+        const eased = easeInOutCubic(localT);
+        const popScale = easeOutBack(eased);
+        const labelT = Math.max(0, (localT - 0.3) / 0.7);
         const a = d.after!;
+        const cx = (a.worldBounds.minX + a.worldBounds.maxX) / 2;
+        const cz = (a.worldBounds.minZ + a.worldBounds.maxZ) / 2;
+        const hw = (a.worldBounds.maxX - a.worldBounds.minX) / 2;
+        const hd = (a.worldBounds.maxZ - a.worldBounds.minZ) / 2;
         return {
           path: d.path,
-          worldBounds: a.worldBounds,
-          opacity: easeInOutCubic(stageT),
+          worldBounds: {
+            minX: cx - hw * popScale,
+            maxX: cx + hw * popScale,
+            minZ: cz - hd * popScale,
+            maxZ: cz + hd * popScale,
+          },
+          opacity: eased,
           changeType: 'added',
           fileCount: a.fileCount,
           label: a.label,
+          appearingProgress: labelT,
         };
       }
 
@@ -467,6 +534,7 @@ export function interpolateCityData(
 
       case 'added': {
         const a = d.after!;
+        const eased = easeInOutCubic(t);
         const popScale = easeOutBack(eased);
         // Scale bounds from center
         const cx = (a.worldBounds.minX + a.worldBounds.maxX) / 2;
@@ -485,6 +553,7 @@ export function interpolateCityData(
           changeType: 'added',
           fileCount: a.fileCount,
           label: a.label,
+          appearingProgress: t,
         };
       }
 
@@ -505,6 +574,19 @@ export function interpolateCityData(
           },
           opacity: 1 - eased,
           changeType: 'removed',
+          fileCount: b.fileCount,
+          label: b.label,
+        };
+      }
+
+      default: {
+        // Unchanged districts
+        const b = d.after!;
+        return {
+          path: d.path,
+          worldBounds: b.worldBounds,
+          opacity: 1,
+          changeType: 'unchanged' as const,
           fileCount: b.fileCount,
           label: b.label,
         };

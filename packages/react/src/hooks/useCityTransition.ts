@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   CityData,
   CityDiff,
@@ -22,6 +22,8 @@ export interface UseCityTransitionReturn {
   currentCityData: CityData;
   /** The current interpolated building data with opacity info */
   interpolatedBuildings: InterpolatedBuilding[];
+  /** Per-district appearing progress (0-1) keyed by district path. Only non-zero for added districts. */
+  districtAppearingProgress: Record<string, number>;
   /** The computed diff between before and after */
   diff: CityDiff | null;
   /** Current animation progress (0-1) */
@@ -57,6 +59,17 @@ export function useCityTransition(
     diffCityData(beforeCityData, afterCityData),
   );
 
+  // Determine number of active stages so each gets full duration
+  const stageCount = useMemo(() => {
+    if (!diff) return 1;
+    const hasRemovals = diff.removedCount > 0;
+    const hasMoves = diff.movedCount > 0;
+    const hasAdds = diff.addedCount > 0;
+    const hasAddedDistricts = diff.districts.some(d => d.changeType === 'added');
+    const splitAdd = hasAdds && hasAddedDistricts;
+    return (hasRemovals ? 1 : 0) + (hasMoves ? 1 : 0) + (splitAdd ? 2 : (hasAdds ? 1 : 0));
+  }, [diff]);
+
   // Recompute diff when inputs change
   useEffect(() => {
     beforeRef.current = beforeCityData;
@@ -78,7 +91,18 @@ export function useCityTransition(
 
   const interpolatedBuildings = interpolated?.buildings ?? [];
 
-  // Animation loop
+  // Build per-district appearing progress map
+  const districtAppearingProgress: Record<string, number> = {};
+  if (interpolated) {
+    for (const d of interpolated.districts) {
+      if (d.appearingProgress !== undefined && d.appearingProgress > 0) {
+        districtAppearingProgress[d.path] = d.appearingProgress;
+      }
+    }
+  }
+
+  // Animation loop — each stage gets full duration, so total = duration * stageCount
+  const effectiveDuration = duration * stageCount;
   const animate = useCallback(
     (timestamp: number) => {
       if (startTimeRef.current === null) {
@@ -86,7 +110,7 @@ export function useCityTransition(
       }
 
       const elapsed = timestamp - startTimeRef.current;
-      const t = Math.min(elapsed / duration, 1);
+      const t = Math.min(elapsed / effectiveDuration, 1);
 
       setProgress(t);
 
@@ -98,7 +122,7 @@ export function useCityTransition(
         startTimeRef.current = null;
       }
     },
-    [duration],
+    [effectiveDuration],
   );
 
   const startTransition = useCallback(() => {
@@ -156,6 +180,7 @@ export function useCityTransition(
   return {
     currentCityData,
     interpolatedBuildings,
+    districtAppearingProgress,
     diff,
     progress,
     isTransitioning,

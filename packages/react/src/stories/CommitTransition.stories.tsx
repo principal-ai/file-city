@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import {
   FileCity3D,
@@ -8,7 +8,6 @@ import { useCityTransition } from '../hooks/useCityTransition';
 import {
   CodeCityBuilderWithGrid,
   buildFileSystemTreeFromFileInfoList,
-  type CityBuilding,
 } from '@principal-ai/file-city-builder';
 import type { FileInfo } from '@principal-ai/repository-abstraction';
 
@@ -269,6 +268,7 @@ const CommitTransitionTemplate: React.FC<CommitTransitionTemplateProps> = ({
 
   const {
     currentCityData,
+    districtAppearingProgress,
     diff,
     progress,
     isTransitioning,
@@ -292,6 +292,7 @@ const CommitTransitionTemplate: React.FC<CommitTransitionTemplateProps> = ({
         linearScale={0.5}
         isGrown={false}
         showControls={false}
+        districtAppearingProgress={districtAppearingProgress}
       />
 
       {/* Commit info bar - top */}

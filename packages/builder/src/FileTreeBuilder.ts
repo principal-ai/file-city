@@ -240,3 +240,29 @@ export function filterFileSystemTreeForProject(
 
   return filteredTree;
 }
+
+/**
+ * Filter a FileTree to exclude all files under a specific directory path.
+ * Rebuilds the tree structure from the remaining files.
+ */
+export function excludeDirectoryFromFileTree(
+  fileSystemTree: FileSystemTree,
+  directoryPath: string,
+): FileSystemTree {
+  const prefix = directoryPath.endsWith('/') ? directoryPath : directoryPath + '/';
+  const filteredFiles = fileSystemTree.allFiles.filter((file: FileInfo) => {
+    return !file.relativePath.startsWith(prefix) && file.relativePath !== directoryPath;
+  });
+
+  if (filteredFiles.length === 0) {
+    return {
+      ...fileSystemTree,
+      allFiles: [],
+      allDirectories: [],
+      root: { ...fileSystemTree.root, children: [], fileCount: 0, totalSize: 0 },
+      stats: { ...fileSystemTree.stats, totalFiles: 0, totalDirectories: 0, totalSize: 0 },
+    };
+  }
+
+  return buildFileSystemTreeFromFileInfoList(filteredFiles, fileSystemTree.sha);
+}

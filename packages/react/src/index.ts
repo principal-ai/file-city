@@ -63,6 +63,10 @@ export type { UseCodeCityDataOptions, UseCodeCityDataReturn } from './hooks/useC
 export { useCityTransition } from './hooks/useCityTransition';
 export type { UseCityTransitionOptions, UseCityTransitionReturn } from './hooks/useCityTransition';
 
+// Export the useDirectoryHide hook for animating hiding/showing a directory
+export { useDirectoryHide } from './hooks/useDirectoryHide';
+export type { UseDirectoryHideOptions, UseDirectoryHideReturn } from './hooks/useDirectoryHide';
+
 // Re-export FileTree type for convenience
 export type { FileTree } from '@principal-ai/file-city-builder';
 

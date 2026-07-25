@@ -10,7 +10,7 @@ export { CodeCityBuilderWithGrid } from './CodeCityBuilderWithGrid.js';
 export { GridLayoutManager } from './GridLayoutManager.js';
 
 // File tree builder utilities
-export { buildFileSystemTreeFromFileInfoList, getFilesFromGitHubTree } from './FileTreeBuilder.js';
+export { buildFileSystemTreeFromFileInfoList, getFilesFromGitHubTree, excludeDirectoryFromFileTree } from './FileTreeBuilder.js';
 export type { GitHubTreeResponse } from './FileTreeBuilder.js';
 
 // Core types

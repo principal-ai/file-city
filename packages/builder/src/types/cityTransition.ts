@@ -50,6 +50,8 @@ export interface InterpolatedDistrict {
   changeType: BuildingChangeType;
   fileCount?: number;
   label?: CityDistrict['label'];
+  /** 0→1 progress for the "appearing" animation (border expand + label pop). Only non-zero for added districts. */
+  appearingProgress?: number;
 }
 
 export interface InterpolatedCityData {
