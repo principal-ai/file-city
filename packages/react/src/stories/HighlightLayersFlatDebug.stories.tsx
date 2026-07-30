@@ -321,7 +321,53 @@ export const BorderWidthSweep: StoryObj = {
 };
 
 // ---------------------------------------------------------------------------
-// 6. Host-style repro (web-ade PR aggregate / activity heatmap):
+// 6. Directory-type items with border — does prefix matching work?
+// ---------------------------------------------------------------------------
+export const DirectoryBorder: StoryObj = {
+  name: '6. directory border (auth-server/src/app)',
+  render: () => {
+    const layers: HighlightLayer[] = [
+      {
+        id: 'dir-border',
+        name: 'Directory border (src/app)',
+        enabled: true,
+        color: '#00ff00',
+        opacity: 0.8,
+        borderWidth: 30,
+        priority: 10,
+        items: [{ path: 'auth-server/src/app', type: 'directory', renderStrategy: 'border' }],
+      },
+      {
+        id: 'file-ref',
+        name: 'File reference (page.tsx, for comparison)',
+        enabled: true,
+        color: '#ef4444',
+        borderWidth: 30,
+        priority: 11,
+        items: [{ path: 'auth-server/src/app/page.tsx', type: 'file', renderStrategy: 'border' }],
+      },
+    ];
+    return (
+      <Stage>
+        <FileCity3D
+          cityData={cityData}
+          width="100%"
+          height="100%"
+          isGrown={false}
+          animation={FLAT_ANIMATION}
+          highlightLayers={layers}
+          defaultBuildingColor={NEUTRAL_BUILDING}
+          isolationMode="none"
+          backgroundColor="#0f1419"
+          showControls={true}
+        />
+      </Stage>
+    );
+  },
+};
+
+// ---------------------------------------------------------------------------
+// 7. Host-style repro (web-ade PR aggregate / activity heatmap):
 //    flat top-down city + multi-file fill layers + isolation hide + click log.
 //    Matches FileCityGuidePanel idle + host layers + defaultIsolationMode hide.
 // ---------------------------------------------------------------------------
@@ -422,7 +468,7 @@ function HostStyleFillHideWithClickInner() {
 }
 
 export const HostStyleFillHideWithClick: StoryObj = {
-  name: '6. host-style fill + hide + click (flat)',
+  name: '7. host-style fill + hide + click (flat)',
   render: () => <HostStyleFillHideWithClickInner />,
   parameters: {
     docs: {

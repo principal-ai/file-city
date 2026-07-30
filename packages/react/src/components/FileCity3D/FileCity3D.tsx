@@ -1249,7 +1249,11 @@ function InstancedBuildings({
     return buildings.map((building, index) => {
       const [width, , depth] = building.dimensions;
       const fullHeight = calculateBuildingHeight(building, heightScaling, linearScale, flatPatterns);
-      const color = defaultBuildingColor ?? getColorForFile(building);
+      const hasAnyLayerMatch = highlightLayers && getLayerMatchesForPath(building.path, highlightLayers).length > 0;
+      const layerFill = hasAnyLayerMatch ? getHighlightForPath(building.path, highlightLayers!) : null;
+      const color = layerFill?.color
+        ?? (hasAnyLayerMatch ? getColorForFile(building) : defaultBuildingColor)
+        ?? getColorForFile(building);
 
       const x = building.position.x - centerOffset.x;
       const z = building.position.z - centerOffset.z;
@@ -1278,6 +1282,7 @@ function InstancedBuildings({
     staggerIndices,
     animationConfig,
     defaultBuildingColor,
+    highlightLayers,
   ]);
 
   const minHeight = 0.3;
