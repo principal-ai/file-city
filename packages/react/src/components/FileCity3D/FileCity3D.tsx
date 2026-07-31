@@ -7,18 +7,16 @@
  * Supports animated transition from 2D (flat) to 3D (grown buildings).
  */
 
-import React, { useMemo, useRef, useState, useEffect, useLayoutEffect, useCallback } from 'react';
+import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import { useTheme } from '@principal-ade/industry-theme';
-import { Canvas, useFrame, ThreeEvent, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 
 import { useSpring } from '@react-spring/three';
-import { MapControls, PerspectiveCamera, Text } from '@react-three/drei';
-import { getFileConfig } from '@principal-ai/file-city-builder';
+import { MapControls, PerspectiveCamera } from '@react-three/drei';
 import type {
   CityData,
   CityBuilding,
   CityDistrict,
-  FileConfigResult,
   HighlightLayer as BuilderHighlightLayer,
   LayerItem,
   LayerRenderStrategy,
@@ -26,6 +24,8 @@ import type {
 import * as THREE from 'three';
 import type { ThreeElements } from '@react-three/fiber';
 import { resolveVisualizationIntent } from '../../utils/visualizationResolution';
+import { CityContent } from './CityContent';
+import { CityLights } from './CityLights';
 
 // Extend JSX with Three.js elements
 /* eslint-disable react/no-unknown-property */
@@ -162,16 +162,6 @@ export const DEFAULT_FLAT_PATTERNS: FlatPattern[] = [
  * Check if a file path matches any flat pattern.
  * Returns the matched pattern's height or undefined if no match.
  */
-function matchFlatPattern(path: string, patterns: FlatPattern[]): number | undefined {
-  for (const { pattern, height } of patterns) {
-    const regex = typeof pattern === 'string' ? new RegExp(pattern) : pattern;
-    if (regex.test(path)) {
-      return height ?? 0.5; // Default flat height
-    }
-  }
-  return undefined;
-}
-
 const DEFAULT_ANIMATION: AnimationConfig = {
   startFlat: false,
   autoStartDelay: 500,
@@ -183,1744 +173,18 @@ const DEFAULT_ANIMATION: AnimationConfig = {
   friction: 14,
 };
 
-/**
- * Per-building grow duration (ms) derived from the spring config. Higher
- * tension = snappier, higher friction = slower. This is the time a single
- * building takes to rise once its stagger delay has elapsed.
- */
-function computeSpringDuration(animationConfig: AnimationConfig): number {
-  const tension = animationConfig.tension || 120;
-  const friction = animationConfig.friction || 14;
-  return Math.sqrt(1 / (tension * 0.001)) * friction * 20;
-}
 
-/**
- * Per-building stagger delay (ms) between consecutive grow starts.
- *
- * When `growDuration` is set it is treated as the target time for the WHOLE
- * ripple to finish: the last building must start at `growDuration -
- * springDuration` so it tops out right at the target, and that spread is
- * divided over the `buildingCount - 1` gaps between starts. This keeps the
- * total time fixed regardless of how many buildings there are. Otherwise the
- * explicit `staggerDelay` (default 15ms) is used per building.
- */
-function resolveStaggerDelay(animationConfig: AnimationConfig, buildingCount: number): number {
-  if (animationConfig.growDuration && animationConfig.growDuration > 0) {
-    const gaps = Math.max(1, buildingCount - 1);
-    const spread = animationConfig.growDuration - computeSpringDuration(animationConfig);
-    return Math.max(0, spread / gaps);
-  }
-  return animationConfig.staggerDelay ?? 15;
-}
 
-/**
- * Calculate building height based on file metrics.
- * - logarithmic: Compresses large values (default, good for mixed codebases)
- * - linear: Direct scaling (1 line = linearScale units of height)
- */
-function calculateBuildingHeight(
-  building: CityBuilding,
-  scaling: HeightScaling = 'logarithmic',
-  linearScale: number = 1,
-  flatPatterns: FlatPattern[] = [],
-): number {
-  // Check if this file matches a flat pattern (e.g., lock files)
-  const flatHeight = matchFlatPattern(building.path, flatPatterns);
-  if (flatHeight !== undefined) {
-    return flatHeight;
-  }
 
-  const minHeight = 2;
 
-  // Use lineCount if available (any text file), otherwise fall back to size
-  if (building.lineCount !== undefined) {
-    const lines = Math.max(building.lineCount, 1);
 
-    if (scaling === 'linear') {
-      return minHeight + lines * linearScale;
-    }
-    // Logarithmic: log10(10) = 1, log10(100) = 2, log10(1000) = 3
-    return minHeight + Math.log10(lines) * 12;
-  } else if (building.size !== undefined) {
-    const bytes = Math.max(building.size, 1);
 
-    if (scaling === 'linear') {
-      return minHeight + (bytes / 1024) * linearScale;
-    }
-    // Logarithmic scale based on size
-    return minHeight + (Math.log10(bytes) - 2) * 12;
-  }
 
-  // Fallback to dimension height if no metrics available
-  return building.dimensions[1];
-}
 
-// ============================================================================
-// Icon Texture Generation - Lucide icon SVG paths
-// ============================================================================
 
-// Lucide icon paths (from lucide.dev)
-const LUCIDE_ICONS: Record<string, string> = {
-  Atom: '<circle cx="12" cy="12" r="1"/><path d="M20.2 20.2c2.04-2.03.02-7.36-4.5-11.9-4.54-4.52-9.87-6.54-11.9-4.5-2.04 2.03-.02 7.36 4.5 11.9 4.54 4.52 9.87 6.54 11.9 4.5Z"/><path d="M15.7 15.7c4.52-4.54 6.54-9.87 4.5-11.9-2.03-2.04-7.36-.02-11.9 4.5-4.52 4.54-6.54 9.87-4.5 11.9 2.03 2.04 7.36.02 11.9-4.5Z"/>',
-  Lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
-  EyeOff:
-    '<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/>',
-  Key: '<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>',
-  GitBranch:
-    '<line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
-  TestTube:
-    '<path d="M14.5 2v17.5c0 1.4-1.1 2.5-2.5 2.5c-1.4 0-2.5-1.1-2.5-2.5V2"/><path d="M8.5 2h7"/><path d="M14.5 16h-5"/>',
-  FlaskConical:
-    '<path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/>',
-  BookText:
-    '<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M8 11h8"/><path d="M8 7h6"/>',
-  BookOpen:
-    '<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
-  ScrollText:
-    '<path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/>',
-  Settings:
-    '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
-  Home: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
-};
 
-// Cache for icon textures
-const iconTextureCache = new Map<string, THREE.Texture>();
-
-/**
- * Generate a texture from a Lucide icon
- */
-function getIconTexture(iconName: string, color: string = '#ffffff'): THREE.Texture | null {
-  const cacheKey = `${iconName}-${color}`;
-
-  if (iconTextureCache.has(cacheKey)) {
-    return iconTextureCache.get(cacheKey)!;
-  }
-
-  const iconPath = LUCIDE_ICONS[iconName];
-  if (!iconPath) {
-    // Icon not in our subset, skip silently
-    return null;
-  }
-
-  const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${iconPath}</svg>`;
-
-  // Create canvas and draw SVG
-  const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
-
-  // Create image from SVG
-  const img = new Image();
-  const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-  const url = URL.createObjectURL(svgBlob);
-
-  // Create texture (will update when image loads)
-  const texture = new THREE.Texture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-
-  img.onload = () => {
-    // Clear canvas with transparent background
-    ctx.clearRect(0, 0, 128, 128);
-
-    // Draw centered icon
-    ctx.drawImage(img, 32, 32, 64, 64);
-
-    texture.needsUpdate = true;
-    URL.revokeObjectURL(url);
-  };
-
-  img.src = url;
-
-  iconTextureCache.set(cacheKey, texture);
-  return texture;
-}
-
-// Get full file config from centralized file-city-builder lookup
-function getConfigForFile(building: CityBuilding): FileConfigResult {
-  if (building.color) {
-    return {
-      color: building.color,
-      renderStrategy: 'fill',
-      opacity: 1,
-      matchedPattern: 'preset',
-      matchType: 'filename',
-    };
-  }
-  return getFileConfig(building.path);
-}
-
-function getColorForFile(building: CityBuilding): string {
-  return getConfigForFile(building).color;
-}
-
-interface LayerMatch {
-  layer: HighlightLayer;
-  item: LayerItem;
-  color: string;
-  opacity: number;
-  borderWidth?: number;
-  renderStrategy: LayerRenderStrategy;
-}
-
-/**
- * Get ALL layer matches for a path, sorted by priority (highest first).
- * Returns array to support multiple layers rendering together (e.g., fill + border).
- */
-function getLayerMatchesForPath(
-  path: string,
-  layers: HighlightLayer[],
-): LayerMatch[] {
-  const matches: LayerMatch[] = [];
-
-  for (const layer of layers) {
-    if (!layer.enabled) continue;
-
-    for (const item of layer.items) {
-      let isMatch = false;
-
-      if (item.type === 'file' && item.path === path) {
-        isMatch = true;
-      } else if (item.type === 'directory' && (path === item.path || path.startsWith(item.path + '/'))) {
-        isMatch = true;
-      }
-
-      if (isMatch) {
-        matches.push({
-          layer,
-          item,
-          color: layer.color,
-          opacity: layer.opacity ?? 1,
-          borderWidth: layer.borderWidth,
-          renderStrategy: item.renderStrategy || 'border', // Default from 2D renderer
-        });
-      }
-    }
-  }
-
-  // Sort by priority (highest first)
-  return matches.sort((a, b) => (b.layer.priority ?? 0) - (a.layer.priority ?? 0));
-}
-
-/**
- * Get the highest-priority fill color for a path (backward compatibility).
- * Returns the first matching layer with 'fill' strategy.
- */
-function getHighlightForPath(
-  path: string,
-  layers: HighlightLayer[],
-): { color: string; opacity: number } | null {
-  const matches = getLayerMatchesForPath(path, layers);
-
-  // Find first fill match
-  const fillMatch = matches.find(m => m.renderStrategy === 'fill');
-
-  if (fillMatch) {
-    return { color: fillMatch.color, opacity: fillMatch.opacity };
-  }
-
-  return null;
-}
-
-function hasActiveHighlights(layers: HighlightLayer[]): boolean {
-  return layers.some(layer => layer.enabled && layer.items.length > 0);
-}
-
-// ============================================================================
-// Building Edges - Batched edge rendering for performance
-// ============================================================================
-
-interface BuildingEdgeData {
-  width: number;
-  depth: number;
-  fullHeight: number;
-  x: number;
-  z: number;
-  staggerDelayMs: number;
-  buildingIndex: number; // Index to look up height multiplier
-}
-
-interface BuildingEdgesProps {
-  buildings: BuildingEdgeData[];
-  growProgress: number;
-  minHeight: number;
-  baseOffset: number;
-  springDuration: number;
-  heightMultipliersRef: React.MutableRefObject<Float32Array | null>;
-  hiddenRef?: React.MutableRefObject<Uint8Array | null>;
-}
-
-function BuildingEdges({
-  buildings,
-  growProgress,
-  minHeight,
-  baseOffset,
-  springDuration,
-  heightMultipliersRef,
-  hiddenRef,
-}: BuildingEdgesProps) {
-  const meshRef = useRef<THREE.InstancedMesh>(null);
-  const startTimeRef = useRef<number | null>(null);
-  const tempObject = useMemo(() => new THREE.Object3D(), []);
-  const invalidate = useThree((s) => s.invalidate);
-
-  // 4 corner edges per building
-  const numEdges = buildings.length * 4;
-
-  // Pre-compute edge data
-  const edgeData = useMemo(() => {
-    return buildings.flatMap(data => {
-      const { width, depth, x, z, fullHeight, staggerDelayMs, buildingIndex } = data;
-      const halfW = width / 2;
-      const halfD = depth / 2;
-
-      return [
-        { x: x - halfW, z: z - halfD, fullHeight, staggerDelayMs, buildingIndex },
-        { x: x + halfW, z: z - halfD, fullHeight, staggerDelayMs, buildingIndex },
-        { x: x - halfW, z: z + halfD, fullHeight, staggerDelayMs, buildingIndex },
-        { x: x + halfW, z: z + halfD, fullHeight, staggerDelayMs, buildingIndex },
-      ];
-    });
-  }, [buildings]);
-
-  // Animate edges
-  useFrame(({ clock }) => {
-    if (!meshRef.current || edgeData.length === 0) return;
-
-    if (startTimeRef.current === null && growProgress > 0) {
-      startTimeRef.current = clock.elapsedTime * 1000;
-    }
-
-    const currentTime = clock.elapsedTime * 1000;
-    const animStartTime = startTimeRef.current ?? currentTime;
-
-    // In on-demand mode, keep requesting frames while the grow-in is still
-    // running (some building hasn't reached full height yet); stop once settled.
-    let stillAnimating = false;
-
-    edgeData.forEach((edge, idx) => {
-      const { x, z, fullHeight, staggerDelayMs, buildingIndex } = edge;
-
-      const isHidden = hiddenRef?.current?.[buildingIndex] === 1;
-
-      if (isHidden) {
-        tempObject.position.set(x, baseOffset, z);
-        tempObject.scale.set(0, 0, 0);
-        tempObject.updateMatrix();
-        meshRef.current!.setMatrixAt(idx, tempObject.matrix);
-        return;
-      }
-
-      // Get height multiplier from shared ref (for collapse animation)
-      const heightMultiplier = heightMultipliersRef.current?.[buildingIndex] ?? 1;
-
-      // Calculate per-building animation progress
-      const elapsed = currentTime - animStartTime - staggerDelayMs;
-      let animProgress = growProgress;
-
-      if (growProgress > 0 && elapsed >= 0) {
-        const t = Math.min(elapsed / springDuration, 1);
-        const eased = 1 - Math.pow(1 - t, 3);
-        animProgress = eased * growProgress;
-        if (t < 1) stillAnimating = true;
-      } else if (growProgress > 0 && elapsed < 0) {
-        animProgress = 0;
-        stillAnimating = true; // stagger hasn't started yet
-      }
-
-      // Apply both grow animation and collapse multiplier
-      const height = animProgress * fullHeight * heightMultiplier + minHeight;
-      const yPosition = height / 2 + baseOffset;
-
-      tempObject.position.set(x, yPosition, z);
-      tempObject.scale.set(0.3, height, 0.3); // Thin box for edge
-      tempObject.updateMatrix();
-
-      meshRef.current!.setMatrixAt(idx, tempObject.matrix);
-    });
-
-    meshRef.current.instanceMatrix.needsUpdate = true;
-    if (stillAnimating) invalidate();
-  });
-
-  if (numEdges === 0) return null;
-
-  return (
-    <instancedMesh ref={meshRef} args={[undefined, undefined, numEdges]} frustumCulled={false}>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshBasicMaterial color="#1a1a2e" transparent opacity={0.7} />
-    </instancedMesh>
-  );
-}
-
-// ============================================================================
-// Border Highlights - Colored edge outlines for highlighted buildings
-// ============================================================================
-
-interface BorderEdgeData {
-  x: number;
-  z: number;
-  fullHeight: number;
-  buildingIndex: number;
-  staggerDelayMs: number;
-  color: string;
-  opacity: number;
-  borderWidth: number;
-  edgeType: 'vertical' | 'horizontal-x' | 'horizontal-z'; // Edge orientation
-  width?: number; // For horizontal edges (length along X axis)
-  depth?: number; // For horizontal edges (length along Z axis)
-}
-
-interface BorderHighlightsProps {
-  buildings: CityBuilding[];
-  centerOffset: { x: number; z: number };
-  highlightLayers: HighlightLayer[];
-  growProgress: number;
-  minHeight: number;
-  baseOffset: number;
-  springDuration: number;
-  heightMultipliersRef: React.MutableRefObject<Float32Array | null>;
-  heightScaling: HeightScaling;
-  linearScale: number;
-  flatPatterns: FlatPattern[];
-  staggerIndices: number[];
-  animationConfig: AnimationConfig;
-}
-
-function BorderHighlights({
-  buildings,
-  centerOffset,
-  highlightLayers,
-  growProgress,
-  minHeight,
-  baseOffset,
-  springDuration,
-  heightMultipliersRef,
-  heightScaling,
-  linearScale,
-  flatPatterns,
-  staggerIndices,
-  animationConfig,
-}: BorderHighlightsProps) {
-  const meshRef = useRef<THREE.InstancedMesh>(null);
-  const startTimeRef = useRef<number | null>(null);
-  const tempObject = useMemo(() => new THREE.Object3D(), []);
-  const tempColor = useMemo(() => new THREE.Color(), []);
-  const invalidate = useThree((s) => s.invalidate);
-
-  // Pre-compute border edge data from buildings with border highlights
-  const borderEdgeData = useMemo(() => {
-    const edges: BorderEdgeData[] = [];
-    const staggerStep = resolveStaggerDelay(animationConfig, staggerIndices.length);
-
-    buildings.forEach((building, buildingIndex) => {
-      const matches = getLayerMatchesForPath(building.path, highlightLayers);
-
-      // Find border matches
-      const borderMatches = matches.filter(m => m.renderStrategy === 'border');
-
-      if (borderMatches.length === 0) return;
-
-      // Use highest priority border match
-      const borderMatch = borderMatches[0];
-
-      const [width, , depth] = building.dimensions;
-      const fullHeight = calculateBuildingHeight(building, heightScaling, linearScale, flatPatterns);
-      const x = building.position.x - centerOffset.x;
-      const z = building.position.z - centerOffset.z;
-      const staggerIndex = staggerIndices[buildingIndex] ?? buildingIndex;
-      const staggerDelayMs = staggerStep * staggerIndex;
-
-      const halfW = width / 2;
-      const halfD = depth / 2;
-
-      // Create 4 vertical corner edges
-      const corners = [
-        { x: x - halfW, z: z - halfD },
-        { x: x + halfW, z: z - halfD },
-        { x: x - halfW, z: z + halfD },
-        { x: x + halfW, z: z + halfD },
-      ];
-
-      corners.forEach(corner => {
-        edges.push({
-          x: corner.x,
-          z: corner.z,
-          fullHeight,
-          buildingIndex,
-          staggerDelayMs,
-          color: borderMatch.color,
-          opacity: borderMatch.opacity,
-          borderWidth: borderMatch.borderWidth ?? 2,
-          edgeType: 'vertical',
-        });
-      });
-
-      // Create 4 horizontal edges on top (roof outline)
-      // Two edges along X axis (front and back)
-      edges.push({
-        x: x,
-        z: z - halfD,
-        fullHeight,
-        buildingIndex,
-        staggerDelayMs,
-        color: borderMatch.color,
-        opacity: borderMatch.opacity,
-        borderWidth: borderMatch.borderWidth ?? 2,
-        edgeType: 'horizontal-x',
-        width,
-      });
-      edges.push({
-        x: x,
-        z: z + halfD,
-        fullHeight,
-        buildingIndex,
-        staggerDelayMs,
-        color: borderMatch.color,
-        opacity: borderMatch.opacity,
-        borderWidth: borderMatch.borderWidth ?? 2,
-        edgeType: 'horizontal-x',
-        width,
-      });
-
-      // Two edges along Z axis (left and right)
-      edges.push({
-        x: x - halfW,
-        z: z,
-        fullHeight,
-        buildingIndex,
-        staggerDelayMs,
-        color: borderMatch.color,
-        opacity: borderMatch.opacity,
-        borderWidth: borderMatch.borderWidth ?? 2,
-        edgeType: 'horizontal-z',
-        depth,
-      });
-      edges.push({
-        x: x + halfW,
-        z: z,
-        fullHeight,
-        buildingIndex,
-        staggerDelayMs,
-        color: borderMatch.color,
-        opacity: borderMatch.opacity,
-        borderWidth: borderMatch.borderWidth ?? 2,
-        edgeType: 'horizontal-z',
-        depth,
-      });
-    });
-
-    return edges;
-  }, [
-    buildings,
-    centerOffset,
-    highlightLayers,
-    heightScaling,
-    linearScale,
-    flatPatterns,
-    staggerIndices,
-    animationConfig,
-  ]);
-
-  // Animate border edges
-  useFrame(({ clock }) => {
-    if (!meshRef.current || borderEdgeData.length === 0) return;
-
-    if (startTimeRef.current === null && growProgress > 0) {
-      startTimeRef.current = clock.elapsedTime * 1000;
-    }
-
-    const currentTime = clock.elapsedTime * 1000;
-    const animStartTime = startTimeRef.current ?? currentTime;
-
-    // On-demand: keep frames coming while the grow-in is still running.
-    let stillAnimating = false;
-
-    borderEdgeData.forEach((edge, idx) => {
-      const { x, z, fullHeight, staggerDelayMs, buildingIndex, color, borderWidth, edgeType, width, depth } = edge;
-
-      // Get height multiplier from shared ref (for collapse animation)
-      const heightMultiplier = heightMultipliersRef.current?.[buildingIndex] ?? 1;
-
-      // Calculate per-building animation progress
-      const elapsed = currentTime - animStartTime - staggerDelayMs;
-      let animProgress = growProgress;
-
-      if (growProgress > 0 && elapsed >= 0) {
-        const t = Math.min(elapsed / springDuration, 1);
-        const eased = 1 - Math.pow(1 - t, 3);
-        animProgress = eased * growProgress;
-        if (t < 1) stillAnimating = true;
-      } else if (growProgress > 0 && elapsed < 0) {
-        animProgress = 0;
-        stillAnimating = true; // stagger hasn't started yet
-      }
-
-      // Apply both grow animation and collapse multiplier
-      const height = animProgress * fullHeight * heightMultiplier + minHeight;
-
-      // Fixed thickness based on borderWidth (don't scale with building size)
-      const thickness = Math.max(0.2, borderWidth * 0.1); // Convert pixels to world units
-
-      if (edgeType === 'vertical') {
-        // Vertical corner edges
-        const yPosition = height / 2 + baseOffset;
-        tempObject.position.set(x, yPosition, z);
-        tempObject.rotation.set(0, 0, 0);
-        tempObject.scale.set(thickness, height, thickness);
-      } else if (edgeType === 'horizontal-x') {
-        // Horizontal edges along X axis (front/back of roof)
-        const yPosition = height + baseOffset;
-        tempObject.position.set(x, yPosition, z);
-        tempObject.rotation.set(0, 0, Math.PI / 2); // Rotate to horizontal along X
-        tempObject.scale.set(thickness, width!, thickness);
-      } else if (edgeType === 'horizontal-z') {
-        // Horizontal edges along Z axis (left/right of roof)
-        const yPosition = height + baseOffset;
-        tempObject.position.set(x, yPosition, z);
-        tempObject.rotation.set(Math.PI / 2, 0, 0); // Rotate to horizontal along Z
-        tempObject.scale.set(thickness, depth!, thickness);
-      }
-
-      tempObject.updateMatrix();
-      meshRef.current!.setMatrixAt(idx, tempObject.matrix);
-
-      // Set per-instance color with opacity
-      tempColor.set(color);
-      meshRef.current!.setColorAt(idx, tempColor);
-    });
-
-    meshRef.current.instanceMatrix.needsUpdate = true;
-    if (meshRef.current.instanceColor) {
-      meshRef.current.instanceColor.needsUpdate = true;
-    }
-    if (stillAnimating) invalidate();
-  });
-
-  if (borderEdgeData.length === 0) return null;
-
-  return (
-    <instancedMesh ref={meshRef} args={[undefined, undefined, borderEdgeData.length]} frustumCulled={false}>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshBasicMaterial transparent opacity={0.9} />
-    </instancedMesh>
-  );
-}
-
-// ============================================================================
-// Directory Fills - Semi-transparent planes over directory bounds
-// ============================================================================
-
-interface DirectoryFillsProps {
-  districts: CityDistrict[];
-  centerOffset: { x: number; z: number };
-  highlightLayers: HighlightLayer[];
-  growProgress: number;
-  onHighlightClick?: (path: string, layer: HighlightLayer, event: MouseEvent) => void;
-  onHighlightHover?: (path: string | null, layer: HighlightLayer | null) => void;
-}
-
-function DirectoryFills({
-  districts,
-  centerOffset,
-  highlightLayers,
-  growProgress,
-  onHighlightClick,
-  onHighlightHover,
-}: DirectoryFillsProps) {
-  const invalidate = useThree((s) => s.invalidate);
-  const hoveredRef = useRef<string | null>(null);
-  const materialRefs = useRef<Map<string, THREE.MeshBasicMaterial>>(new Map());
-  const originalsRef = useRef<Map<string, { color: THREE.Color; opacity: number }>>(new Map());
-  const cursorCleanupRef = useRef<(() => void) | null>(null);
-
-  // Find all directory-type fill layer items
-  const fillItems = useMemo(() => {
-    const items: Array<{ layer: HighlightLayer; item: LayerItem }> = [];
-    for (const layer of highlightLayers) {
-      if (!layer.enabled) continue;
-      for (const item of layer.items) {
-        if (item.type === 'directory' && (item.renderStrategy ?? 'border') === 'fill') {
-          items.push({ layer, item });
-        }
-      }
-    }
-    // Sort by priority (highest first)
-    return items.sort((a, b) => b.layer.priority - a.layer.priority);
-  }, [highlightLayers]);
-
-  // Match fill items to districts
-  const fillPlanes = useMemo(() => {
-    const planes: Array<{
-      district: CityDistrict;
-      color: string;
-      opacity: number;
-      priority: number;
-      interactive: boolean;
-      layer: HighlightLayer;
-    }> = [];
-
-    for (const { layer, item } of fillItems) {
-      const dir = item.path.replace(/^\/+|\/+$/g, '');
-      const district = districts.find(
-        (d) => d.path === dir || d.path === item.path,
-      );
-      if (!district) continue;
-
-      // Skip if a higher-priority fill already covers this district
-      const existing = planes.find(
-        (p) => p.district.path === district.path,
-      );
-      if (existing && existing.priority >= (layer.priority ?? 0)) continue;
-
-      // Replace if we have a higher priority
-      if (existing) {
-        const idx = planes.indexOf(existing);
-        planes[idx] = {
-          district,
-          color: layer.color,
-          opacity: layer.opacity ?? 0.3,
-          priority: layer.priority ?? 0,
-          interactive: item.interactive ?? false,
-          layer,
-        };
-      } else {
-        planes.push({
-          district,
-          color: layer.color,
-          opacity: layer.opacity ?? 0.3,
-          priority: layer.priority ?? 0,
-          interactive: item.interactive ?? false,
-          layer,
-        });
-      }
-    }
-
-    return planes;
-  }, [fillItems, districts]);
-
-  useEffect(() => {
-    invalidate();
-  }, [fillPlanes, invalidate]);
-
-  if (fillPlanes.length === 0) {
-    if (fillItems.length > 0) {
-      console.warn('[DirectoryFills] fillItems found but no districts matched:', fillItems.map(i => i.item.path), 'district paths:', districts.map(d => d.path));
-    }
-    return null;
-  }
-
-  const applyHover = (path: string, hovered: boolean) => {
-    const mat = materialRefs.current.get(path);
-    const orig = originalsRef.current.get(path);
-    if (!mat || !orig) return;
-
-    if (hovered) {
-      mat.opacity = Math.max(orig.opacity - 0.15, 0);
-      document.body.style.cursor = 'pointer';
-      cursorCleanupRef.current = () => { document.body.style.cursor = ''; };
-    } else {
-      mat.opacity = orig.opacity;
-      cursorCleanupRef.current?.();
-      cursorCleanupRef.current = null;
-    }
-    // Defer invalidate so the current pointer event finishes propagating
-    // before the next frame re-evaluates raycasting.
-    requestAnimationFrame(() => invalidate());
-  };
-
-  // Plane sits above the tallest buildings so it occludes them.
-  const FILL_HEIGHT = 12;
-
-  return (
-    <group>
-      {fillPlanes.map(({ district, color, opacity, interactive, layer }) => {
-        const { worldBounds } = district;
-        const width = worldBounds.maxX - worldBounds.minX;
-        const depth = worldBounds.maxZ - worldBounds.minZ;
-        const centerX = (worldBounds.minX + worldBounds.maxX) / 2 - centerOffset.x;
-        const centerZ = (worldBounds.minZ + worldBounds.maxZ) / 2 - centerOffset.z;
-
-        const handlePointerMove = interactive
-          ? (e: ThreeEvent<PointerEvent>) => {
-              e.stopPropagation();
-              if (hoveredRef.current !== district.path) {
-                // Unhover previous
-                if (hoveredRef.current) {
-                  applyHover(hoveredRef.current, false);
-                }
-                hoveredRef.current = district.path;
-                applyHover(district.path, true);
-                onHighlightHover?.(district.path, layer);
-              }
-            }
-          : undefined;
-
-        const handlePointerOut = interactive
-          ? (e: ThreeEvent<PointerEvent>) => {
-              e.stopPropagation();
-              if (hoveredRef.current === district.path) {
-                hoveredRef.current = null;
-                applyHover(district.path, false);
-                onHighlightHover?.(null, null);
-              }
-            }
-          : undefined;
-
-        const handleClick = interactive
-          ? (e: ThreeEvent<MouseEvent>) => {
-              e.stopPropagation();
-              onHighlightClick?.(district.path, layer, e.nativeEvent);
-            }
-          : undefined;
-
-        const meshKey = district.path;
-
-        return (
-          <mesh
-            key={`fill-${meshKey}`}
-            position={[centerX, FILL_HEIGHT * growProgress, centerZ]}
-            rotation={[-Math.PI / 2, 0, 0]}
-            renderOrder={1}
-            onPointerMove={handlePointerMove}
-            onPointerOut={handlePointerOut}
-            onClick={handleClick}
-          >
-            <planeGeometry args={[width, depth]} />
-            <meshBasicMaterial
-              ref={(mat) => {
-                if (mat) {
-                  materialRefs.current.set(meshKey, mat);
-                  originalsRef.current.set(meshKey, {
-                    color: new THREE.Color(color),
-                    opacity,
-                  });
-                }
-              }}
-              color={color}
-              transparent
-              opacity={opacity}
-              depthWrite={false}
-              depthTest={false}
-            />
-          </mesh>
-        );
-      })}
-    </group>
-  );
-}
-
-// ============================================================================
-// Instanced Buildings - High performance rendering for large scenes
-// ============================================================================
-
-interface InstancedBuildingsProps {
-  buildings: CityBuilding[];
-  centerOffset: { x: number; z: number };
-  onHover?: (building: CityBuilding | null) => void;
-  onClick?: (building: CityBuilding, event: MouseEvent) => void;
-  hoveredIndex: number | null;
-  selectedIndex: number | null;
-  growProgress: number;
-  animationConfig: AnimationConfig;
-  heightScaling: HeightScaling;
-  linearScale: number;
-  flatPatterns: FlatPattern[];
-  staggerIndices: number[];
-  focusDirectory: string | null;
-  /** Combined layers (user highlights + filtered file-color layers) — used for fill colors. */
-  highlightLayers: HighlightLayer[];
-  /** User-supplied highlight layers only (no file-color layers) — used for visibility decisions. */
-  visibilityLayers: HighlightLayer[];
-  isolationMode: IsolationMode;
-  defaultBuildingColor?: string;
-  /** Files modified in the current transition — used for automatic isolation. */
-  modifiedFiles?: Record<string, { lineDelta: number }>;
-}
-
-// Helper to check if a path is inside a directory
-function isPathInDirectory(path: string, directory: string | null): boolean {
-  if (!directory) return true;
-  return path === directory || path.startsWith(directory + '/');
-}
-
-function InstancedBuildings({
-  buildings,
-  centerOffset,
-  onHover,
-  onClick,
-  hoveredIndex,
-  selectedIndex,
-  growProgress,
-  animationConfig,
-  heightScaling,
-  linearScale,
-  flatPatterns,
-  staggerIndices,
-  focusDirectory,
-  highlightLayers,
-  visibilityLayers,
-  isolationMode,
-  defaultBuildingColor,
-  modifiedFiles,
-}: InstancedBuildingsProps) {
-  const meshRef = useRef<THREE.InstancedMesh>(null);
-  const startTimeRef = useRef<number | null>(null);
-  const tempObject = useMemo(() => new THREE.Object3D(), []);
-  const tempColor = useMemo(() => new THREE.Color(), []);
-  const invalidate = useThree((s) => s.invalidate);
-
-  // Track animated height multipliers for each building (for collapse animation)
-  const heightMultipliersRef = useRef<Float32Array | null>(null);
-  const targetMultipliersRef = useRef<Float32Array | null>(null);
-  // Track dim state for buildings in focus but not highlighted (0 = dimmed, 1 = full)
-  const dimMultipliersRef = useRef<Float32Array | null>(null);
-  const targetDimRef = useRef<Float32Array | null>(null);
-  // Track which buildings should be hidden entirely (1 = hidden, 0 = visible)
-  const hiddenRef = useRef<Uint8Array | null>(null);
-
-  const hasActiveHighlightLayers = useMemo(() => {
-    return visibilityLayers.some(layer => layer.enabled && layer.items.length > 0);
-  }, [visibilityLayers]);
-
-  // Whether modifiedFiles should drive isolation
-  const hasModifiedFilesIsolation = !!modifiedFiles;
-
-  // Directory paths covered by an interactive fill layer — buildings under
-  // these paths should not fire click/hover events (the fill overlay owns them).
-  const interactiveFillDirs = useMemo(() => {
-    const dirs: string[] = [];
-    for (const layer of highlightLayers) {
-      if (!layer.enabled) continue;
-      for (const item of layer.items) {
-        if (item.type === 'directory' && (item.renderStrategy ?? 'border') === 'fill' && item.interactive) {
-          dirs.push(item.path);
-        }
-      }
-    }
-    return dirs;
-  }, [highlightLayers]);
-
-  // Directories matched by a directory-type item from a user-supplied layer
-  // that also contain a file-type item from any user-supplied layer. Inside
-  // these directories, the directory match alone isn't enough to count as
-  // "specifically highlighted" — file-level matches define the visible subset.
-  const narrowedDirectories = useMemo(() => {
-    const dirs: string[] = [];
-    const files: string[] = [];
-    for (const layer of visibilityLayers) {
-      if (!layer.enabled) continue;
-      for (const item of layer.items) {
-        if (item.type === 'directory') dirs.push(item.path);
-        else if (item.type === 'file') files.push(item.path);
-      }
-    }
-    const narrowed = new Set<string>();
-    for (const dir of dirs) {
-      for (const f of files) {
-        if (f === dir || f.startsWith(dir + '/')) {
-          narrowed.add(dir);
-          break;
-        }
-      }
-    }
-    return narrowed;
-  }, [visibilityLayers]);
-
-  // Initialize height and dim multiplier arrays.
-  // When modifiedFiles isolation is active, start buildings at gray (dim=0)
-  // so highlighted files brighten from gray instead of everything collapsing
-  // from full color — this eliminates the flash at transition start.
-  useEffect(() => {
-    if (buildings.length > 0) {
-      if (
-        !heightMultipliersRef.current ||
-        heightMultipliersRef.current.length !== buildings.length
-      ) {
-        heightMultipliersRef.current = new Float32Array(buildings.length).fill(1);
-        targetMultipliersRef.current = new Float32Array(buildings.length).fill(1);
-        const initialDim = hasModifiedFilesIsolation ? 0 : 1;
-        dimMultipliersRef.current = new Float32Array(buildings.length).fill(initialDim);
-        targetDimRef.current = new Float32Array(buildings.length).fill(initialDim);
-        hiddenRef.current = new Uint8Array(buildings.length);
-      }
-    }
-  }, [buildings.length, hasModifiedFilesIsolation]);
-
-  // When isolation activates after mount, snap dim to 0 immediately so
-  // there's no flash of full color while the lerp catches up.
-  // Uses useLayoutEffect (not useEffect) so the snap runs before the
-  // browser paints — otherwise there's one frame of full color.
-  // Also force-updates the mesh instanceColor so R3F doesn't render one
-  // frame with stale full-color values before useFrame catches up.
-  const prevHasIsolationRef = useRef(hasModifiedFilesIsolation);
-  useLayoutEffect(() => {
-    if (hasModifiedFilesIsolation && !prevHasIsolationRef.current && dimMultipliersRef.current) {
-      dimMultipliersRef.current.fill(0);
-      // Force mesh colors to gray immediately so the next R3F render
-      // doesn't show a flash of full color.
-      if (meshRef.current && buildingData.length > 0) {
-        buildingData.forEach((data, i) => {
-          tempColor.set(data.color);
-          const gray = 0.3;
-          tempColor.r = gray;
-          tempColor.g = gray;
-          tempColor.b = gray;
-          meshRef.current!.setColorAt(i, tempColor);
-        });
-        if (meshRef.current.instanceColor) {
-          meshRef.current.instanceColor.needsUpdate = true;
-        }
-        invalidate();
-      }
-    }
-    prevHasIsolationRef.current = hasModifiedFilesIsolation;
-  }, [hasModifiedFilesIsolation]);
-
-  // Update target multipliers when focusDirectory or highlightLayers change
-  useEffect(() => {
-    if (!targetMultipliersRef.current || !targetDimRef.current || !hiddenRef.current) return;
-
-    buildings.forEach((building, index) => {
-      let shouldCollapse = false;
-      let shouldDim = false;
-      let shouldHide = false;
-
-      const isInFocusDirectory = focusDirectory
-        ? isPathInDirectory(building.path, focusDirectory)
-        : true; // No focusDirectory means all are "in focus"
-
-      const layerMatches = hasActiveHighlightLayers
-        ? getLayerMatchesForPath(building.path, visibilityLayers)
-        : [];
-      const isHighlighted = hasActiveHighlightLayers
-        ? layerMatches.length > 0
-        : hasModifiedFilesIsolation
-          ? modifiedFiles![building.path] !== undefined  // modifiedFiles marks active files
-          : true; // No highlights means all are "highlighted"
-
-      // A directory match doesn't count as "specifically highlighted" when
-      // that directory has been narrowed by file-level matches — the
-      // file-level matches define the visible subset within it.
-      const isSpecificallyHighlighted = hasActiveHighlightLayers
-        ? layerMatches.some(m =>
-            m.item.type === 'file' || !narrowedDirectories.has(m.item.path),
-          )
-        : hasModifiedFilesIsolation
-          ? modifiedFiles![building.path] !== undefined  // modifiedFiles marks specific files
-          : true;
-
-      // Determine collapse/dim/hide behavior based on what's active. The
-      // "specifically highlighted" check applies in both collapse and hide
-      // modes so directory matches narrowed by file-level matches don't keep
-      // every sibling visible.
-      if (focusDirectory && (hasActiveHighlightLayers || hasModifiedFilesIsolation) && isolationMode === 'collapse') {
-        shouldCollapse = !isInFocusDirectory;
-        shouldDim = isInFocusDirectory && !isSpecificallyHighlighted;
-      } else if (focusDirectory && (hasActiveHighlightLayers || hasModifiedFilesIsolation) && isolationMode === 'hide') {
-        shouldCollapse = !isInFocusDirectory;
-        shouldHide = isInFocusDirectory && !isSpecificallyHighlighted;
-      } else if (focusDirectory) {
-        shouldCollapse = !isInFocusDirectory;
-      } else if ((hasActiveHighlightLayers || hasModifiedFilesIsolation) && isolationMode === 'collapse') {
-        shouldCollapse = !isSpecificallyHighlighted;
-      } else if ((hasActiveHighlightLayers || hasModifiedFilesIsolation) && isolationMode === 'hide') {
-        shouldHide = !isSpecificallyHighlighted;
-      }
-
-      // Height: 1.0 = full, 0.05 = flat (collapsed or dimmed)
-      if (shouldCollapse || shouldDim) {
-        targetMultipliersRef.current![index] = 0.05;
-      } else {
-        targetMultipliersRef.current![index] = 1;
-      }
-      // Dim ref controls graying: 0 = gray out, 1 = keep color
-      // Collapsed buildings go gray, dimmed buildings keep their color
-      targetDimRef.current![index] = shouldCollapse ? 0 : 1;
-      // Hidden ref controls full invisibility (mesh + edges + icon)
-      hiddenRef.current![index] = shouldHide ? 1 : 0;
-    });
-  }, [focusDirectory, buildings, visibilityLayers, isolationMode, hasActiveHighlightLayers, narrowedDirectories, hasModifiedFilesIsolation, modifiedFiles]);
-
-  // Pre-compute building data
-  const buildingData = useMemo(() => {
-    const staggerStep = resolveStaggerDelay(animationConfig, staggerIndices.length);
-    return buildings.map((building, index) => {
-      const [width, , depth] = building.dimensions;
-      const fullHeight = calculateBuildingHeight(building, heightScaling, linearScale, flatPatterns);
-      const hasAnyLayerMatch = highlightLayers && getLayerMatchesForPath(building.path, highlightLayers).length > 0;
-      const layerFill = hasAnyLayerMatch ? getHighlightForPath(building.path, highlightLayers!) : null;
-      const color = layerFill?.color
-        ?? (hasAnyLayerMatch ? getColorForFile(building) : defaultBuildingColor)
-        ?? getColorForFile(building);
-
-      const x = building.position.x - centerOffset.x;
-      const z = building.position.z - centerOffset.z;
-
-      const staggerIndex = staggerIndices[index] ?? index;
-      const staggerDelayMs = staggerStep * staggerIndex;
-
-      return {
-        building,
-        index,
-        width,
-        depth,
-        fullHeight,
-        color,
-        x,
-        z,
-        staggerDelayMs,
-      };
-    });
-  }, [
-    buildings,
-    centerOffset,
-    heightScaling,
-    linearScale,
-    flatPatterns,
-    staggerIndices,
-    animationConfig,
-    defaultBuildingColor,
-    highlightLayers,
-  ]);
-
-  const minHeight = 0.3;
-  const baseOffset = 0.2;
-  const springDuration = computeSpringDuration(animationConfig);
-
-  // Initialize all buildings (only on first render or when building data changes)
-  // DO NOT include focusDirectory here - that would bypass the animation
-  const initializedRef = useRef(false);
-
-  useEffect(() => {
-    if (!meshRef.current || buildingData.length === 0) return;
-
-    // When buildingData changes, snap dimMultipliersRef to targetDimRef so
-    // useFrame doesn't start lerping from a stale value. Without this, a
-    // file that was modified in the prior commit (dim=1) but is no longer
-    // modified (target=0) would lerp from 1→0 over ~583ms, showing full
-    // color the whole time because 1 > 0.5 passes the gray threshold.
-    if (hasModifiedFilesIsolation && dimMultipliersRef.current && targetDimRef.current) {
-      for (let i = 0; i < dimMultipliersRef.current.length; i++) {
-        dimMultipliersRef.current[i] = targetDimRef.current[i];
-      }
-    }
-
-    buildingData.forEach((data, instanceIndex) => {
-      const { width, depth, x, z, color, fullHeight } = data;
-
-      // Use the current animated multiplier, or default to 1 on first render
-      const multiplier = heightMultipliersRef.current?.[instanceIndex] ?? 1;
-
-      const height = growProgress * fullHeight * multiplier + minHeight;
-      const yPosition = height / 2 + baseOffset;
-
-      tempObject.position.set(x, yPosition, z);
-      tempObject.scale.set(width, height, depth);
-      tempObject.updateMatrix();
-
-      meshRef.current!.setMatrixAt(instanceIndex, tempObject.matrix);
-
-      // Use targetDim (not dimMultipliersRef) so we always render the correct
-      // state. targetDimRef is already up-to-date because the target useEffect
-      // runs before this effect. dimMultipliersRef may still hold stale values
-      // from a prior commit's lerp, which would flash the wrong color.
-      const dim = targetDimRef.current?.[instanceIndex] ?? 1;
-      tempColor.set(color);
-      if (dim < 0.5) {
-        const grayAmount = 1 - dim * 2;
-        const gray = 0.3;
-        tempColor.r = tempColor.r * (1 - grayAmount) + gray * grayAmount;
-        tempColor.g = tempColor.g * (1 - grayAmount) + gray * grayAmount;
-        tempColor.b = tempColor.b * (1 - grayAmount) + gray * grayAmount;
-      }
-      meshRef.current!.setColorAt(instanceIndex, tempColor);
-    });
-
-    meshRef.current.instanceMatrix.needsUpdate = true;
-    if (meshRef.current.instanceColor) {
-      meshRef.current.instanceColor.needsUpdate = true;
-    }
-    // Raycasting uses the bounding sphere. After a host-layer strip (PR
-    // aggregate / hide isolation) the instance count + matrices change and
-    // demand-mode may not run a frame before the next pointer event — without
-    // this recompute, hover/click miss while pan (MapControls) still works.
-    meshRef.current.computeBoundingSphere();
-    invalidate();
-
-    initializedRef.current = true;
-  }, [buildingData, growProgress, tempObject, tempColor, minHeight, baseOffset, invalidate]);
-
-  // Animate buildings each frame
-  useFrame(({ clock }) => {
-    if (!meshRef.current || buildingData.length === 0) return;
-    if (!heightMultipliersRef.current || !targetMultipliersRef.current) return;
-
-    if (startTimeRef.current === null && growProgress > 0) {
-      startTimeRef.current = clock.elapsedTime * 1000;
-    }
-
-    const currentTime = clock.elapsedTime * 1000;
-    const animStartTime = startTimeRef.current ?? currentTime;
-
-    // Animation speed for collapse/expand (lerp factor per frame)
-    const collapseSpeed = 0.08;
-
-    // On-demand: this frame requests another only while something is still
-    // moving — the grow-in stagger OR the collapse/dim lerps converging. The
-    // lerps are asymptotic, so we snap them to their target within an epsilon
-    // and stop; otherwise demand mode would keep rendering forever.
-    let stillAnimating = false;
-    const SETTLE_EPS = 0.001;
-
-    buildingData.forEach((data, instanceIndex) => {
-      const { width, depth, fullHeight, x, z, staggerDelayMs } = data;
-
-      const isHidden = hiddenRef.current?.[instanceIndex] === 1;
-
-      if (isHidden) {
-        tempObject.position.set(x, baseOffset, z);
-        tempObject.scale.set(0, 0, 0);
-        tempObject.updateMatrix();
-        meshRef.current!.setMatrixAt(instanceIndex, tempObject.matrix);
-        return;
-      }
-
-      // Animate height multiplier towards target
-      const currentMultiplier = heightMultipliersRef.current![instanceIndex];
-      const targetMultiplier = targetMultipliersRef.current![instanceIndex];
-      let newMultiplier =
-        currentMultiplier + (targetMultiplier - currentMultiplier) * collapseSpeed;
-      if (Math.abs(targetMultiplier - newMultiplier) < SETTLE_EPS) newMultiplier = targetMultiplier;
-      else stillAnimating = true;
-      heightMultipliersRef.current![instanceIndex] = newMultiplier;
-
-      // Animate dim multiplier towards target
-      const currentDim = dimMultipliersRef.current![instanceIndex];
-      const targetDim = targetDimRef.current![instanceIndex];
-      let newDim = currentDim + (targetDim - currentDim) * collapseSpeed;
-      if (Math.abs(targetDim - newDim) < SETTLE_EPS) newDim = targetDim;
-      else stillAnimating = true;
-      dimMultipliersRef.current![instanceIndex] = newDim;
-
-      // Calculate grow animation progress
-      const elapsed = currentTime - animStartTime - staggerDelayMs;
-      let animProgress = growProgress;
-
-      if (growProgress > 0 && elapsed >= 0) {
-        const t = Math.min(elapsed / springDuration, 1);
-        const eased = 1 - Math.pow(1 - t, 3);
-        animProgress = eased * growProgress;
-        if (t < 1) stillAnimating = true;
-      } else if (growProgress > 0 && elapsed < 0) {
-        animProgress = 0;
-        stillAnimating = true; // stagger hasn't started yet
-      }
-
-      // Apply both grow animation and collapse multiplier
-      const height = animProgress * fullHeight * newMultiplier + minHeight;
-      const yPosition = height / 2 + baseOffset;
-
-      const isHovered = hoveredIndex === data.index;
-      const isSelected = selectedIndex === data.index;
-      const scale = isSelected ? 1.08 : isHovered ? 1.05 : 1;
-
-      tempObject.position.set(x, yPosition, z);
-      tempObject.scale.set(width * scale, height, depth * scale);
-      tempObject.updateMatrix();
-
-      meshRef.current!.setMatrixAt(instanceIndex, tempObject.matrix);
-
-      // Apply color effects
-      tempColor.set(data.color);
-
-      // Gray out collapsed buildings (newDim < 0.5 means should be gray)
-      if (newDim < 0.5) {
-        const grayAmount = 1 - newDim * 2; // 0 at dim=0.5, 1 at dim=0
-        const gray = 0.3;
-        tempColor.r = tempColor.r * (1 - grayAmount) + gray * grayAmount;
-        tempColor.g = tempColor.g * (1 - grayAmount) + gray * grayAmount;
-        tempColor.b = tempColor.b * (1 - grayAmount) + gray * grayAmount;
-      }
-
-      if (isSelected) {
-        tempColor.multiplyScalar(1.4);
-      } else if (isHovered) {
-        tempColor.multiplyScalar(1.2);
-      }
-      meshRef.current!.setColorAt(instanceIndex, tempColor);
-    });
-
-    meshRef.current.instanceMatrix.needsUpdate = true;
-    if (meshRef.current.instanceColor) {
-      meshRef.current.instanceColor.needsUpdate = true;
-    }
-
-    // Update bounding sphere for raycasting as buildings grow/animate
-    meshRef.current.computeBoundingSphere();
-
-    if (stillAnimating) invalidate();
-  });
-
-  const isPathUnderInteractiveFill = useCallback(
-    (path: string) => interactiveFillDirs.some(dir => path === dir || path.startsWith(dir + '/')),
-    [interactiveFillDirs],
-  );
-
-  const handlePointerMove = useCallback(
-    (e: ThreeEvent<PointerEvent>) => {
-      if (e.instanceId !== undefined && e.instanceId < buildingData.length) {
-        const data = buildingData[e.instanceId];
-        if (!isPathUnderInteractiveFill(data.building.path)) {
-          e.stopPropagation();
-          onHover?.(data.building);
-        }
-      }
-    },
-    [buildingData, onHover, isPathUnderInteractiveFill],
-  );
-
-  const handlePointerOut = useCallback(
-    (e: ThreeEvent<PointerEvent>) => {
-      if (
-        e.instanceId != null &&
-        e.instanceId < buildingData.length &&
-        isPathUnderInteractiveFill(buildingData[e.instanceId].building.path)
-      ) {
-        return;
-      }
-      onHover?.(null);
-    },
-    [buildingData, onHover, isPathUnderInteractiveFill],
-  );
-
-  const handleClick = useCallback(
-    (e: ThreeEvent<MouseEvent>) => {
-      if (e.instanceId !== undefined && e.instanceId < buildingData.length) {
-        const data = buildingData[e.instanceId];
-        if (!isPathUnderInteractiveFill(data.building.path)) {
-          e.stopPropagation();
-          onClick?.(data.building, e.nativeEvent);
-        }
-      }
-    },
-    [buildingData, onClick, isPathUnderInteractiveFill],
-  );
-
-  if (buildingData.length === 0) return null;
-
-  return (
-    <group>
-      {/* All buildings - single mesh, original colors */}
-      <instancedMesh
-        ref={meshRef}
-        args={[undefined, undefined, buildingData.length]}
-        onPointerMove={handlePointerMove}
-        onPointerOut={handlePointerOut}
-        onClick={handleClick}
-        frustumCulled={false}
-      >
-        <boxGeometry args={[1, 1, 1]} />
-        <meshBasicMaterial />
-      </instancedMesh>
-
-      {/* Building edge outlines */}
-      <BuildingEdges
-        buildings={buildingData.map(d => ({
-          width: d.width,
-          depth: d.depth,
-          fullHeight: d.fullHeight,
-          x: d.x,
-          z: d.z,
-          staggerDelayMs: d.staggerDelayMs,
-          buildingIndex: d.index,
-        }))}
-        growProgress={growProgress}
-        minHeight={minHeight}
-        baseOffset={baseOffset}
-        springDuration={springDuration}
-        heightMultipliersRef={heightMultipliersRef}
-        hiddenRef={hiddenRef}
-      />
-
-      {/* Border highlights (colored, layer-driven) */}
-      <BorderHighlights
-        buildings={buildings}
-        centerOffset={centerOffset}
-        highlightLayers={highlightLayers}
-        growProgress={growProgress}
-        minHeight={minHeight}
-        baseOffset={baseOffset}
-        springDuration={springDuration}
-        heightMultipliersRef={heightMultipliersRef}
-        heightScaling={heightScaling}
-        linearScale={linearScale}
-        flatPatterns={flatPatterns}
-        staggerIndices={staggerIndices}
-        animationConfig={animationConfig}
-      />
-    </group>
-  );
-}
-
-// ============================================================================
-// Building Icons - Renders icons on top of buildings
-// ============================================================================
-
-interface BuildingIconsProps {
-  buildings: CityBuilding[];
-  centerOffset: { x: number; z: number };
-  growProgress: number;
-  heightScaling: HeightScaling;
-  linearScale: number;
-  flatPatterns: FlatPattern[];
-  highlightLayers: HighlightLayer[];
-  /** User-supplied highlight layers only (excludes file-color layers). */
-  visibilityLayers: HighlightLayer[];
-  isolationMode: IsolationMode;
-  hasActiveHighlights: boolean;
-  /** Files modified in the current transition — used for automatic isolation. */
-  modifiedFiles?: Record<string, { lineDelta: number }>;
-}
-
-// Individual animated icon component
-interface AnimatedIconProps {
-  x: number;
-  z: number;
-  targetHeight: number;
-  iconSize: number;
-  texture: THREE.Texture;
-  opacity: number;
-  growProgress: number;
-}
-
-function AnimatedIcon({
-  x,
-  z,
-  targetHeight,
-  iconSize,
-  texture,
-  opacity,
-  growProgress,
-}: AnimatedIconProps) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const materialRef = useRef<THREE.MeshBasicMaterial>(null);
-
-  useFrame(() => {
-    if (!meshRef.current) return;
-
-    // Icons track the global growProgress directly (no stagger)
-    // This keeps them in sync with the building heights
-    const minHeight = 0.3;
-    const baseOffset = 0.2;
-    const height = growProgress * targetHeight + minHeight;
-    const buildingTop = height + baseOffset;
-
-    // When flat (growProgress=0): icon lies flat at ground level
-    // When grown (growProgress=1): icon lies flat above building roof
-    const flatY = minHeight + baseOffset + 0.5;
-    const grownY = buildingTop + 0.5;
-    const yPosition = flatY + (grownY - flatY) * growProgress;
-
-    meshRef.current.position.y = yPosition;
-
-    // Keep icon flat (facing up) at all times
-    meshRef.current.rotation.x = -Math.PI / 2;
-
-    if (materialRef.current) {
-      materialRef.current.opacity = opacity;
-    }
-  });
-
-  return (
-    <mesh
-      ref={meshRef}
-      position={[x, 0, z]}
-      scale={[iconSize, iconSize, 1]}
-      raycast={() => null}
-    >
-      <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial
-        ref={materialRef}
-        map={texture}
-        transparent
-        opacity={0.8}
-        depthTest={true}
-        depthWrite={false}
-        side={THREE.DoubleSide}
-      />
-    </mesh>
-  );
-}
-
-function BuildingIcons({
-  buildings,
-  centerOffset,
-  growProgress,
-  heightScaling,
-  linearScale,
-  flatPatterns,
-  highlightLayers,
-  visibilityLayers,
-  isolationMode,
-  hasActiveHighlights,
-  modifiedFiles,
-}: BuildingIconsProps) {
-  // Same narrowing rule as InstancedBuildings, scoped to user highlight layers
-  // only (file-color layers don't narrow visibility).
-  const narrowedDirectories = useMemo(() => {
-    const dirs: string[] = [];
-    const files: string[] = [];
-    for (const layer of visibilityLayers) {
-      if (!layer.enabled) continue;
-      for (const item of layer.items) {
-        if (item.type === 'directory') dirs.push(item.path);
-        else if (item.type === 'file') files.push(item.path);
-      }
-    }
-    const narrowed = new Set<string>();
-    for (const dir of dirs) {
-      for (const f of files) {
-        if (f === dir || f.startsWith(dir + '/')) {
-          narrowed.add(dir);
-          break;
-        }
-      }
-    }
-    return narrowed;
-  }, [visibilityLayers]);
-
-  // Whether modifiedFiles should drive isolation
-  const hasModifiedFilesIsolation = !!modifiedFiles;
-
-  // Pre-compute buildings with icons
-  const buildingsWithIcons = useMemo(() => {
-    return buildings
-      .map((building) => {
-        const config = getConfigForFile(building);
-        if (!config.icon) return null;
-
-        const matches = getLayerMatchesForPath(building.path, visibilityLayers);
-        const isHighlighted = matches.length > 0;
-        const isSpecificallyHighlighted = matches.some(
-          m => m.item.type === 'file' || !narrowedDirectories.has(m.item.path),
-        );
-        const shouldDim = (hasActiveHighlights || hasModifiedFilesIsolation) && !isSpecificallyHighlighted && !(hasModifiedFilesIsolation && modifiedFiles?.[building.path] !== undefined);
-        const shouldHide =
-          (hasActiveHighlights || hasModifiedFilesIsolation) && (isolationMode === 'hide' || (hasModifiedFilesIsolation && modifiedFiles?.[building.path] === undefined)) && !isSpecificallyHighlighted;
-        const shouldCollapse = shouldDim && isolationMode === 'collapse';
-
-        // Hide icons for buildings that are hidden or collapsed
-        if (shouldHide || shouldCollapse) return null;
-
-        const fullHeight = calculateBuildingHeight(building, heightScaling, linearScale, flatPatterns);
-        const targetHeight = fullHeight;
-
-        const x = building.position.x - centerOffset.x;
-        const z = building.position.z - centerOffset.z;
-
-        return {
-          building,
-          config,
-          x,
-          z,
-          targetHeight,
-          shouldDim,
-        };
-      })
-      .filter(Boolean) as Array<{
-      building: CityBuilding;
-      config: FileConfigResult;
-      x: number;
-      z: number;
-      targetHeight: number;
-      shouldDim: boolean;
-    }>;
-  }, [
-    buildings,
-    centerOffset,
-    visibilityLayers,
-    isolationMode,
-    hasActiveHighlights,
-    heightScaling,
-    linearScale,
-    flatPatterns,
-    narrowedDirectories,
-    hasModifiedFilesIsolation,
-    modifiedFiles,
-  ]);
-
-  // Icons are now always rendered (flat or grown)
-  return (
-    <>
-      {buildingsWithIcons.map(
-        ({ building, config, x, z, targetHeight, shouldDim }) => {
-          const icon = config.icon!;
-          const texture = getIconTexture(icon.name, icon.color || '#ffffff');
-          if (!texture) return null;
-
-          // Icon size based on building dimensions (matching 2D calculation)
-          const [width, , depth] = building.dimensions;
-          const minDimension = Math.min(width, depth);
-          const iconSize = minDimension * (icon.size || 0.6) * 1.7;
-
-          const opacity = shouldDim && isolationMode === 'transparent' ? 0.3 : 1;
-
-          return (
-            <AnimatedIcon
-              key={building.path}
-              x={x}
-              z={z}
-              targetHeight={targetHeight}
-              iconSize={iconSize}
-              texture={texture}
-              opacity={opacity}
-              growProgress={growProgress}
-            />
-          );
-        },
-      )}
-    </>
-  );
-}
-
-// Floating indicator for modified files showing +/- line delta
-interface ModifiedIndicatorProps {
-  building: CityBuilding;
-  centerOffset: { x: number; z: number };
-  lineDelta: number;
-  opacity: number;
-}
-
-function ModifiedIndicator({ building, centerOffset, lineDelta, opacity }: ModifiedIndicatorProps) {
-  const sign = lineDelta > 0 ? '+' : '';
-  const text = `${sign}${lineDelta}`;
-  const color = lineDelta > 0 ? '#22c55e' : '#ef4444';
-
-  const x = building.position.x - centerOffset.x;
-  const z = building.position.z - centerOffset.z;
-  const y = 10;
-
-  const fontSize = Math.max(15, Math.min(30, building.dimensions[0] / 8));
-
-  return (
-    <Text
-      position={[x, y, z]}
-      rotation={[-Math.PI / 2, 0, 0]}
-      fontSize={fontSize}
-      color={color}
-      anchorX="center"
-      anchorY="middle"
-      outlineWidth={fontSize * 0.06}
-      outlineColor="#000000"
-      renderOrder={999}
-      frustumCulled={false}
-    >
-      {text}
-      <meshBasicMaterial depthTest={false} />
-    </Text>
-  );
-}
 
 // District floor component
-interface DistrictFloorProps {
-  district: CityDistrict;
-  centerOffset: { x: number; z: number };
-  opacity: number;
-  highlightColor?: string | null;
-  growProgress: number;
-  appearingProgress?: number;
-}
-
-function easeOutBack(t: number): number {
-  const c1 = 1.70158;
-  const c3 = c1 + 1;
-  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
-}
-
-function easeOutCubic(t: number): number {
-  return 1 - Math.pow(1 - t, 3);
-}
-
-function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t;
-}
-
-function DistrictFloor({ district, centerOffset, highlightColor, growProgress, appearingProgress = 0 }: DistrictFloorProps) {
-  const { worldBounds } = district;
-  const width = worldBounds.maxX - worldBounds.minX;
-  const depth = worldBounds.maxZ - worldBounds.minZ;
-  const centerX = (worldBounds.minX + worldBounds.maxX) / 2 - centerOffset.x;
-  const centerZ = (worldBounds.minZ + worldBounds.maxZ) / 2 - centerOffset.z;
-
-  const dirName = district.path.split('/').pop() || district.path;
-
-  const pathDepth = district.path.split('/').length;
-  const floorY = -5 - pathDepth * 0.1;
-
-  // Bright accent color for appearing districts, fades to default
-  const accentColor = '#22d3ee'; // cyan-400
-  const borderColor = appearingProgress > 0
-    ? (highlightColor || accentColor)
-    : (highlightColor || '#475569');
-  const lineWidth = (highlightColor || appearingProgress > 0) ? 3 : 1;
-  const labelColor = appearingProgress > 0
-    ? (highlightColor || accentColor)
-    : (highlightColor || '#cbd5e1');
-
-  // Interpolate text rotation and position based on growProgress
-  const flatRotationX = -Math.PI / 2;
-  const grownRotationX = -Math.PI / 6;
-  const textRotationX = flatRotationX + (grownRotationX - flatRotationX) * growProgress;
-
-  const flatY = 0.5;
-  const grownY = 1.5;
-  const textY = flatY + (grownY - flatY) * growProgress;
-
-  const flatZ = depth / 2 - 6;
-  const grownZ = depth / 2 + 2;
-  const textZ = flatZ + (grownZ - flatZ) * growProgress;
-
-  // When appearing, label starts at center, pauses, then slides down to flatZ
-  const positionT = appearingProgress > 0
-    ? easeOutCubic(Math.max(0, (appearingProgress - 0.5) / 0.5))
-    : 0;
-  const appearingZ = appearingProgress > 0
-    ? lerp(0, flatZ, positionT)
-    : undefined;
-  const finalTextZ = appearingZ !== undefined ? appearingZ : textZ;
-
-  // Label starts large and shrinks to final size as it slides into position
-  const labelScale = appearingProgress > 0
-    ? lerp(10, 1, easeOutCubic(Math.max(0, (appearingProgress - 0.5) / 0.5)))
-    : 1;
-
-  return (
-    <group position={[centerX, 0, centerZ]}>
-      {/* Border outline */}
-      <lineSegments rotation={[-Math.PI / 2, 0, 0]} position={[0, floorY, 0]} renderOrder={-1}>
-        <edgesGeometry args={[new THREE.PlaneGeometry(width, depth)]} attach="geometry" />
-        <lineBasicMaterial color={borderColor} linewidth={lineWidth} depthWrite={false} />
-      </lineSegments>
-
-      {/* Directory name label with pop-in scale */}
-      <group position={[0, textY, finalTextZ]} scale={[labelScale, labelScale, labelScale]}>
-        <Text
-          rotation={[textRotationX, 0, 0]}
-          fontSize={Math.max(6, Math.min(12, width / 3))}
-          color={labelColor}
-          anchorX="center"
-          anchorY="middle"
-          outlineWidth={0.15}
-          outlineColor="#0f172a"
-        >
-          {dirName}
-        </Text>
-      </group>
-    </group>
-  );
-}
 
 // Camera controller
 interface FocusTarget {
@@ -1952,6 +216,10 @@ interface AnimatedCameraProps {
   cityWidth: number;
   /** City footprint extent along Z (for viewport-aware rect framing). */
   cityDepth: number;
+  /** World-space center of the framed footprint. Defaults to the origin.
+   *  Multi-city layouts whose combined bounds aren't centered at the origin
+   *  pass the global center here so the overview frames the actual city. */
+  cityCenter?: { x: number; z: number };
   /** Inset rect the flat overview frames into. See {@link SafeArea}. */
   safeArea?: SafeArea;
   isFlat: boolean;
@@ -2182,6 +450,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   citySize,
   cityWidth,
   cityDepth,
+  cityCenter,
   safeArea,
   isFlat,
   cityReady = true,
@@ -2288,6 +557,10 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     return perspCam.aspect || 1;
   }, [viewportSize, gl, camera]);
 
+  // World-space center of the framed footprint (origin for single cities).
+  const cityCenterRef = useRef(cityCenter ?? { x: 0, z: 0 });
+  cityCenterRef.current = cityCenter ?? { x: 0, z: 0 };
+
   // Flat (top-down) camera height that fits a footprint rectangle (width x depth)
   // into the viewport rectangle for the given aspect. Depth fills the vertical
   // FOV; width fills the horizontal FOV; whichever needs more height wins, so the
@@ -2327,8 +600,8 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       // frames the directory into the inner rect instead of the full city.
       const fpWidth = footprint?.width ?? cityWidth;
       const fpDepth = footprint?.depth ?? cityDepth;
-      const cx = footprint?.centerX ?? 0;
-      const cz = footprint?.centerZ ?? 0;
+      const cx = footprint?.centerX ?? cityCenterRef.current.x;
+      const cz = footprint?.centerZ ?? cityCenterRef.current.z;
       const clamp01 = (n: number | undefined) => Math.min(0.9, Math.max(0, n ?? 0));
       const l = clamp01(sa?.left);
       const r = clamp01(sa?.right);
@@ -2388,8 +661,8 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   // ===========================================================================
   const compute3DPose = useCallback(
     (sa?: SafeArea, footprint?: { centerX: number; centerZ: number }) => {
-      const cx = footprint?.centerX ?? 0;
-      const cz = footprint?.centerZ ?? 0;
+      const cx = footprint?.centerX ?? cityCenterRef.current.x;
+      const cz = footprint?.centerZ ?? cityCenterRef.current.z;
       const baseCamY =
         maxBuildingHeight > 0 ? Math.max(citySize * 1.1, maxBuildingHeight * 2.5) : citySize * 1.1;
       const baseCamZ = citySize * 1.3; // camera sits this far behind the look-at on +Z
@@ -2535,7 +808,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   );
 
   // Separate spring for orbit angle animation (animates along horizontal arc)
-  const [{ orbitAngle }, orbitApi] = useSpring(() => ({
+  const [{ orbitAngle }] = useSpring(() => ({
     orbitAngle: 0,
     config: { tension: 80, friction: 18 },
     onStart: () => {
@@ -2554,7 +827,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
 
   // Separate spring for tilt angle animation (animates along vertical arc)
   const isTiltingRef = useRef(false);
-  const [{ tiltAngle }, tiltApi] = useSpring(() => ({
+  const [{ tiltAngle }] = useSpring(() => ({
     tiltAngle: 0,
     config: { tension: 80, friction: 18 },
     onStart: () => {
@@ -3058,14 +1331,15 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     userInteractingRef.current = false;
     const targetHeight = citySize * 1.1;
     const targetZ = citySize * 1.3;
+    const { x: cx, z: cz } = cityCenterRef.current;
 
     driveCameraTo({
-      camX: 0,
+      camX: cx,
       camY: targetHeight,
-      camZ: targetZ,
-      lookX: 0,
+      camZ: cz + targetZ,
+      lookX: cx,
       lookY: 0,
-      lookZ: 0,
+      lookZ: cz,
     });
   }, [citySize, driveCameraTo]);
 
@@ -3437,7 +1711,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     // only actually changes when the viewport or the city footprint changes, so
     // those primitives are the real dependencies.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewportSize.width, viewportSize.height, cityWidth, cityDepth]);
+  }, [viewportSize.width, viewportSize.height, cityWidth, cityDepth, cityCenter?.x, cityCenter?.z]);
 
   // MapControls clamps the camera distance to `maxDistance`. The inset framing
   // raises the camera well above the full-canvas overview (height inflates by
@@ -3547,6 +1821,8 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     prevProps.citySize === nextProps.citySize &&
     prevProps.cityWidth === nextProps.cityWidth &&
     prevProps.cityDepth === nextProps.cityDepth &&
+    prevProps.cityCenter?.x === nextProps.cityCenter?.x &&
+    prevProps.cityCenter?.z === nextProps.cityCenter?.z &&
     prevProps.maxBuildingHeight === nextProps.maxBuildingHeight &&
     prevProps.cameraControls === nextProps.cameraControls &&
     prevProps.focusTarget === nextProps.focusTarget &&
@@ -3683,285 +1959,7 @@ function ControlsOverlay({ isFlat, onToggle, onResetCamera, onLookDown }: Contro
 
 // Distance (world units) the panel lifts upward when dismissed. Reads as
 // "toward the camera" because the camera looks down in flat mode.
-const PANEL_DISMISS_LIFT = 60;
 
-interface ElevatedScopePanelMeshProps {
-  panel: ElevatedScopePanel;
-  centerOffset: { x: number; z: number };
-  dismissing: boolean;
-  onDismissed?: (id: string) => void;
-}
-
-// Dismiss animation duration in seconds.
-const PANEL_DISMISS_DURATION = 0.7;
-
-function ElevatedScopePanelMesh({
-  panel,
-  centerOffset,
-  dismissing,
-  onDismissed,
-}: ElevatedScopePanelMeshProps) {
-  const cx = (panel.bounds.minX + panel.bounds.maxX) / 2 - centerOffset.x;
-  const cz = (panel.bounds.minZ + panel.bounds.maxZ) / 2 - centerOffset.z;
-  const w = Math.max(1, panel.bounds.maxX - panel.bounds.minX);
-  const d = Math.max(1, panel.bounds.maxZ - panel.bounds.minZ);
-  const t = panel.thickness ?? 2;
-  const y = (panel.height ?? 4) + t / 2;
-  const baseOpacity = panel.opacity ?? 1;
-  const isOpaqueStatic = baseOpacity >= 1;
-  const topY = y + t / 2;
-  const tileMax = Math.min(w, d) / 2;
-  const requested = panel.labelSize ?? Math.min(w, d) / 6;
-  const labelSize = Math.max(4, Math.min(tileMax, requested));
-
-  // Drive the dismiss animation directly via useFrame + Three.js refs
-  // rather than react-spring. React re-renders (e.g., from FileCity3D's
-  // hover state on mouse-move) were disturbing the spring-driven
-  // animation; mutating the Three.js objects directly keeps the
-  // animation isolated from React's render cycle.
-  const groupRef = useRef<THREE.Group>(null);
-  const slabMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
-  const labelMaterialRefs = useRef<THREE.MeshBasicMaterial[]>([]);
-  const startTimeRef = useRef<number | null>(null);
-  const finishedRef = useRef(false);
-  const [fullyDismissed, setFullyDismissed] = useState(false);
-  const invalidate = useThree((s) => s.invalidate);
-
-  // On-demand kick: when dismissal starts, request a frame so the useFrame loop
-  // below begins (and then self-sustains via invalidate() until it finishes).
-  useEffect(() => {
-    if (dismissing) invalidate();
-  }, [dismissing, invalidate]);
-
-  useFrame(({ clock }) => {
-    if (!dismissing || finishedRef.current) return;
-    if (startTimeRef.current === null) {
-      startTimeRef.current = clock.elapsedTime;
-    }
-    const elapsed = clock.elapsedTime - startTimeRef.current;
-    const t = Math.min(elapsed / PANEL_DISMISS_DURATION, 1);
-    // ease-out cubic
-    const eased = 1 - Math.pow(1 - t, 3);
-
-    if (groupRef.current) {
-      groupRef.current.position.y = eased * PANEL_DISMISS_LIFT;
-    }
-    const opacityNow = baseOpacity * (1 - eased);
-    if (slabMaterialRef.current) {
-      slabMaterialRef.current.opacity = opacityNow;
-    }
-    for (const mat of labelMaterialRefs.current) {
-      if (mat) mat.opacity = opacityNow;
-    }
-
-    if (t >= 1) {
-      finishedRef.current = true;
-      setFullyDismissed(true);
-      onDismissed?.(panel.id);
-    } else {
-      invalidate(); // keep the dismiss animation running to completion
-    }
-  });
-
-  if (fullyDismissed) return null;
-
-  // Always transparent on the slab so animated opacity actually blends.
-  // (Three.js skips alpha blending entirely when transparent=false, which
-  // makes the fade invisible until the prop flips mid-animation.)
-  // depthWrite stays true while the panel is at full opacity so it still
-  // occludes buildings beneath; we drop it once dismissal starts so the
-  // fading panel doesn't punch a hole in the scene.
-  const slabDepthWrite = isOpaqueStatic && !dismissing;
-
-  const interactive = Boolean(panel.onClick || panel.onDoubleClick);
-  const handleClick = panel.onClick
-    ? (e: ThreeEvent<MouseEvent>) => {
-        e.stopPropagation();
-        panel.onClick!(e.nativeEvent);
-      }
-    : undefined;
-  const handleDoubleClick = panel.onDoubleClick
-    ? (e: ThreeEvent<MouseEvent>) => {
-        e.stopPropagation();
-        panel.onDoubleClick!(e.nativeEvent);
-      }
-    : undefined;
-  const handlePointerOver = interactive
-    ? (e: ThreeEvent<PointerEvent>) => {
-        e.stopPropagation();
-        document.body.style.cursor = 'pointer';
-      }
-    : undefined;
-  const handlePointerOut = interactive
-    ? () => {
-        document.body.style.cursor = '';
-      }
-    : undefined;
-
-  const labelColor = panel.labelColor ?? '#ffffff';
-  const displayLabelColor = panel.displayLabelColor ?? panel.labelColor ?? '#ffffff';
-
-  // Reset the array each render — the ref callbacks below will repopulate
-  // it. This avoids stale entries if labels come and go.
-  labelMaterialRefs.current = [];
-  const captureLabelMat = (mat: THREE.MeshBasicMaterial | null) => {
-    if (mat) labelMaterialRefs.current.push(mat);
-  };
-
-  return (
-    <group ref={groupRef}>
-      <mesh
-        position={[cx, y, cz]}
-        renderOrder={10}
-        onClick={dismissing ? undefined : handleClick}
-        onDoubleClick={dismissing ? undefined : handleDoubleClick}
-        onPointerOver={dismissing ? undefined : handlePointerOver}
-        onPointerOut={dismissing ? undefined : handlePointerOut}
-      >
-        <boxGeometry args={[w, t, d]} />
-        <meshBasicMaterial
-          ref={slabMaterialRef}
-          color={panel.color}
-          transparent
-          opacity={baseOpacity}
-          depthWrite={slabDepthWrite}
-        />
-      </mesh>
-      {panel.displayLabel && (
-        <>
-          <Text
-            position={[cx, topY + 0.05, cz - labelSize * 0.6]}
-            rotation={[-Math.PI / 2, 0, 0]}
-            fontSize={labelSize}
-            color={displayLabelColor}
-            anchorX="center"
-            anchorY="middle"
-            maxWidth={w * 0.9}
-            textAlign="center"
-            renderOrder={11}
-            frustumCulled={false}
-          >
-            {panel.displayLabel}
-            <meshBasicMaterial
-              ref={captureLabelMat}
-              attach="material"
-              color={displayLabelColor}
-              depthWrite={false}
-              depthTest={false}
-              transparent
-              opacity={baseOpacity}
-            />
-          </Text>
-          <mesh
-            position={[cx, topY + 0.06, cz - labelSize * 0.05]}
-            rotation={[-Math.PI / 2, 0, 0]}
-            renderOrder={11}
-          >
-            <planeGeometry
-              args={[
-                Math.min(w * 0.9, panel.displayLabel.length * labelSize * 0.55),
-                labelSize * 0.06,
-              ]}
-            />
-            <meshBasicMaterial
-              ref={captureLabelMat}
-              color={displayLabelColor}
-              depthWrite={false}
-              depthTest={false}
-              transparent
-              opacity={baseOpacity}
-            />
-          </mesh>
-        </>
-      )}
-      {panel.label && (
-        <Text
-          position={[cx, topY + 0.05, cz + (panel.displayLabel ? labelSize * 0.6 : 0)]}
-          rotation={[-Math.PI / 2, 0, 0]}
-          fontSize={labelSize}
-          color={labelColor}
-          anchorX="center"
-          anchorY="middle"
-          maxWidth={w * 0.9}
-          textAlign="center"
-          renderOrder={11}
-          frustumCulled={false}
-        >
-          {panel.label}
-          <meshBasicMaterial
-            ref={captureLabelMat}
-            attach="material"
-            color={labelColor}
-            depthWrite={false}
-            depthTest={false}
-            transparent
-            opacity={baseOpacity}
-          />
-        </Text>
-      )}
-    </group>
-  );
-}
-
-interface SelectionRingProps {
-  district: CityDistrict;
-  centerOffset: { x: number; z: number };
-  color: string;
-  borderWidth: number;
-  growProgress: number;
-}
-
-// Lifted just above the default umbrella topY (height 4 + thickness 2 → 6)
-// so the ring isn't occluded by an `ElevatedScopePanel` covering the same
-// district when the city is flat.
-const SELECTION_RING_FLAT_Y = 7;
-
-function SelectionRing({
-  district,
-  centerOffset,
-  color,
-  borderWidth,
-  growProgress,
-}: SelectionRingProps) {
-  const { worldBounds } = district;
-  const inflate = 1;
-  const minX = worldBounds.minX - inflate;
-  const maxX = worldBounds.maxX + inflate;
-  const minZ = worldBounds.minZ - inflate;
-  const maxZ = worldBounds.maxZ + inflate;
-  const cx = (minX + maxX) / 2 - centerOffset.x;
-  const cz = (minZ + maxZ) / 2 - centerOffset.z;
-  const w = maxX - minX;
-  const d = maxZ - minZ;
-
-  const pathDepth = district.path.split('/').length;
-  const groundY = -5 - pathDepth * 0.1 + 0.2;
-  const y = SELECTION_RING_FLAT_Y + (groundY - SELECTION_RING_FLAT_Y) * growProgress;
-
-  const t = Math.max(0.5, borderWidth);
-  const barH = 0.5;
-
-  return (
-    <group position={[cx, y, cz]}>
-      <mesh position={[0, 0, -d / 2]} renderOrder={20}>
-        <boxGeometry args={[w + t, barH, t]} />
-        <meshBasicMaterial color={color} transparent opacity={0.95} />
-      </mesh>
-      <mesh position={[0, 0, d / 2]} renderOrder={20}>
-        <boxGeometry args={[w + t, barH, t]} />
-        <meshBasicMaterial color={color} transparent opacity={0.95} />
-      </mesh>
-      <mesh position={[-w / 2, 0, 0]} renderOrder={20}>
-        <boxGeometry args={[t, barH, d + t]} />
-        <meshBasicMaterial color={color} transparent opacity={0.95} />
-      </mesh>
-      <mesh position={[w / 2, 0, 0]} renderOrder={20}>
-        <boxGeometry args={[t, barH, d + t]} />
-        <meshBasicMaterial color={color} transparent opacity={0.95} />
-      </mesh>
-    </group>
-  );
-}
 
 // Main scene component
 interface CitySceneProps {
@@ -4030,6 +2028,9 @@ function CityScene({
   modifiedFiles,
   transitionProgress = 0,
 }: CitySceneProps & { onCameraReady?: () => void }) {
+  // CityScene composes the 3D scene: camera + lights + city content.
+  // Camera focus animation and city-dimension math live here so they
+  // can feed <AnimatedCamera> before passing the rest to <CityContent>.
   // On-demand safety net. Most in-scene visuals are driven imperatively inside
   // useFrame (instanced-mesh hover/selection scale, colors) rather than through
   // React three props, so R3F's built-in "render on prop change" won't schedule
@@ -4060,7 +2061,6 @@ function CityScene({
     return Math.max(...cityData.buildings.map(b => b.dimensions[1]), 0);
   }, [adaptCameraToBuildings, cityData.buildings]);
 
-  const activeHighlights = useMemo(() => hasActiveHighlights(visibilityLayers), [visibilityLayers]);
 
   // Helper to check if a path is inside a directory
   const isPathInDirectory = useCallback((path: string, directory: string) => {
@@ -4068,123 +2068,45 @@ function CityScene({
     return path === directory || path.startsWith(directory + '/');
   }, []);
 
-  // Three-phase animation when switching directories:
-  // Phase 1: Camera zooms out to overview
-  // Phase 2: Buildings collapse/expand
-  // Phase 3: Camera zooms into new directory
-  //
-  // We track three separate states for smooth transitions:
-  // - buildingFocusDirectory: controls which buildings are collapsed (passed to InstancedBuildings)
-  // - buildingFocusColor: the color for the focused district (synced with buildingFocusDirectory)
-  // - cameraFocusDirectory: controls camera position (used for focusTarget calculation)
-  const [buildingFocusDirectory, setBuildingFocusDirectory] = useState<string | null>(null);
-  const [buildingFocusColor, setBuildingFocusColor] = useState<string | null>(null);
+  // Camera focus state — manages camera zooming when focusDirectory changes.
+  // CityContent handles building collapse/expand timing internally.
   const [cameraFocusDirectory, setCameraFocusDirectory] = useState<string | null>(null);
-  const prevFocusDirectoryRef = useRef<string | null>(null);
-  const animationTimersRef = useRef<NodeJS.Timeout[]>([]);
+  const prevFocusRef = useRef<string | null>(null);
+  const focusTimersRef = useRef<NodeJS.Timeout[]>([]);
 
   useEffect(() => {
-    // Clear any pending timers
-    animationTimersRef.current.forEach(clearTimeout);
-    animationTimersRef.current = [];
+    focusTimersRef.current.forEach(clearTimeout);
+    focusTimersRef.current = [];
+    const prev = prevFocusRef.current;
+    prevFocusRef.current = focusDirectory;
+    if (focusDirectory === prev) return;
 
-    const prevFocus = prevFocusDirectoryRef.current;
-    prevFocusDirectoryRef.current = focusDirectory;
-
-    // No change
-    if (focusDirectory === prevFocus) return;
-
-    // Case 1: Going from overview to a directory (null -> dir)
-    if (prevFocus === null && focusDirectory !== null) {
-      // Phase 1: Collapse buildings immediately with the new color
-      setBuildingFocusDirectory(focusDirectory);
-      setBuildingFocusColor(focusColor ?? null);
-
-      // Phase 2: After the collapse settles, ease the camera in. We always
-      // stage this — a highlight layer covering the same directory does NOT move
-      // the camera, so the old "highlight matches focus → camera is already
-      // there, set immediately" shortcut set the camera focus at t=0 instead.
-      // That fired the zoom on the same tick as the collapse with no stagger,
-      // making focus+highlight-on-the-same-directory read as an abrupt snap
-      // instead of the staged, eased zoom every other focus change gets.
-      const timer = setTimeout(() => {
-        setCameraFocusDirectory(focusDirectory);
-      }, 600);
-      animationTimersRef.current.push(timer);
+    if (prev === null && focusDirectory !== null) {
+      const t = setTimeout(() => setCameraFocusDirectory(focusDirectory), 600);
+      focusTimersRef.current.push(t);
       return;
     }
-
-    // Case 2: Going from a directory to overview (dir -> null)
-    if (prevFocus !== null && focusDirectory === null) {
-      // Check if highlight layers will keep camera focused on same area
-      const highlightMatchesPrevFocus = highlightLayers.some(
-        layer => layer.enabled && layer.items.some(
-          item => item.type === 'directory' && (
-            item.path === prevFocus ||
-            prevFocus.startsWith(item.path + '/')
-          )
-        )
-      );
-
-      if (highlightMatchesPrevFocus) {
-        // Camera will stay focused via highlights, just clear focus state
-        setCameraFocusDirectory(null);
-        setBuildingFocusDirectory(null);
-        setBuildingFocusColor(null);
-      } else {
-        // Phase 1: Zoom camera out first
-        setCameraFocusDirectory(null);
-        // Phase 2: After zoom-out settles, expand buildings and clear color
-        const timer = setTimeout(() => {
-          setBuildingFocusDirectory(null);
-          setBuildingFocusColor(null);
-        }, 500);
-        animationTimersRef.current.push(timer);
-      }
-      return;
-    }
-
-    // Case 3: Switching between directories (dirA -> dirB)
-    if (prevFocus !== null && focusDirectory !== null) {
-      // Direct transition when the two directories are visually adjacent:
-      //   - parent ↔ child (one is a prefix of the other)
-      //   - immediate siblings (same parent folder)
-      // In both cases the new directory is already in or near the current
-      // view, so a zoom-out detour would feel like extra travel.
-      const isDescendant = focusDirectory.startsWith(prevFocus + '/');
-      const isAncestor = prevFocus.startsWith(focusDirectory + '/');
-      const parentOf = (p: string) => {
-        const i = p.lastIndexOf('/');
-        return i >= 0 ? p.slice(0, i) : '';
-      };
-      const isSibling = parentOf(prevFocus) === parentOf(focusDirectory);
-      if (isDescendant || isAncestor || isSibling) {
-        setBuildingFocusDirectory(focusDirectory);
-        setBuildingFocusColor(focusColor ?? null);
-        setCameraFocusDirectory(focusDirectory);
-        return;
-      }
-
-      // Unrelated branches — keep the 3-phase out/in transition so the
-      // long camera flight stays legible.
+    if (prev !== null && focusDirectory === null) {
       setCameraFocusDirectory(null);
-      const timer1 = setTimeout(() => {
-        setBuildingFocusDirectory(focusDirectory);
-        setBuildingFocusColor(focusColor ?? null);
-      }, 500);
-      const timer2 = setTimeout(() => {
-        setCameraFocusDirectory(focusDirectory);
-      }, 1100); // 500ms zoom-out + 600ms collapse
-      animationTimersRef.current.push(timer1, timer2);
       return;
+    }
+    if (prev !== null && focusDirectory !== null) {
+      const isDescendant = focusDirectory.startsWith(prev + '/');
+      const isAncestor = prev.startsWith(focusDirectory + '/');
+      const parentOf = (p: string) => { const i = p.lastIndexOf('/'); return i >= 0 ? p.slice(0, i) : ''; };
+      const isSibling = parentOf(prev) === parentOf(focusDirectory);
+      if (isDescendant || isAncestor || isSibling) {
+        setCameraFocusDirectory(focusDirectory);
+      } else {
+        setCameraFocusDirectory(null);
+        const t = setTimeout(() => setCameraFocusDirectory(focusDirectory), 1100);
+        focusTimersRef.current.push(t);
+      }
     }
   }, [focusDirectory]);
 
-  // Cleanup timers on unmount
   useEffect(() => {
-    return () => {
-      animationTimersRef.current.forEach(clearTimeout);
-    };
+    return () => { focusTimersRef.current.forEach(clearTimeout); };
   }, []);
 
   // Calculate focus target from cameraFocusDirectory (for camera)
@@ -4231,41 +2153,10 @@ function CityScene({
     isPathInDirectory,
   ]);
 
-  const staggerIndices = useMemo(() => {
-    const centerX = (cityData.bounds.minX + cityData.bounds.maxX) / 2;
-    const centerZ = (cityData.bounds.minZ + cityData.bounds.maxZ) / 2;
 
-    const withDistance = cityData.buildings.map((b, originalIndex) => ({
-      originalIndex,
-      distance: Math.sqrt(
-        Math.pow(b.position.x - centerX, 2) + Math.pow(b.position.z - centerZ, 2),
-      ),
-    }));
 
-    withDistance.sort((a, b) => a.distance - b.distance);
-
-    const indices: number[] = new Array(cityData.buildings.length);
-    withDistance.forEach((item, staggerOrder) => {
-      indices[item.originalIndex] = staggerOrder;
-    });
-
-    return indices;
-  }, [cityData.buildings, cityData.bounds]);
-
-  const hoveredIndex = useMemo(() => {
-    if (!hoveredBuilding) return null;
-    return cityData.buildings.findIndex(b => b.path === hoveredBuilding.path);
-  }, [hoveredBuilding, cityData.buildings]);
-
-  const selectedIndex = useMemo(() => {
-    if (!selectedBuilding) return null;
-    return cityData.buildings.findIndex(b => b.path === selectedBuilding.path);
-  }, [selectedBuilding, cityData.buildings]);
 
   // Use original building colors (line delta indicators are shown separately via ModifiedIndicator)
-  const displayBuildings = useMemo(() => {
-    return cityData.buildings;
-  }, [cityData.buildings]);
 
   return (
     <>
@@ -4282,132 +2173,187 @@ function CityScene({
         onCameraReady={onCameraReady}
       />
 
-      <ambientLight intensity={1.2} />
-      <hemisphereLight args={['#ddeeff', '#667788', 0.8]} position={[0, citySize, 0]} />
-      <directionalLight
-        position={[citySize, citySize * 1.5, citySize * 0.5]}
-        intensity={2}
-        castShadow
-        shadow-mapSize={[2048, 2048]}
-      />
-      <directionalLight
-        position={[-citySize * 0.5, citySize * 0.8, -citySize * 0.5]}
-        intensity={1}
-      />
-      <directionalLight position={[citySize * 0.3, citySize, citySize]} intensity={0.6} />
+      <CityLights citySize={citySize} />
 
-      {cityData.districts.map(district => {
-        // Check if district matches focusDirectory
-        const isFocused = buildingFocusDirectory
-          ? district.path === buildingFocusDirectory
-          : false;
-
-        // Check if district matches any highlight layer
-        let highlightLayerColor: string | null = null;
-        for (const layer of highlightLayers) {
-          if (!layer.enabled) continue;
-          for (const item of layer.items) {
-            if (item.type === 'directory' && item.path === district.path) {
-              highlightLayerColor = layer.color;
-              break;
-            }
-          }
-          if (highlightLayerColor) break;
-        }
-
-        // Use buildingFocusColor (synced with animation) instead of focusColor prop
-        // Focus color takes priority, then highlight layer color
-        const districtColor = (isFocused && buildingFocusColor) ? buildingFocusColor : highlightLayerColor;
-
-        return (
-          <DistrictFloor
-            key={district.path}
-            district={district}
-            centerOffset={centerOffset}
-            opacity={1}
-            highlightColor={districtColor}
-            growProgress={growProgress}
-            appearingProgress={districtAppearingProgress?.[district.path] ?? 0}
-          />
-        );
-      })}
-
-      <InstancedBuildings
-        buildings={displayBuildings}
-        centerOffset={centerOffset}
-        onHover={onBuildingHover}
-        onClick={onBuildingClick}
-        hoveredIndex={hoveredIndex}
-        selectedIndex={selectedIndex}
-        growProgress={growProgress}
-        animationConfig={animationConfig}
-        heightScaling={heightScaling}
-        linearScale={linearScale}
-        flatPatterns={flatPatterns}
-        staggerIndices={staggerIndices}
-        focusDirectory={buildingFocusDirectory}
-        highlightLayers={highlightLayers}
-        visibilityLayers={visibilityLayers}
-        isolationMode={isolationMode}
-        defaultBuildingColor={defaultBuildingColor}
-        modifiedFiles={modifiedFiles}
-      />
-
-      <DirectoryFills
-        districts={cityData.districts}
-        centerOffset={centerOffset}
-        highlightLayers={highlightLayers}
-        growProgress={growProgress}
+      <CityContent
+        cityData={cityData}
+        onBuildingHover={onBuildingHover}
+        onBuildingClick={onBuildingClick}
         onHighlightClick={onHighlightClick}
         onHighlightHover={onHighlightHover}
-      />
-
-      <BuildingIcons
-        buildings={displayBuildings}
-        centerOffset={centerOffset}
+        hoveredBuilding={hoveredBuilding}
+        selectedBuilding={selectedBuilding}
+        selectedDistrict={selectedDistrict}
+        selectionStyle={selectionStyle}
         growProgress={growProgress}
-        heightScaling={heightScaling}
-        linearScale={linearScale}
-        flatPatterns={flatPatterns}
+        animationConfig={animationConfig}
         highlightLayers={highlightLayers}
         visibilityLayers={visibilityLayers}
         isolationMode={isolationMode}
-        hasActiveHighlights={activeHighlights}
+        heightScaling={heightScaling}
+        linearScale={linearScale}
+        flatPatterns={flatPatterns}
+        focusDirectory={focusDirectory}
+        focusColor={focusColor}
+        elevatedScopePanels={elevatedScopePanels}
+        dismissingPanelIds={dismissingPanelIds}
+        onPanelDismissed={onPanelDismissed}
+        defaultBuildingColor={defaultBuildingColor}
+        districtAppearingProgress={districtAppearingProgress}
         modifiedFiles={modifiedFiles}
+        transitionProgress={transitionProgress}
+      />
+    </>
+  );
+}
+
+// ============================================================================
+// Multi-City Scene
+// ============================================================================
+
+/**
+ * Compute the combined bounding box from multiple CitySource instances.
+ *
+ * CityContent subtracts each city's own centerOffset from its building
+ * positions and THEN applies positionOffset — so a city's rendered footprint is
+ * centered on `positionOffset`, spanning `±bounds/2`. The raw `cityData.bounds`
+ * are NOT shifted by the offset (that would double-count the city's center,
+ * e.g. a city at offset −120 with bounds 0..50 would be treated as −120..−70
+ * when it actually renders −145..−95).
+ */
+function computeGlobalBounds(
+  sources: CitySource[],
+): { minX: number; maxX: number; minZ: number; maxZ: number; centerX: number; centerZ: number; width: number; depth: number; size: number } {
+  let minX = Infinity, maxX = -Infinity;
+  let minZ = Infinity, maxZ = -Infinity;
+  for (const s of sources) {
+    const b = s.cityData.bounds;
+    const ox = s.positionOffset.x;
+    const oz = s.positionOffset.z;
+    const halfW = (b.maxX - b.minX) / 2;
+    const halfD = (b.maxZ - b.minZ) / 2;
+    minX = Math.min(minX, ox - halfW);
+    maxX = Math.max(maxX, ox + halfW);
+    minZ = Math.min(minZ, oz - halfD);
+    maxZ = Math.max(maxZ, oz + halfD);
+  }
+  const width = maxX - minX;
+  const depth = maxZ - minZ;
+  const size = Math.max(width, depth);
+  const centerX = (minX + maxX) / 2;
+  const centerZ = (minZ + maxZ) / 2;
+  return { minX, maxX, minZ, maxZ, centerX, centerZ, width, depth, size };
+}
+
+interface MultiCitySceneProps {
+  sources: CitySource[];
+  safeArea?: SafeArea;
+  growProgress: number;
+  animationConfig: AnimationConfig;
+  heightScaling: HeightScaling;
+  linearScale: number;
+  flatPatterns: FlatPattern[];
+  onBuildingHover?: (building: CityBuilding | null) => void;
+  onBuildingClick?: (building: CityBuilding, event: MouseEvent) => void;
+  onHighlightClick?: (path: string, layer: HighlightLayer, event: MouseEvent) => void;
+  onHighlightHover?: (path: string | null, layer: HighlightLayer | null) => void;
+  hoveredBuilding: CityBuilding | null;
+  selectedBuilding: CityBuilding | null;
+  selectedDistrict: CityDistrict | null;
+  selectionStyle?: SelectionStyle;
+  cameraControls?: CameraControlsConfig;
+  adaptCameraToBuildings?: boolean;
+  onCameraFrame?: OnCameraFrame;
+  onCameraReady?: () => void;
+}
+
+function MultiCityScene({
+  sources,
+  safeArea,
+  growProgress,
+  animationConfig,
+  heightScaling,
+  linearScale,
+  flatPatterns,
+  onBuildingHover,
+  onBuildingClick,
+  onHighlightClick,
+  onHighlightHover,
+  hoveredBuilding,
+  selectedBuilding,
+  selectedDistrict,
+  selectionStyle,
+  cameraControls,
+  adaptCameraToBuildings = false,
+  onCameraFrame,
+  onCameraReady,
+}: MultiCitySceneProps) {
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => { invalidate(); });
+
+  const global = useMemo(() => computeGlobalBounds(sources), [sources]);
+
+  const maxBuildingHeight = useMemo(() => {
+    if (!adaptCameraToBuildings) return 0;
+    let maxH = 0;
+    for (const s of sources) {
+      for (const b of s.cityData.buildings) {
+        maxH = Math.max(maxH, b.dimensions[1]);
+      }
+    }
+    return maxH;
+  }, [adaptCameraToBuildings, sources]);
+
+  return (
+    <>
+      <AnimatedCamera
+        citySize={global.size}
+        cityWidth={global.width}
+        cityDepth={global.depth}
+        cityCenter={{ x: global.centerX, z: global.centerZ }}
+        safeArea={safeArea}
+        isFlat={growProgress === 0}
+        cityReady={sources.some(s => s.cityData.buildings.length > 0)}
+        focusTarget={null}
+        maxBuildingHeight={maxBuildingHeight}
+        cameraControls={cameraControls}
+        onCameraReady={onCameraReady}
       />
 
-      {modifiedFiles && transitionProgress > 0 && transitionProgress < 1 && cityData.buildings
-        .filter(b => modifiedFiles[b.path] && modifiedFiles[b.path].lineDelta !== 0)
-        .map(building => (
-          <ModifiedIndicator
-            key={`modified-${building.path}`}
-            building={building}
-            centerOffset={centerOffset}
-            lineDelta={modifiedFiles[building.path].lineDelta}
-            opacity={1}
-          />
-        ))}
+      <CityLights citySize={global.size} />
 
-      {growProgress === 0 &&
-        elevatedScopePanels?.map(panel => (
-          <ElevatedScopePanelMesh
-            key={panel.id}
-            panel={panel}
-            centerOffset={centerOffset}
-            dismissing={dismissingPanelIds?.has(panel.id) ?? false}
-            onDismissed={onPanelDismissed}
-          />
-        ))}
+      {onCameraFrame && <CameraFrameBridge onCameraFrame={onCameraFrame} />}
 
-      {selectedDistrict && (
-        <SelectionRing
-          district={selectedDistrict}
-          centerOffset={centerOffset}
-          color={selectionStyle?.color ?? '#facc15'}
-          borderWidth={selectionStyle?.borderWidth ?? 2}
+      {sources.map((s, i) => (
+        <CityContent
+          key={s.label ?? i}
+          cityData={s.cityData}
+          onBuildingHover={onBuildingHover}
+          onBuildingClick={onBuildingClick}
+          onHighlightClick={onHighlightClick}
+          onHighlightHover={onHighlightHover}
+          hoveredBuilding={hoveredBuilding}
+          selectedBuilding={selectedBuilding}
+          selectedDistrict={selectedDistrict}
+          selectionStyle={selectionStyle}
           growProgress={growProgress}
+          animationConfig={animationConfig}
+          highlightLayers={s.highlightLayers ?? []}
+          visibilityLayers={s.visibilityLayers ?? []}
+          isolationMode={s.isolationMode ?? 'none'}
+          heightScaling={heightScaling}
+          linearScale={linearScale}
+          flatPatterns={flatPatterns}
+          focusDirectory={s.focusDirectory ?? null}
+          focusColor={s.focusColor ?? null}
+          defaultBuildingColor={s.defaultBuildingColor}
+          elevatedScopePanels={s.elevatedScopePanels}
+          modifiedFiles={s.modifiedFiles}
+          districtAppearingProgress={s.districtAppearingProgress}
+          transitionProgress={s.transitionProgress}
+          positionOffset={s.positionOffset}
         />
-      )}
+      ))}
     </>
   );
 }
@@ -4417,8 +2363,17 @@ function CityScene({
 // ============================================================================
 
 export interface FileCity3DProps {
-  /** City data from file-city-builder */
-  cityData: CityData;
+  /**
+   * City data from file-city-builder. Mutually exclusive with `citySources`:
+   * when `citySources` is provided, this prop is ignored.
+   */
+  cityData?: CityData;
+  /**
+   * Multi-city layout. When set, renders one `CityContent` per source at its
+   * `positionOffset`, sharing a single camera (framing the combined bounding
+   * box) and lighting rig. Ignored when empty/undefined.
+   */
+  citySources?: CitySource[];
   /**
    * Inset rect the flat overview frames itself into (fractions of the canvas).
    * The canvas stays full-size; the component frames as if its boundary were the
@@ -4586,6 +2541,41 @@ export interface FileCity3DProps {
 }
 
 /**
+ * One city in a multi-city layout. Each source renders a `CityContent`
+ * instance at its `positionOffset`; highlight layers, focus, and any other
+ * per-city visual state live here rather than on the shared `FileCity3D`
+ * props. The camera frames the bounding box of ALL sources together.
+ */
+export interface CitySource {
+  /** City data to render for this source. */
+  cityData: CityData;
+  /** World-space offset placing this city in the shared scene. */
+  positionOffset: { x: number; z: number };
+  /** Optional label for this city (display only). */
+  label?: string;
+  /** Per-city highlight layers (paths relative to this city's data). */
+  highlightLayers?: HighlightLayer[];
+  /** Per-city user-supplied highlight layers only (visibility decisions). */
+  visibilityLayers?: HighlightLayer[];
+  /** Per-city isolation mode for non-highlighted buildings. Default: 'none'. */
+  isolationMode?: IsolationMode;
+  /** Per-city directory focus (collapses non-matching buildings). */
+  focusDirectory?: string | null;
+  /** Per-city color for the focused directory. */
+  focusColor?: string | null;
+  /** Per-city building color fallback. */
+  defaultBuildingColor?: string;
+  /** Per-city elevated scope panels (flat mode only). */
+  elevatedScopePanels?: ElevatedScopePanel[];
+  /** Per-city files modified in the current transition. */
+  modifiedFiles?: Record<string, { lineDelta: number }>;
+  /** Per-city district appearing progress. */
+  districtAppearingProgress?: Record<string, number>;
+  /** Per-city transition progress (0-1). */
+  transitionProgress?: number;
+}
+
+/**
  * FileCity3D - 3D visualization of codebase structure
  *
  * Renders CityData as an interactive 3D city where buildings represent files
@@ -4593,6 +2583,7 @@ export interface FileCity3DProps {
  */
 export function FileCity3D({
   cityData,
+  citySources,
   safeArea,
   width = '100%',
   height = 600,
@@ -4706,21 +2697,36 @@ export function FileCity3D({
     [externalHighlightLayers],
   );
 
+  const hasSources = (citySources?.length ?? 0) > 0;
+
   // `selectedPath` wins over the deprecated `selectedBuilding` when both are
   // set. A path resolves to either a building (file selection) or a district
-  // (directory selection) — never both.
+  // (directory selection) — never both. In multi-city mode the path resolves
+  // across ALL sources.
   const resolvedSelection = useMemo<{
     building: CityBuilding | null;
     district: CityDistrict | null;
   }>(() => {
     if (selectedPath != null) {
-      const building = cityData.buildings.find(b => b.path === selectedPath) ?? null;
-      if (building) return { building, district: null };
-      const district = cityData.districts.find(d => d.path === selectedPath) ?? null;
-      return { building: null, district };
+      if (hasSources) {
+        for (const s of citySources!) {
+          const building = s.cityData.buildings.find(b => b.path === selectedPath);
+          if (building) return { building, district: null };
+          const district = s.cityData.districts.find(d => d.path === selectedPath);
+          if (district) return { building: null, district };
+        }
+        return { building: null, district: null };
+      }
+      if (cityData) {
+        const building = cityData.buildings.find(b => b.path === selectedPath) ?? null;
+        if (building) return { building, district: null };
+        const district = cityData.districts.find(d => d.path === selectedPath) ?? null;
+        return { building: null, district };
+      }
+      return { building: null, district: null };
     }
     return { building: selectedBuilding ?? null, district: null };
-  }, [selectedPath, selectedBuilding, cityData.buildings, cityData.districts]);
+  }, [selectedPath, selectedBuilding, cityData, hasSources, citySources]);
 
   const isGrown = externalIsGrown !== undefined ? externalIsGrown : internalIsGrown;
   const setIsGrown = (value: boolean) => {
@@ -4771,7 +2777,11 @@ export function FileCity3D({
     );
   }
 
-  if (!cityData || cityData.buildings.length === 0) {
+  const isEmpty = hasSources
+    ? citySources!.every(s => !s.cityData || s.cityData.buildings.length === 0)
+    : !cityData || cityData.buildings.length === 0;
+
+  if (isEmpty) {
     return (
       <div
         className={className}
@@ -4830,42 +2840,73 @@ export function FileCity3D({
           transition: onCameraReadyProp ? 'none' : 'opacity 0.1s ease-in',
         }}
       >
-        <CityScene
-          cityData={cityData}
-          safeArea={safeArea}
-          onBuildingHover={handleBuildingHover}
-          onBuildingClick={onBuildingClick}
-          onHighlightClick={handleHighlightClick}
-          onHighlightHover={handleHighlightHover}
-          hoveredBuilding={hoveredBuilding}
-          selectedBuilding={resolvedSelection.building}
-          selectedDistrict={resolvedSelection.district}
-          selectionStyle={selectionStyle}
-          growProgress={growProgress}
-          animationConfig={animationConfig}
-          highlightLayers={highlightLayers}
-          visibilityLayers={visibilityLayers}
-          isolationMode={isolationMode}
-          heightScaling={heightScaling}
-          linearScale={linearScale}
-          flatPatterns={flatPatterns}
-          focusDirectory={focusDirectory}
-          focusColor={focusColor}
-          adaptCameraToBuildings={adaptCameraToBuildings}
-          elevatedScopePanels={elevatedScopePanels}
-          dismissingPanelIds={dismissingPanelIds}
-          onPanelDismissed={onPanelDismissed}
-          cameraControls={cameraControls}
-          defaultBuildingColor={defaultBuildingColor}
-          onCameraReady={() => {
-            setCameraReady(true);
-            onCameraReadyProp?.();
-          }}
-          districtAppearingProgress={districtAppearingProgress}
-          modifiedFiles={modifiedFiles}
-          transitionProgress={transitionProgress}
-        />
-        {onCameraFrame && <CameraFrameBridge onCameraFrame={onCameraFrame} />}
+        {hasSources ? (
+          <MultiCityScene
+            sources={citySources!}
+            safeArea={safeArea}
+            growProgress={growProgress}
+            animationConfig={animationConfig}
+            heightScaling={heightScaling}
+            linearScale={linearScale}
+            flatPatterns={flatPatterns}
+            onBuildingHover={handleBuildingHover}
+            onBuildingClick={onBuildingClick}
+            onHighlightClick={handleHighlightClick}
+            onHighlightHover={handleHighlightHover}
+            hoveredBuilding={hoveredBuilding}
+            selectedBuilding={resolvedSelection.building}
+            selectedDistrict={resolvedSelection.district}
+            selectionStyle={selectionStyle}
+            cameraControls={cameraControls}
+            adaptCameraToBuildings={adaptCameraToBuildings}
+            onCameraFrame={onCameraFrame}
+            onCameraReady={() => {
+              setCameraReady(true);
+              onCameraReadyProp?.();
+            }}
+          />
+        ) : (
+          <>
+            {/* Non-source path is guarded by `isEmpty` above (early return), so
+                cityData is defined here. */}
+            <CityScene
+              cityData={cityData!}
+              safeArea={safeArea}
+              onBuildingHover={handleBuildingHover}
+              onBuildingClick={onBuildingClick}
+              onHighlightClick={handleHighlightClick}
+              onHighlightHover={handleHighlightHover}
+              hoveredBuilding={hoveredBuilding}
+              selectedBuilding={resolvedSelection.building}
+              selectedDistrict={resolvedSelection.district}
+              selectionStyle={selectionStyle}
+              growProgress={growProgress}
+              animationConfig={animationConfig}
+              highlightLayers={highlightLayers}
+              visibilityLayers={visibilityLayers}
+              isolationMode={isolationMode}
+              heightScaling={heightScaling}
+              linearScale={linearScale}
+              flatPatterns={flatPatterns}
+              focusDirectory={focusDirectory}
+              focusColor={focusColor}
+              adaptCameraToBuildings={adaptCameraToBuildings}
+              elevatedScopePanels={elevatedScopePanels}
+              dismissingPanelIds={dismissingPanelIds}
+              onPanelDismissed={onPanelDismissed}
+              cameraControls={cameraControls}
+              defaultBuildingColor={defaultBuildingColor}
+              onCameraReady={() => {
+                setCameraReady(true);
+                onCameraReadyProp?.();
+              }}
+              districtAppearingProgress={districtAppearingProgress}
+              modifiedFiles={modifiedFiles}
+              transitionProgress={transitionProgress}
+            />
+            {onCameraFrame && <CameraFrameBridge onCameraFrame={onCameraFrame} />}
+          </>
+        )}
       </Canvas>
       {showInfoPanel && <InfoPanel building={resolvedSelection.building} />}
       {showControls && (

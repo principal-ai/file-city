@@ -21,6 +21,7 @@ export {
 } from './FileCity3D';
 export type {
   FileCity3DProps,
+  CitySource,
   SafeArea,
   AnimationConfig,
   HighlightLayer,
@@ -41,3 +42,8 @@ export type {
   WheelAction,
   OnCameraFrame,
 } from './FileCity3D';
+
+export { CityContent } from './CityContent';
+export type { CityContentProps } from './CityContent';
+export { CityLights } from './CityLights';
+export type { CityLightsProps } from './CityLights';
