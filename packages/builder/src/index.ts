@@ -112,7 +112,7 @@ export type {
 } from './types/cityTransition.js';
 
 // Cross-source (single-city → multi-source grid) transition utilities
-export { diffMultiSourceCity, interpolateMultiSourceCity } from './citySourceTransition.js';
+export { diffMultiSourceCity, interpolateMultiSourceCity, computeActiveStages } from './citySourceTransition.js';
 export type { InterpolatedSource } from './citySourceTransition.js';
 export type {
   CrossSourceBuildingDiff,

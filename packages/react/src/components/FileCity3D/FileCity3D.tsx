@@ -1346,6 +1346,32 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
 
   const moveTo = useCallback((x: number, z: number, size?: number) => {
     const effectiveSize = size ?? citySize * 0.3;
+    // In flat (top-down) mode the spring-driven move is defeated every frame by
+    // the flat owner, which eases toward `flatOverrideRef ?? computeFlatPose`.
+    // Drive the same override instead so the zoom actually sticks.
+    if (isFlatRef.current) {
+      const aspect = getViewportAspect();
+      // The label badge hangs off the footprint's back edge (world -Z) and its
+      // world extent is fixed in px, so a footprint-only frame cuts it off. Its
+      // world height grows with camera height (px * worldPerPx), giving
+      //   H = (size + chipPx * (2H·tan)/vh) * p / (2·tan)
+      //   => H = fitFlatHeight(size,size,aspect) / (1 - chipPx·p / vh)
+      const vh = Math.max(viewportSize.height || 1, 1);
+      const badgeScreenPx = 40; // 30px chip + ~10px gap/breathing room
+      const denom = Math.max(1 - (badgeScreenPx * 1.08) / vh, 0.15);
+      const height = fitFlatHeight(effectiveSize, effectiveSize, aspect) / denom;
+      flatOverrideRef.current = {
+        camX: x,
+        camY: height,
+        camZ: z + 0.001, // tiny offset to avoid gimbal lock looking straight down
+        lookX: x,
+        lookY: 0,
+        lookZ: z,
+      };
+      userInteractingRef.current = false;
+      invalidate(); // on-demand kick: ref-only change, so the owner won't run without it
+      return;
+    }
     const distance = Math.max(effectiveSize * 2, 50);
     const height = Math.max(effectiveSize * 1.5, 40);
 
@@ -1357,7 +1383,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
       lookY: 0,
       lookZ: z,
     });
-  }, [citySize, driveCameraTo]);
+  }, [citySize, driveCameraTo, fitFlatHeight, getViewportAspect, invalidate, viewportSize.height]);
 
   // Position the camera directly above a target at a given height (flat /
   // top-down view). Useful for fitting the city into a visible sub-rect of
@@ -2264,6 +2290,10 @@ export function CitySourceLabel({
   const [badgeFailed, setBadgeFailed] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
   if (!source.label) return null;
+  // Fade the badge in with the final transition stage (default fully visible
+  // for static scenes that don't drive a transition). While hidden, the chip
+  // must not intercept clicks.
+  const labelProgress = Math.max(0, Math.min(1, source.labelProgress ?? 1));
   const { positionOffset, cityData } = source;
   const { bounds } = cityData;
   // The chip's bottom (near) edge anchors just behind the city's back edge and
@@ -2304,6 +2334,8 @@ export function CitySourceLabel({
           boxSizing: 'border-box',
           maxWidth: 128,
           borderRadius: 6,
+          opacity: labelProgress,
+          transition: 'opacity 120ms linear',
           background: 'rgba(10, 14, 22, 0.72)',
           backdropFilter: 'blur(2px)',
           border: focused ? '1px solid rgba(251, 191, 36, 0.55)' : '1px solid rgba(255,255,255,0.14)',
@@ -2314,7 +2346,7 @@ export function CitySourceLabel({
           letterSpacing: 0.2,
           whiteSpace: 'nowrap',
           boxShadow: focused ? '0 0 0 2px rgba(251,191,36,0.25), 0 2px 8px rgba(0,0,0,0.35)' : '0 2px 8px rgba(0,0,0,0.35)',
-          pointerEvents: 'auto',
+          pointerEvents: labelProgress > 0 ? 'auto' : 'none',
           cursor: onClick ? 'pointer' : 'default',
         }}
       >
@@ -2424,25 +2456,28 @@ function MultiCityScene({
   const invalidate = useThree((s) => s.invalidate);
   useEffect(() => { invalidate(); });
 
-  // Clicking a city's repo label frames the camera on that city's footprint.
-  // Clicking the same city's label again resets back to the overview.
-  const focusedCityRef = useRef<CitySource | null>(null);
-  const handleCityLabelClick = useCallback((s: CitySource) => {
-    const b = s.cityData.bounds;
-    const size = Math.max(b.maxX - b.minX, b.maxZ - b.minZ);
-    const focused = focusedCityRef.current;
-    const sameCity =
-      !!focused &&
-      focused.positionOffset.x === s.positionOffset.x &&
-      focused.positionOffset.z === s.positionOffset.z;
-    if (sameCity) {
-      focusedCityRef.current = null;
-      resetCamera();
-    } else {
-      focusedCityRef.current = s;
-      moveCameraTo(s.positionOffset.x, s.positionOffset.z, size);
-    }
-  }, []);
+  // Clicking a city's repo label frames the camera on that city's footprint and
+  // highlights its chip. Clicking the same city's label again resets to the
+  // overview. Compared by grid offset (not object identity) because the sources
+  // array is recreated every frame during a transition.
+  const [focusedCell, setFocusedCell] = useState<{ x: number; z: number } | null>(null);
+  const handleCityLabelClick = useCallback(
+    (s: CitySource) => {
+      const b = s.cityData.bounds;
+      const size = Math.max(b.maxX - b.minX, b.maxZ - b.minZ);
+      const off = s.positionOffset;
+      const sameCity =
+        focusedCell !== null && focusedCell.x === off.x && focusedCell.z === off.z;
+      if (sameCity) {
+        setFocusedCell(null);
+        resetCamera();
+      } else {
+        setFocusedCell(off);
+        moveCameraTo(off.x, off.z, size);
+      }
+    },
+    [focusedCell],
+  );
 
   const global = useMemo(() => computeGlobalBounds(sources), [sources]);
 
@@ -2506,7 +2541,17 @@ function MultiCityScene({
             transitionProgress={s.transitionProgress}
             positionOffset={s.positionOffset}
           />
-          <CitySourceLabel source={s} onClick={handleCityLabelClick} />
+          {!s.isRemovalLayer && (
+            <CitySourceLabel
+              source={s}
+              onClick={handleCityLabelClick}
+              focused={
+                focusedCell !== null &&
+                focusedCell.x === s.positionOffset.x &&
+                focusedCell.z === s.positionOffset.z
+              }
+            />
+          )}
         </React.Fragment>
       ))}
     </>
@@ -2739,6 +2784,16 @@ export interface CitySource {
   districtAppearingProgress?: Record<string, number>;
   /** Per-city transition progress (0-1). */
   transitionProgress?: number;
+  /**
+   * Label badge fade-in progress (0-1). Fade the label with the final
+   * transition stage so badges only appear once the city has landed.
+   */
+  labelProgress?: number;
+  /**
+   * True for the synthetic removal layer in a source transition — render the
+   * shrinking buildings but skip the label badge.
+   */
+  isRemovalLayer?: boolean;
 }
 
 /**

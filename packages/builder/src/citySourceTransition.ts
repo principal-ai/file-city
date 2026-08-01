@@ -141,6 +141,14 @@ export interface InterpolatedSource {
   /** Per-district appearing progress (0-1) for new districts. */
   districtAppearingProgress: Record<string, number>;
   interpolatedBuildings: InterpolatedBuilding[];
+  /**
+   * Progress (0-1) of the final transition stage. Consumers should fade the
+   * source's label badge in with this so badges only appear once the package
+   * city has landed.
+   */
+  labelProgress: number;
+  /** True for the synthetic "removal layer" — never show a label for it. */
+  isRemovalLayer: boolean;
 }
 
 interface Point3D {
@@ -175,19 +183,37 @@ export function interpolateMultiSourceCity(
   const activeStages = computeActiveStages(diff);
   const stageWidth = activeStages > 0 ? 1 / activeStages : 1;
 
+  const hasRemovals = diff.removed.length > 0;
+  const hasMoves = diff.sources.some(s => s.movedCount > 0);
+  const hasAdds = diff.sources.some(s => s.addedCount > 0);
+  const hasNewDistricts = diff.sources.some(s =>
+    s.districts.some(d => d.changeType === 'added'),
+  );
+
+  // Allocate exactly one slot per active stage, in the same order (and count)
+  // as computeActiveStages so no stage overlaps or spills past t=1.
   let currentStage = 0;
-  const removeStage = currentStage++;
-  const moveStage = currentStage++;
-  const districtAddStage = activeStages > 2 ? currentStage++ : -1;
+  const removeStage = hasRemovals ? currentStage++ : -1;
+  const moveStage = hasMoves ? currentStage++ : -1;
+  const addStage = hasAdds ? currentStage++ : -1;
+  const districtAddStage = hasNewDistricts ? currentStage++ : -1;
 
   const beforeCenter = centerOf(beforeCity.bounds);
   const removalLayer = interpolateRemovalLayer(diff, t, removeStage, stageWidth, beforeCity.bounds);
+
+  // Labels and new districts fade in together during the final stage, once the
+  // package city has fully landed in its grid cell.
+  const lastStageStart = activeStages > 0 ? (activeStages - 1) * stageWidth : 0;
+  const labelProgress =
+    activeStages > 0
+      ? easeInOutCubic(Math.max(0, Math.min((t - lastStageStart) / stageWidth, 1)))
+      : 1;
 
   const sources = diff.sources.map((source: CrossSourceDiff) => {
     const afterCenter = centerOf(source.afterCity.bounds);
 
     const buildings: InterpolatedBuilding[] = source.buildings.map(d =>
-      interpolateBuilding(d, t, beforeCenter, afterCenter, moveStage, stageWidth),
+      interpolateBuilding(d, t, beforeCenter, afterCenter, moveStage, addStage, stageWidth),
     );
 
     const districts: InterpolatedDistrict[] = source.districts.map(d =>
@@ -233,6 +259,8 @@ export function interpolateMultiSourceCity(
       currentCityData,
       districtAppearingProgress,
       interpolatedBuildings: buildings,
+      labelProgress,
+      isRemovalLayer: false,
     };
   });
 
@@ -246,15 +274,27 @@ function centerOf(bounds: CityData['bounds']): Point2D {
   };
 }
 
-function computeActiveStages(diff: MultiSourceCityDiff): number {
+/**
+ * Number of animation stages, one per stage that actually animates, in order:
+ * removals → moves → additions → district-additions. New districts get their
+ * own slot even when no buildings are "added" (the common package-separation
+ * case: every package building already exists in the unified city, so
+ * addedCount is 0). Must match the slot allocation in
+ * interpolateMultiSourceCity.
+ */
+export function computeActiveStages(diff: MultiSourceCityDiff): number {
   const hasRemovals = diff.removed.length > 0;
   const hasMoves = diff.sources.some(s => s.movedCount > 0);
   const hasAdds = diff.sources.some(s => s.addedCount > 0);
   const hasNewDistricts = diff.sources.some(s =>
     s.districts.some(d => d.changeType === 'added'),
   );
-  const splitAdd = hasAdds && hasNewDistricts;
-  return (hasRemovals ? 1 : 0) + (hasMoves ? 1 : 0) + (splitAdd ? 2 : (hasAdds ? 1 : 0));
+  return (
+    (hasRemovals ? 1 : 0) +
+    (hasMoves ? 1 : 0) +
+    (hasAdds ? 1 : 0) +
+    (hasNewDistricts ? 1 : 0)
+  );
 }
 
 /**
@@ -344,6 +384,8 @@ function interpolateRemovalLayer(
     },
     districtAppearingProgress: {},
     interpolatedBuildings: buildings,
+    labelProgress: 0,
+    isRemovalLayer: true,
   };
 }
 
@@ -353,6 +395,7 @@ function interpolateBuilding(
   beforeCenter: Point2D,
   afterCenter: Point2D,
   moveStage: number,
+  addStage: number,
   stageWidth: number,
 ): InterpolatedBuilding {
   const offset = d.targetOffset;
@@ -368,7 +411,9 @@ function interpolateBuilding(
         y: a.position.y,
         z: a.position.z,
       };
-      const sStart = moveStage * stageWidth + stageWidth;
+      // hasAdds (which implies addStage >= 0) is the only way an 'added'
+      // building exists.
+      const sStart = addStage * stageWidth;
       const sEnd = sStart + stageWidth;
       if (t < sStart) {
         return {

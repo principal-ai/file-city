@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   CityData,
+  computeActiveStages,
   diffMultiSourceCity,
   interpolateMultiSourceCity,
   MultiSourceCityDiff,
@@ -20,6 +21,10 @@ export interface UseCitySourceTransitionReturn {
     offset: { x: number; z: number };
     cityData: CityData;
     districtAppearingProgress: Record<string, number>;
+    /** Progress (0-1) of the final stage — fade the source's label with this. */
+    labelProgress?: number;
+    /** True for the synthetic removal layer — render it but skip its label. */
+    isRemovalLayer?: boolean;
   }>;
   /** Current overall animation progress (0-1). */
   progress: number;
@@ -60,19 +65,10 @@ export function useCitySourceTransition(
     return diffMultiSourceCity(beforeCityData, map);
   }, [beforeCityData, afterSources]);
 
-  // Determine stage count
+  // Determine stage count (kept in sync with the builder's allocation).
   const stageCount = useMemo(() => {
     if (!diff) return 1;
-    const hasRemovals = diff.removed.length > 0;
-    const hasMoves = diff.sources.some(s => s.movedCount > 0);
-    const hasAdds = diff.sources.some(s => s.addedCount > 0);
-    const hasNewDistricts = diff.sources.some(
-      s => s.districts.some(d => d.changeType === 'added'),
-    );
-    const splitAdd = hasAdds && hasNewDistricts;
-    return (
-      (hasRemovals ? 1 : 0) + (hasMoves ? 1 : 0) + (splitAdd ? 2 : hasAdds ? 1 : 0)
-    );
+    return computeActiveStages(diff);
   }, [diff]);
 
   // Interpolate at the current progress
@@ -83,6 +79,7 @@ export function useCitySourceTransition(
         offset: s.offset,
         cityData: s.cityData,
         districtAppearingProgress: {} as Record<string, number>,
+        isRemovalLayer: false,
       }));
     }
 
@@ -94,6 +91,8 @@ export function useCitySourceTransition(
         offset: is.offset,
         cityData: is.currentCityData,
         districtAppearingProgress: is.districtAppearingProgress,
+        labelProgress: is.labelProgress,
+        isRemovalLayer: is.isRemovalLayer,
       }))
       // Drop empty layers (e.g. the removal layer once removals have faded).
       .filter(s => s.cityData.buildings.length > 0);

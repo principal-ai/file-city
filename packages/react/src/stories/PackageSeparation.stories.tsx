@@ -123,6 +123,8 @@ function PackageSeparationScene() {
         positionOffset: s.offset,
         label: s.label,
         districtAppearingProgress: s.districtAppearingProgress,
+        labelProgress: s.labelProgress,
+        isRemovalLayer: s.isRemovalLayer,
       })),
     [sources],
   );
@@ -130,36 +132,32 @@ function PackageSeparationScene() {
   const pct = Math.round(progress * 100);
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative', background: '#0f172a' }}>
-      <FileCity3D
-        height="100%"
-        width="100%"
-        isGrown={false}
-        animation={{ startFlat: true, autoStartDelay: null }}
-        showControls={false}
-        backgroundColor="#0f172a"
-        heightScaling="linear"
-        linearScale={1}
-        citySources={citySources}
-      />
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#0f172a' }}>
+      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        <FileCity3D
+          height="100%"
+          width="100%"
+          isGrown={false}
+          animation={{ startFlat: true, autoStartDelay: null }}
+          showControls={false}
+          backgroundColor="#0f172a"
+          heightScaling="linear"
+          linearScale={1}
+          citySources={citySources}
+        />
+      </div>
 
       {/* Control bar */}
       <div
         style={{
-          position: 'absolute',
-          bottom: 16,
-          left: 16,
-          right: 16,
-          zIndex: 100,
-          background: 'rgba(15, 23, 42, 0.95)',
-          border: '1px solid #334155',
-          borderRadius: 8,
-          padding: '16px 20px',
-          color: '#e2e8f0',
-          fontFamily: 'system-ui, sans-serif',
           display: 'flex',
           alignItems: 'center',
           gap: 16,
+          borderTop: '1px solid #334155',
+          padding: '12px 20px',
+          color: '#e2e8f0',
+          fontFamily: 'system-ui, sans-serif',
+          flexShrink: 0,
         }}
       >
         <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
