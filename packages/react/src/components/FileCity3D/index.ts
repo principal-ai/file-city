@@ -18,6 +18,7 @@ export {
   setCameraTarget,
   DEFAULT_FLAT_PATTERNS,
   DEFAULT_CAMERA_CONTROLS,
+  CitySourceLabel,
 } from './FileCity3D';
 export type {
   FileCity3DProps,

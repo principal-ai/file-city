@@ -7,10 +7,11 @@ export type { MultiVersionOptions, MultiVersionResult } from './MultiVersionCity
 
 // Grid-based builder and layout manager
 export { CodeCityBuilderWithGrid } from './CodeCityBuilderWithGrid.js';
+export type { TreemapOptions } from './CodeCityBuilderWithGrid.js';
 export { GridLayoutManager } from './GridLayoutManager.js';
 
 // File tree builder utilities
-export { buildFileSystemTreeFromFileInfoList, getFilesFromGitHubTree, excludeDirectoryFromFileTree } from './FileTreeBuilder.js';
+export { buildFileSystemTreeFromFileInfoList, getFilesFromGitHubTree, excludeDirectoryFromFileTree, filterFileSystemTreeForProject } from './FileTreeBuilder.js';
 export type { GitHubTreeResponse } from './FileTreeBuilder.js';
 
 // Core types
@@ -108,4 +109,13 @@ export type {
   InterpolatedBuilding,
   InterpolatedDistrict,
   InterpolatedCityData,
+} from './types/cityTransition.js';
+
+// Cross-source (single-city → multi-source grid) transition utilities
+export { diffMultiSourceCity, interpolateMultiSourceCity } from './citySourceTransition.js';
+export type { InterpolatedSource } from './citySourceTransition.js';
+export type {
+  CrossSourceBuildingDiff,
+  CrossSourceDiff,
+  MultiSourceCityDiff,
 } from './types/cityTransition.js';

@@ -67,6 +67,22 @@ export type { UseCityTransitionOptions, UseCityTransitionReturn } from './hooks/
 export { useDirectoryHide } from './hooks/useDirectoryHide';
 export type { UseDirectoryHideOptions, UseDirectoryHideReturn } from './hooks/useDirectoryHide';
 
+// Export the useCitySourceTransition hook for single-city → multi-source grid animation
+export { useCitySourceTransition } from './hooks/useCitySourceTransition';
+export type {
+  UseCitySourceTransitionOptions,
+  UseCitySourceTransitionReturn,
+} from './hooks/useCitySourceTransition';
+
+// Package-separation helpers (build before/after states for the transition)
+export { buildPackageSources } from './utils/buildPackageSources';
+export type {
+  PackageSourceInput,
+  PackageCitySource,
+  BuildPackageSourcesResult,
+  BuildPackageSourcesOptions,
+} from './utils/buildPackageSources';
+
 // Re-export FileTree type for convenience
 export type { FileTree } from '@principal-ai/file-city-builder';
 
@@ -112,6 +128,7 @@ export type {
   TouchTwoAction,
   WheelAction,
   OnCameraFrame,
+  CitySource,
 } from './components/FileCity3D';
 
 // Re-export HighlightLayer from FileCity3D with distinct name to avoid conflict

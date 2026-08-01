@@ -1,7 +1,9 @@
+import React, { useRef, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { MapControls, PerspectiveCamera } from '@react-three/drei';
-import { CityContent, CityLights, FileCity3D } from '../components/FileCity3D';
+import type { MapControls as MapControlsImpl } from 'three-stdlib';
+import { CityContent, CityLights, CitySourceLabel, FileCity3D } from '../components/FileCity3D';
 import type { CityData, CityBuilding, CityDistrict, HighlightLayer } from '../components/FileCity3D';
 
 const meta: Meta = {
@@ -137,6 +139,71 @@ const eightPlacements: CityPlacement[] = repoLabels.map((name, i) => {
   };
 });
 
+// Real repos get their GitHub owner avatar; the fictional ones fall back to
+// the letter tile, demonstrating both label states in one story.
+const ownerFor: Record<string, string | undefined> = {
+  'file-city': 'https://github.com/principal-ai.png?size=40',
+  opencode: 'https://github.com/anomalyco.png?size=40',
+  'principal-ade': 'https://github.com/principal-ade.png?size=40',
+  'file-city-builder': 'https://github.com/principal-ai.png?size=40',
+  'industry-theme': 'https://github.com/principal-ade.png?size=40',
+};
+
+interface FocusGoal {
+  x: number;
+  z: number;
+  size: number;
+}
+
+// Damped camera drive: when a `goal` is set, ease the camera + MapControls
+// target onto that city's footprint so clicking a repo label frames the city.
+// When `goal` is null, ease back to the overview framing of the whole grid.
+function StoryFocusDrive({
+  controlsRef,
+  goal,
+}: {
+  controlsRef: React.RefObject<MapControlsImpl | null>;
+  goal: FocusGoal | null;
+}) {
+  const camera = useThree((s) => s.camera);
+  const viewport = useThree((s) => s.viewport);
+  const invalidate = useThree((s) => s.invalidate);
+  useFrame(() => {
+    const h = goal
+      ? Math.max(goal.size * 1.5, 40)
+      : computeCameraHeight(eightPlacements, viewport.width / viewport.height);
+    const tx = goal ? goal.x : 0;
+    const tz = goal ? goal.z : 0;
+    const ease = 0.14;
+    camera.position.set(
+      tx + (camera.position.x - tx) * (1 - ease),
+      h + (camera.position.y - h) * (1 - ease),
+      // Tiny +z offset so the camera never looks exactly straight down —
+      // MapControls' update() ends in lookAt(target), and a perfectly vertical
+      // offset degenerates up×viewDir (gimbal lock), letting the roll resolve
+      // arbitrarily and rendering the city "diagonal".
+      tz + (camera.position.z - tz) * (1 - ease) + 0.001,
+    );
+    const controls = controlsRef.current;
+    if (controls) {
+      controls.target.set(
+        tx + (controls.target.x - tx) * (1 - ease),
+        0,
+        tz + (controls.target.z - tz) * (1 - ease),
+      );
+      controls.update();
+    }
+    const near = (a: number, b: number) => Math.abs(a - b) < 0.5;
+    const settled =
+      near(camera.position.x, tx) &&
+      near(camera.position.y, h) &&
+      near(camera.position.z, tz) &&
+      (!controls || (near(controls.target.x, tx) && near(controls.target.z, tz)));
+    if (!settled) invalidate();
+  });
+  return null;
+}
+
 export const FlatSideBySide: StoryObj = {
   render: () => (
     <div style={{ width: '100vw', height: '100vh', background: '#0f172a' }}>
@@ -168,35 +235,64 @@ export const FlatSideBySide: StoryObj = {
   ),
 };
 
-export const EightRepos: StoryObj = {
-  render: () => (
+function EightReposScene() {
+  const [goal, setGoal] = useState<FocusGoal | null>(null);
+  const controlsRef = useRef<MapControlsImpl | null>(null);
+  return (
     <div style={{ width: '100vw', height: '100vh', background: '#0f172a' }}>
       <Canvas flat frameloop="demand" style={{ width: '100%', height: '100%' }}>
         <AutoFramedCamera placements={eightPlacements} />
-        <MapControls />
+        <StoryFocusDrive controlsRef={controlsRef} goal={goal} />
+        <MapControls ref={controlsRef} />
         <CityLights citySize={400} />
-        {eightPlacements.map((p, i) => (
-          <CityContent
-            key={i}
-            cityData={p.data}
-            growProgress={0}
-            animationConfig={DEFAULT_ANIMATION}
-            highlightLayers={[]}
-            visibilityLayers={[]}
-            isolationMode="none"
-            heightScaling="linear"
-            linearScale={1}
-            flatPatterns={[]}
-            hoveredBuilding={null}
-            selectedBuilding={null}
-            selectedDistrict={null}
-            focusDirectory={null}
-            positionOffset={p.offset}
-          />
-        ))}
+        {eightPlacements.map((p, i) => {
+          const name = repoLabels[i];
+          return (
+            <React.Fragment key={i}>
+              <CityContent
+                cityData={p.data}
+                growProgress={0}
+                animationConfig={DEFAULT_ANIMATION}
+                highlightLayers={[]}
+                visibilityLayers={[]}
+                isolationMode="none"
+                heightScaling="linear"
+                linearScale={1}
+                flatPatterns={[]}
+                hoveredBuilding={null}
+                selectedBuilding={null}
+                selectedDistrict={null}
+                focusDirectory={null}
+                positionOffset={p.offset}
+              />
+              <CitySourceLabel
+                source={{
+                  cityData: p.data,
+                  positionOffset: p.offset,
+                  label: name,
+                  ownerAvatarUrl: ownerFor[name],
+                }}
+                focused={
+                  !!goal && goal.x === p.offset.x && goal.z === p.offset.z
+                }
+                onClick={(s) => {
+                  const b = s.cityData.bounds;
+                  const size = Math.max(b.maxX - b.minX, b.maxZ - b.minZ);
+                  const focused =
+                    goal && goal.x === s.positionOffset.x && goal.z === s.positionOffset.z;
+                  setGoal(focused ? null : { x: s.positionOffset.x, z: s.positionOffset.z, size });
+                }}
+              />
+            </React.Fragment>
+          );
+        })}
       </Canvas>
     </div>
-  ),
+  );
+}
+
+export const EightRepos: StoryObj = {
+  render: () => <EightReposScene />,
 };
 
 const trailStyleSources = [

@@ -1,6 +1,6 @@
 {
   "name": "@principal-ai/file-city-react",
-  "version": "0.5.82",
+  "version": "0.5.86",
   "type": "module",
   "description": "React components for File City visualization",
   "main": "dist/index.js",
@@ -10,6 +10,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
+    "test": "bun test",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },

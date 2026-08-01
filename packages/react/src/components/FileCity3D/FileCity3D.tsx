@@ -12,7 +12,7 @@ import { useTheme } from '@principal-ade/industry-theme';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 
 import { useSpring } from '@react-spring/three';
-import { MapControls, PerspectiveCamera } from '@react-three/drei';
+import { Html, MapControls, PerspectiveCamera } from '@react-three/drei';
 import type {
   CityData,
   CityBuilding,
@@ -24,6 +24,7 @@ import type {
 import * as THREE from 'three';
 import type { ThreeElements } from '@react-three/fiber';
 import { resolveVisualizationIntent } from '../../utils/visualizationResolution';
+import { computeCityLabelAnchor } from '../../utils/cityLabelPlacement';
 import { CityContent } from './CityContent';
 import { CityLights } from './CityLights';
 
@@ -2245,6 +2246,138 @@ function computeGlobalBounds(
   return { minX, maxX, minZ, maxZ, centerX, centerZ, width, depth, size };
 }
 
+/**
+ * Repo label for a city source — owner avatar + repo name, sitting on the
+ * floor in the empty grid space just behind the city's footprint, at the
+ * city's center column. Rendered as a screen-space HTML overlay via drei so
+ * the avatar image stays crisp.
+ */
+export function CitySourceLabel({
+  source,
+  onClick,
+  focused = false,
+}: {
+  source: CitySource;
+  onClick?: (source: CitySource) => void;
+  focused?: boolean;
+}) {
+  const [badgeFailed, setBadgeFailed] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  if (!source.label) return null;
+  const { positionOffset, cityData } = source;
+  const { bounds } = cityData;
+  // The chip's bottom (near) edge anchors just behind the city's back edge and
+  // the chip extends away from the city (world -Z, the side opposite the default
+  // camera), so the whole chip lands in the empty grid space behind the
+  // footprint instead of overlaying its buildings.
+  const anchor = computeCityLabelAnchor({ positionOffset, bounds });
+  const position: [number, number, number] = [
+    anchor.position.x,
+    anchor.position.y,
+    anchor.position.z,
+  ];
+  const owner =
+    source.ownerAvatarUrl
+      ?.replace(/\?.*$/, '')
+      .split('/')
+      .filter(Boolean)
+      .pop()
+      ?.replace(/\.(png|jpg|jpeg|webp)$/i, '') ?? null;
+  return (
+    <Html
+      position={position}
+      // No `center`: the chip is anchored at its bottom edge via the transform
+      // (translateX centers it on the cell column, translateY(-100%) puts its
+      // bottom edge on the anchor point so it rises away from the city).
+      style={{ transform: 'translate3d(-50%, -100%, 0)', pointerEvents: 'none' }}
+    >
+      <div
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick?.(source);
+        }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '4px 8px',
+          boxSizing: 'border-box',
+          maxWidth: 128,
+          borderRadius: 6,
+          background: 'rgba(10, 14, 22, 0.72)',
+          backdropFilter: 'blur(2px)',
+          border: focused ? '1px solid rgba(251, 191, 36, 0.55)' : '1px solid rgba(255,255,255,0.14)',
+          fontFamily: '-apple-system, "SF Pro", "Segoe UI", Roboto, sans-serif',
+          fontSize: 13,
+          fontWeight: 600,
+          color: '#fff',
+          letterSpacing: 0.2,
+          whiteSpace: 'nowrap',
+          boxShadow: focused ? '0 0 0 2px rgba(251,191,36,0.25), 0 2px 8px rgba(0,0,0,0.35)' : '0 2px 8px rgba(0,0,0,0.35)',
+          pointerEvents: 'auto',
+          cursor: onClick ? 'pointer' : 'default',
+        }}
+      >
+        {source.badgeLogoUrl && !badgeFailed ? (
+          <img
+            src={source.badgeLogoUrl}
+            onError={() => setBadgeFailed(true)}
+            alt=""
+            width={20}
+            height={20}
+            style={{
+              borderRadius: 6,
+              display: 'block',
+              flexShrink: 0,
+              background: '#0f172a',
+              objectFit: 'cover',
+              padding: 2,
+            }}
+          />
+        ) : source.ownerAvatarUrl && !avatarFailed ? (
+          <img
+            src={source.ownerAvatarUrl}
+            onError={() => setAvatarFailed(true)}
+            alt=""
+            width={20}
+            height={20}
+            style={{ borderRadius: 6, display: 'block', flexShrink: 0 }}
+          />
+        ) : (
+          <span
+            style={{
+              width: 20,
+              height: 20,
+              borderRadius: 6,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: '#3b82f6',
+              color: '#fff',
+              fontSize: 11,
+              fontWeight: 700,
+              flexShrink: 0,
+            }}
+          >
+            {(owner ?? '?').charAt(0).toUpperCase()}
+          </span>
+        )}
+        <span
+          style={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            minWidth: 0,
+            flexShrink: 1,
+          }}
+        >
+          {source.label}
+        </span>
+      </div>
+    </Html>
+  );
+}
+
 interface MultiCitySceneProps {
   sources: CitySource[];
   safeArea?: SafeArea;
@@ -2291,6 +2424,26 @@ function MultiCityScene({
   const invalidate = useThree((s) => s.invalidate);
   useEffect(() => { invalidate(); });
 
+  // Clicking a city's repo label frames the camera on that city's footprint.
+  // Clicking the same city's label again resets back to the overview.
+  const focusedCityRef = useRef<CitySource | null>(null);
+  const handleCityLabelClick = useCallback((s: CitySource) => {
+    const b = s.cityData.bounds;
+    const size = Math.max(b.maxX - b.minX, b.maxZ - b.minZ);
+    const focused = focusedCityRef.current;
+    const sameCity =
+      !!focused &&
+      focused.positionOffset.x === s.positionOffset.x &&
+      focused.positionOffset.z === s.positionOffset.z;
+    if (sameCity) {
+      focusedCityRef.current = null;
+      resetCamera();
+    } else {
+      focusedCityRef.current = s;
+      moveCameraTo(s.positionOffset.x, s.positionOffset.z, size);
+    }
+  }, []);
+
   const global = useMemo(() => computeGlobalBounds(sources), [sources]);
 
   const maxBuildingHeight = useMemo(() => {
@@ -2325,34 +2478,36 @@ function MultiCityScene({
       {onCameraFrame && <CameraFrameBridge onCameraFrame={onCameraFrame} />}
 
       {sources.map((s, i) => (
-        <CityContent
-          key={s.label ?? i}
-          cityData={s.cityData}
-          onBuildingHover={onBuildingHover}
-          onBuildingClick={onBuildingClick}
-          onHighlightClick={onHighlightClick}
-          onHighlightHover={onHighlightHover}
-          hoveredBuilding={hoveredBuilding}
-          selectedBuilding={selectedBuilding}
-          selectedDistrict={selectedDistrict}
-          selectionStyle={selectionStyle}
-          growProgress={growProgress}
-          animationConfig={animationConfig}
-          highlightLayers={s.highlightLayers ?? []}
-          visibilityLayers={s.visibilityLayers ?? []}
-          isolationMode={s.isolationMode ?? 'none'}
-          heightScaling={heightScaling}
-          linearScale={linearScale}
-          flatPatterns={flatPatterns}
-          focusDirectory={s.focusDirectory ?? null}
-          focusColor={s.focusColor ?? null}
-          defaultBuildingColor={s.defaultBuildingColor}
-          elevatedScopePanels={s.elevatedScopePanels}
-          modifiedFiles={s.modifiedFiles}
-          districtAppearingProgress={s.districtAppearingProgress}
-          transitionProgress={s.transitionProgress}
-          positionOffset={s.positionOffset}
-        />
+        <React.Fragment key={s.label ?? i}>
+          <CityContent
+            cityData={s.cityData}
+            onBuildingHover={onBuildingHover}
+            onBuildingClick={onBuildingClick}
+            onHighlightClick={onHighlightClick}
+            onHighlightHover={onHighlightHover}
+            hoveredBuilding={hoveredBuilding}
+            selectedBuilding={selectedBuilding}
+            selectedDistrict={selectedDistrict}
+            selectionStyle={selectionStyle}
+            growProgress={growProgress}
+            animationConfig={animationConfig}
+            highlightLayers={s.highlightLayers ?? []}
+            visibilityLayers={s.visibilityLayers ?? []}
+            isolationMode={s.isolationMode ?? 'none'}
+            heightScaling={heightScaling}
+            linearScale={linearScale}
+            flatPatterns={flatPatterns}
+            focusDirectory={s.focusDirectory ?? null}
+            focusColor={s.focusColor ?? null}
+            defaultBuildingColor={s.defaultBuildingColor}
+            elevatedScopePanels={s.elevatedScopePanels}
+            modifiedFiles={s.modifiedFiles}
+            districtAppearingProgress={s.districtAppearingProgress}
+            transitionProgress={s.transitionProgress}
+            positionOffset={s.positionOffset}
+          />
+          <CitySourceLabel source={s} onClick={handleCityLabelClick} />
+        </React.Fragment>
       ))}
     </>
   );
@@ -2553,6 +2708,17 @@ export interface CitySource {
   positionOffset: { x: number; z: number };
   /** Optional label for this city (display only). */
   label?: string;
+  /**
+   * Optional owner avatar URL (e.g. a GitHub avatar) shown next to the city
+   * label. Rendered as an HTML overlay anchored in the grid space just in
+   * front of the city's footprint.
+   */
+  ownerAvatarUrl?: string;
+  /**
+   * Optional logo URL (e.g. a package-manager logo) shown in the label badge.
+   * Takes precedence over `ownerAvatarUrl`; falls back to the letter badge.
+   */
+  badgeLogoUrl?: string;
   /** Per-city highlight layers (paths relative to this city's data). */
   highlightLayers?: HighlightLayer[];
   /** Per-city user-supplied highlight layers only (visibility decisions). */

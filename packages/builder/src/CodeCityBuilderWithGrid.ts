@@ -161,15 +161,51 @@ export class CodeCityBuilderWithGrid {
     const metadataId = fileSystemTree.metadata?.id;
     const isGridCell = metadataId === 'empty-cell';
 
+    // Content-based identity from the file list. metadata.id is a constant
+    // ("file-tree") for every tree and timestamp only has millisecond
+    // resolution, so two distinct trees built within the same millisecond can
+    // otherwise collide — e.g. a unified tree and its per-package subtrees.
+    // The file list (path + size) fully determines the treemap layout.
+    const fileListKey = this.generateFileListKey(fileSystemTree);
+
     const treeIdentity = isGridCell
       ? `grid:${statsKey}:${childrenKey}`
       : metadataId
-        ? `${metadataId}:${fileSystemTree.metadata?.timestamp?.getTime() ?? 0}`
-        : `stats:${statsKey}:${childrenKey}`;
+        ? `${metadataId}:${fileListKey}`
+        : `stats:${statsKey}:${childrenKey}:${fileListKey}`;
 
     const optionsHash = JSON.stringify(cacheRelevantOptions);
 
     return `${treeIdentity}|${rootPath}|${optionsHash}`;
+  }
+
+  /**
+   * Build a content-based identity for a file tree from its file list.
+   * Grid-cell trees carry an empty allFiles (content lives in root.children),
+   * so fall back to the top-level children names for those.
+   */
+  private generateFileListKey(fileSystemTree: FileSystemTree): string {
+    const files = fileSystemTree.allFiles ?? [];
+    if (files.length === 0) {
+      const children = fileSystemTree.root.children
+        .map(child => child.name)
+        .sort()
+        .join(',');
+      return `children:${children}`;
+    }
+    const parts = files
+      .map(f => `${f.relativePath ?? f.path ?? f.name}:${f.size ?? 0}`)
+      .sort();
+    let hash = 0x811c9dc5;
+    for (const part of parts) {
+      for (let i = 0; i < part.length; i++) {
+        hash ^= part.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193);
+      }
+      hash ^= 0xff;
+      hash = Math.imul(hash, 0x01000193);
+    }
+    return `files:${(hash >>> 0).toString(36)}`;
   }
 
   /**
