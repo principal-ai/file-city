@@ -2555,6 +2555,7 @@ export function CitySourceLabel({
       // mode can otherwise freeze against the pre-measurement camera pose.
       key={cameraReady ? 'ready' : 'booting'}
       position={position}
+      zIndexRange={[1, 0]}
       // No `center`: the chip is anchored at its bottom edge via the transform
       // (translateX centers it on the cell column, translateY(-100%) puts its
       // bottom edge on the anchor point so it rises away from the city).
@@ -2571,7 +2572,7 @@ export function CitySourceLabel({
           gap: 6,
           padding: '4px 8px',
           boxSizing: 'border-box',
-          maxWidth: 128,
+          maxWidth: 400,
           borderRadius: 6,
           opacity: labelProgress,
           transition:
