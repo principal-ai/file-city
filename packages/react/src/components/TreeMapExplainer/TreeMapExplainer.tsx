@@ -526,6 +526,7 @@ export function TreeMapExplainer({
       return () => window.clearTimeout(t);
     }
     prevStageRef.current = stage;
+    return undefined;
   }, [stage, reducedMotion]);
 
   const setStage = useCallback(

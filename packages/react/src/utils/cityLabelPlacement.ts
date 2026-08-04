@@ -5,6 +5,34 @@ export interface WorldRect {
   maxZ: number;
 }
 
+/** A computed footprint rect with its center + extent summaries. */
+export interface BoundsRect extends WorldRect {
+  centerX: number;
+  centerZ: number;
+  width: number;
+  depth: number;
+  size: number;
+}
+
+/**
+ * Pad a footprint rect on the back (-Z) edge so the label chip — which hangs
+ * `gap + chipWorldHeight` behind the footprint — stays inside the camera frame
+ * whenever the rect is framed (a focus zoom or the overview). The chip's world
+ * height scales with the framing camera height (px * worldPerPx), which scales
+ * with the footprint, so a footprint-relative margin covers it at any zoom.
+ * Asymmetric on -Z only: the city stays tightly framed and the extra depth sits
+ * in the empty grid space the chip already occupies.
+ */
+export function padBoundsForLabel(b: BoundsRect, margin?: number): BoundsRect {
+  const m = margin ?? Math.max(16, b.size * 0.12);
+  return {
+    ...b,
+    minZ: b.minZ - m,
+    depth: b.depth + m,
+    centerZ: b.centerZ - m / 2,
+  };
+}
+
 export interface CityLabelAnchorInput {
   /** World-space center of the city's grid cell. */
   positionOffset: { x: number; z: number };

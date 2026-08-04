@@ -24,7 +24,7 @@ import type {
 import * as THREE from 'three';
 import type { ThreeElements } from '@react-three/fiber';
 import { resolveVisualizationIntent } from '../../utils/visualizationResolution';
-import { computeCityLabelAnchor } from '../../utils/cityLabelPlacement';
+import { computeCityLabelAnchor, padBoundsForLabel } from '../../utils/cityLabelPlacement';
 import { CityContent } from './CityContent';
 import { CityLights } from './CityLights';
 
@@ -230,6 +230,13 @@ interface AnimatedCameraProps {
   focusTarget?: FocusTarget | null;
   maxBuildingHeight?: number;
   cameraControls?: CameraControlsConfig;
+  /**
+   * When `cityWidth`/`cityDepth` change, re-fire the one-shot initial framing so
+   * the camera snaps instantly (the single-city "switching repos" behavior).
+   * Multi-city hosts drive these props from the focus frame, so a footprint
+   * change there must NOT snap — the flat owner eases instead. Default true.
+   */
+  resnapOnFootprintChange?: boolean;
 }
 
 // Camera rotation options
@@ -280,6 +287,9 @@ export const DEFAULT_CAMERA_CONTROLS: Required<Omit<CameraControlsConfig, 'panSp
   oneFingerTouch: 'pan',
   twoFingerTouch: 'dolly-pan',
 };
+
+/** Duration of the flat-owner focus/reframe ease (seconds). */
+const FLAT_EASE_DURATION_S = 0.7;
 
 function mouseAction(action: MouseDragAction): number | undefined {
   switch (action) {
@@ -459,6 +469,7 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   maxBuildingHeight = 0,
   cameraControls,
   onCameraReady,
+  resnapOnFootprintChange = true,
 }: AnimatedCameraProps & { onCameraReady?: () => void }) {
   // Use selector to only subscribe to camera, not the entire R3F state
   // This prevents re-renders on pointer movement
@@ -539,6 +550,37 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
     lookY: number;
     lookZ: number;
   } | null>(null);
+  // Duration-based ease state for the flat owner. Unlike exponential smoothing
+  // (front-loaded burst + infinite asymptotic tail), a fixed ease-in-out keeps
+  // pan and zoom visibly concurrent for the whole transition and ends cleanly.
+  // Restarts whenever the target pose meaningfully changes.
+  const flatEaseRef = useRef<{
+    startTime: number;
+    duration: number;
+    from: { x: number; y: number; z: number; height: number };
+    to: { x: number; y: number; z: number; height: number };
+  } | null>(null);
+
+// MapControls clamps the camera distance to maxDistance on every render when
+  // the prop changes. A focus change feeds a smaller footprint (cityWidth/
+  // cityDepth) into the render, so computeFlatPose / compute3DPose produce a
+  // lower required height, and if effectiveMaxDistance drops with it MapControls
+  // snaps the camera before the per-frame owner can ease. A ceiling ref keeps
+  // maxDistance from ever shrinking; the per-frame owner bumps controls.maxDistance
+  // per-frame as a defense-in-depth, but the prop-level clamp runs at commit and
+  // wins the race.
+  const maxDistanceCeilingRef = useRef(0);
+
+  // Viewport-settling tracking. On mount R3F can report a pre-layout/default
+  // viewport size for the first beat, and the container itself can dwell on
+  // intermediate sizes; if the camera ever EASES across that churn it visibly
+  // "drives on load" with no click. So the flat owner only eases while the
+  // viewport size has held steady for a real window (~100ms); while it's still
+  // settling, the owner SNAPS to its pose instead. After settling, real pose
+  // changes (focus, resize, safeArea) ease normally — focus leaves the viewport
+  // untouched, so it eases as before.
+  const lastViewportRef = useRef({ w: -1, h: -1 });
+  const stableViewportSinceRef = useRef(-Infinity);
 
   // The authoritative viewport aspect. Prefer R3F's measured canvas size
   // (`viewportSize`) — it's the source of truth that `perspCam.aspect` is derived
@@ -1022,11 +1064,14 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   // while FileCity3D stays mounted would lerp from the old camera position to the
   // new one via the flat owner (~660ms visible animation) instead of snapping
   // instantly. Resetting hasNotifiedReady lets onCameraReady fire again so the
-  // host can re-hide visibility until the new frame lands.
+  // host can re-hide visibility until the new frame lands. Multi-city hosts feed
+  // the *focus frame* through cityWidth/cityDepth, so they opt out — a focus
+  // transition must ease via the flat owner, not snap.
   useEffect(() => {
+    if (!resnapOnFootprintChange) return;
     hasAppliedInitial.current = false;
     hasNotifiedReady.current = false;
-  }, [cityWidth, cityDepth]);
+  }, [cityWidth, cityDepth, resnapOnFootprintChange]);
 
   // No 3D-specific reframe effect: the grown overview owner in the frame loop
   // reads safeArea/viewport/footprint LIVE every frame, and the resize/safeArea
@@ -1035,8 +1080,20 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   // with the owner — the exact bug class the single-owner design removes.
 
   // Update camera each frame
-  useFrame((_state, delta) => {
+  useFrame((state, delta) => {
     frameCount.current++;
+
+    // Track when the R3F viewport size last changed. Boot churn (default size ->
+    // measured size, or a container settling through intermediate sizes) must not
+    // be eased across; this timestamp gates both the one-shot framing and the
+    // flat owner's snap-vs-ease decision.
+    if (
+      viewportSize.width !== lastViewportRef.current.w ||
+      viewportSize.height !== lastViewportRef.current.h
+    ) {
+      lastViewportRef.current = { w: viewportSize.width, h: viewportSize.height };
+      stableViewportSinceRef.current = performance.now();
+    }
 
     // One-shot initial 2D framing. Component always starts in 2D mode, so we
     // set the correct top-down position once — but on the first frame where the
@@ -1061,6 +1118,27 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
         gl.domElement && gl.domElement.clientWidth > 0 && gl.domElement.clientHeight > 0;
       if (!measured && !domMeasured) {
         invalidate(); // keep polling frames until the canvas is measured
+        return;
+      }
+      // R3F's viewport aspect must match the actual DOM canvas aspect before we
+      // frame. R3F can hold a stale/default size (e.g. 300x150) for the first
+      // beat after mount; framing against it bakes in the wrong aspect, and the
+      // flat owner then eases to the true-measure pose — the "camera drives on
+      // load" glitch. Aspect (not size) is compared because R3F reports device
+      // pixels on HiDPI screens while the DOM rect is CSS px.
+      const domAspect =
+        domMeasured ? gl.domElement!.clientWidth / gl.domElement!.clientHeight : 0;
+      const viewAspect =
+        measured ? viewportSize.width / viewportSize.height : 0;
+      if (domAspect > 0 && Math.abs(domAspect - viewAspect) > 0.05) {
+        invalidate(); // keep polling until R3F's measurement lands
+        return;
+      }
+      // Frame only against a viewport that has held steady — a pose computed from
+      // a mid-churn size bakes in the wrong framing, and the flat owner would then
+      // ease (or snap) to the settled pose on the first visible frame.
+      if (performance.now() - stableViewportSinceRef.current < 60) {
+        invalidate(); // keep polling until the viewport stops changing
         return;
       }
 
@@ -1095,13 +1173,24 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
 
       hasAppliedInitial.current = true;
 
-      // Notify parent that camera is ready
-      if (!hasNotifiedReady.current && onCameraReady) {
-        hasNotifiedReady.current = true;
-        onCameraReady();
-      }
       invalidate(); // let the per-frame owner engage on the next frame
       return;
+    }
+
+    // Deferred camera-ready: the canvas stays opacity 0 until the viewport has
+    // held its size steady, so the initial framing that fades in is the final
+    // one. Firing this early (right after the one-shot) lets the user catch the
+    // flat owner easing across a container that is still settling (0x0 ->
+    // 300x150 -> 1280x800) as the visible "drive on load". Wait out the settle
+    // window instead; the camera tracks it via snap-while-unsettled (below).
+    if (!hasNotifiedReady.current && onCameraReady) {
+      if (performance.now() - stableViewportSinceRef.current >= 400) {
+        hasNotifiedReady.current = true;
+        onCameraReady();
+        invalidate();
+      } else {
+        invalidate(); // keep polling until the viewport has settled
+      }
     }
 
     // Wait for controls before driving the camera.
@@ -1190,29 +1279,67 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
         perspCam.far = reach * 1.5;
         perspCam.updateProjectionMatrix();
       }
-      // Exponential smoothing — frame-rate independent. Snap the last fraction
-      // so it settles cleanly instead of asymptoting forever.
-      const a = 1 - Math.exp(-7 * delta);
-      const lerp = (cur: number, to: number) => {
-        if (Math.abs(to - cur) < 0.01) return to;
-        needsFrame = true; // still easing — request another frame
-        return cur + (to - cur) * a;
-      };
-      // Lerp the look-at target and the height, then place the camera STRICTLY
-      // above the (interpolated) target. Lerping camera.position and target
-      // independently lets the horizontal offset between them be briefly nonzero
-      // mid-ease, so OrbitControls reads a drifting azimuth — the "rotate a
-      // little clockwise then fix" wobble. Deriving the camera from the target
-      // pins the azimuth to 0 (top-down) for the whole transition.
-      const tx = lerp(controlsRef.current.target.x, pose.lookX);
-      const ty = lerp(controlsRef.current.target.y, pose.lookY);
-      const tz = lerp(controlsRef.current.target.z, pose.lookZ);
-      const camHeight = lerp(camera.position.y, pose.camY);
+      // Only ease once the viewport has held steady for a real window. During
+      // boot (or a resize in progress) the size is still settling, so easing
+      // would visibly "drive" the camera; snap instead, and the moment it stops
+      // changing the pose is already correct (from == to), so the first eased
+      // frame is a no-op. Real moves that leave the viewport alone — focus,
+      // safeArea, footprint — ease as before.
+      const viewportSettled =
+        performance.now() - stableViewportSinceRef.current >= 100;
+      if (viewportSettled) {
+        // Duration-based ease-in-out. Exponential smoothing is front-loaded (a
+        // violent burst in the first ~150ms) with an infinite asymptotic tail, so
+        // a combined focus move reads as "zoom in first, then move over" and never
+        // has a definite endpoint. A fixed ease-in-out starts slow, accelerates
+        // through the middle (pan and zoom visible together), and stops cleanly.
+        // The look-target is derived from the eased height so its screen-pixel
+        // offset tracks the remaining zoom exactly: offset_px ∝ (H - H1).
+      const eased = flatEaseRef.current;
+      const targetChanged =
+        !eased ||
+        Math.abs(pose.camY - eased.to.height) > 0.25 ||
+        Math.abs(pose.lookX - eased.to.x) > 0.25 ||
+        Math.abs(pose.lookZ - eased.to.z) > 0.25;
+      if (targetChanged) {
+        flatEaseRef.current = {
+          startTime: state.clock.elapsedTime,
+          duration: FLAT_EASE_DURATION_S,
+          from: {
+            x: controlsRef.current.target.x,
+            y: controlsRef.current.target.y,
+            z: controlsRef.current.target.z,
+            height: camera.position.y,
+          },
+          to: { x: pose.lookX, y: pose.lookY, z: pose.lookZ, height: pose.camY },
+        };
+      }
+      const e = flatEaseRef.current!;
+      const t = Math.min(1, Math.max(0, (state.clock.elapsedTime - e.startTime) / e.duration));
+      if (t < 1) needsFrame = true; // still easing — request another frame
+      const p = t < 1 ? t * t * (3 - 2 * t) : 1; // smoothstep ease-in-out
+      const camHeight = e.from.height + (e.to.height - e.from.height) * p;
+      const heightRange = e.to.height - e.from.height;
+      let tx: number;
+      let tz: number;
+      if (Math.abs(heightRange) > 0.01) {
+        // Keep the target's screen offset proportional to the remaining zoom so
+        // pan and zoom finish together (the pan doesn't collapse into the first
+        // frames while the descent dominates).
+        const ratio =
+          (camHeight * (camHeight - e.to.height)) /
+          (e.from.height * (e.from.height - e.to.height));
+        tx = e.to.x - (e.to.x - e.from.x) * ratio;
+        tz = e.to.z - (e.to.z - e.from.z) * ratio;
+      } else {
+        // Pure-pan moves (no height change) lerp the target directly.
+        tx = e.from.x + (e.to.x - e.from.x) * p;
+        tz = e.from.z + (e.to.z - e.from.z) * p;
+      }
+      const ty = e.from.y + (e.to.y - e.from.y) * p;
       controlsRef.current.target.set(tx, ty, tz);
       camera.position.set(tx, camHeight, tz + 0.001);
       controlsRef.current.update();
-      // Keep the spring's stored value in step so a later spring-driven move
-      // (2D->3D, focus) starts from the true current pose, not a stale one.
       api.set({
         camX: camera.position.x,
         camY: camera.position.y,
@@ -1221,6 +1348,32 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
         lookY: controlsRef.current.target.y,
         lookZ: controlsRef.current.target.z,
       });
+      } else {
+        // Viewport still settling (boot churn / resize in progress): snap to the
+        // pose and seed the ease from it so nothing animates across the churn.
+        flatEaseRef.current = {
+          startTime: state.clock.elapsedTime,
+          duration: FLAT_EASE_DURATION_S,
+          from: {
+            x: pose.lookX,
+            y: pose.lookY,
+            z: pose.lookZ,
+            height: pose.camY,
+          },
+          to: { x: pose.lookX, y: pose.lookY, z: pose.lookZ, height: pose.camY },
+        };
+        controlsRef.current.target.set(pose.lookX, pose.lookY, pose.lookZ);
+        camera.position.set(pose.camX, pose.camY, pose.camZ);
+        controlsRef.current.update();
+        api.set({
+          camX: camera.position.x,
+          camY: camera.position.y,
+          camZ: camera.position.z,
+          lookX: controlsRef.current.target.x,
+          lookY: controlsRef.current.target.y,
+          lookZ: controlsRef.current.target.z,
+        });
+      }
     }
     // THE grown (3D) owner — the angled analog of the flat owner above. It NEVER
     // fully stands down in 3D (except during an active MapControls gesture), so
@@ -1728,38 +1881,48 @@ const AnimatedCamera = React.memo(function AnimatedCamera({
   const seedCameraPosition = useMemo<[number, number, number]>(() => {
     const p = computeFlatPose();
     return [p.camX, p.camY, p.camZ];
-    // Depend on the STABLE PRIMITIVE inputs, NOT the `computeFlatPose` callback.
-    // computeFlatPose's identity churns every render (getViewportAspect closes
-    // over the viewportSize OBJECT), so keying the memo on it recomputed the seed
-    // every frame — drei then re-applied the overview camera.position on a loop.
-    // Harmless at the overview (the owner writes the same pose), but during a
-    // focus the owner stands down and this loop yanked the camera back to the
-    // overview ("starts moving then fills the whole thing"). The overview height
-    // only actually changes when the viewport or the city footprint changes, so
-    // those primitives are the real dependencies.
+    // Key ONLY on the viewport, NOT the footprint or focus frame. drei re-applies
+    // this `position` prop at commit whenever the memo's value changes, so any
+    // dependency that moves during a transition snaps camera.position before the
+    // per-frame owner can ease it — the exact "zoom in immediately" bug. The
+    // safe-area/focus overrides already taught us this (they were removed for the
+    // same reason); the multi-city host feeds the *focused* footprint through
+    // cityWidth/cityDepth/cityCenter, so keying on them made every focus change a
+    // commit-time snap to the focused pose. The seed only exists to give MapControls
+    // a sane connect-radius at mount and to re-frame once the canvas measures, both
+    // of which depend on the viewport alone. Real footprint changes are re-framed
+    // downstream: single-city hosts re-fire the one-shot (resnapOnFootprintChange),
+    // and multi-city hosts ease through the flat owner. computeFlatPose() reads the
+    // live cityWidth/cityDepth/cityCenter, so the mount/measure-time seed still uses
+    // the current footprint without tracking it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewportSize.width, viewportSize.height, cityWidth, cityDepth, cityCenter?.x, cityCenter?.z]);
+  }, [viewportSize.width, viewportSize.height]);
 
-  // MapControls clamps the camera distance to `maxDistance`. The inset framing
-  // raises the camera well above the full-canvas overview (height inflates by
-  // ~1/visibleFraction), so a tight safeArea can demand a height past the
-  // default `citySize * 3` — the owner would then ease toward the inset pose and
-  // get clamped short ("starts moving, then adjusts to the component"). Grow the
-  // ceiling to cover the active flat framing.
+  // Keep a persistent ceiling ref so maxDistance never shrinks on a focus
+  // change. MapControls clamps the camera distance every render when the prop
+  // changes, and the focused footprint demands a lower height than the overview
+  // — so a shrinking effectiveMaxDistance snaps the camera before the per-frame
+  // owner can ease it.
+  if (maxDistanceCeilingRef.current === 0) {
+    maxDistanceCeilingRef.current = citySize * 3;
+  }
+  const curMaxDistance =
+    controlsConfig.maxDistance ?? maxDistanceCeilingRef.current;
+  if (curMaxDistance > maxDistanceCeilingRef.current) {
+    maxDistanceCeilingRef.current = curMaxDistance;
+  }
+
   const pose3D = compute3DPose(safeArea);
-  const effectiveMaxDistance = Math.max(
-    controlsConfig.maxDistance ?? citySize * 3,
+  const capNeeded = Math.max(
     computeFlatPose(safeArea).camY * 1.25,
-    // The grown 3D fit pulls the rig back by the same inset inflation; without
-    // covering it here MapControls clamps the pulled-back camera short and the
-    // city won't shrink into the inner rect.
     Math.hypot(pose3D.camX - pose3D.lookX, pose3D.camY - pose3D.lookY, pose3D.camZ - pose3D.lookZ) *
       1.25,
-    // Headroom for imperative `setFlatView` overrides (which can demand a tall
-    // inset framing and aren't reactive here): cover up to ~3x the full-canvas
-    // overview height. Rarely dominates the citySize*3 default for no insets.
     calculateFlatCameraHeight(getViewportAspect()) * 3,
   );
+  if (capNeeded > maxDistanceCeilingRef.current) {
+    maxDistanceCeilingRef.current = capNeeded;
+  }
+  const effectiveMaxDistance = maxDistanceCeilingRef.current;
 
   return (
     <>
@@ -2239,6 +2402,63 @@ function CityScene({
 // ============================================================================
 
 /**
+ * Resolve each source's effective `positionOffset`. A source with `gridCell`
+ * wins over its `positionOffset` — the grid layout (centered on the world
+ * origin, uniform cell = largest footprint + `gridGap`, `row` growing downward)
+ * mirrors `buildPackageSources` but operates on already-built `CitySource`s so
+ * hosts never compute world-space offsets themselves. Sources without `gridCell`
+ * keep their `positionOffset` (defaulting to `{ x: 0, z: 0 }`); a mixed
+ * arrangement is valid. Only sources that actually have buildings contribute
+ * footprint measurements to the cell size, so an empty removal layer won't
+ * inflate the grid.
+ *
+ * `gridGap` defaults to a sensible fraction of the largest footprint when not
+ * supplied (mirroring `buildPackageSources`' `cellPadding = 40`).
+ */
+function resolveSourceOffsets(
+  sources: CitySource[],
+  gridGap?: number,
+): { x: number; z: number }[] {
+  const hasGrid = sources.some(s => s.gridCell);
+  if (!hasGrid) {
+    // Pure positionOffset path (the legacy default). Keep {x:0,z:0} when unset.
+    return sources.map(s => s.positionOffset ?? { x: 0, z: 0 });
+  }
+
+  // Measure the largest footprint among sources that will render buildings.
+  let maxW = 0;
+  let maxD = 0;
+  for (const s of sources) {
+    if (s.cityData.buildings.length === 0) continue;
+    const b = s.cityData.bounds;
+    maxW = Math.max(maxW, b.maxX - b.minX);
+    maxD = Math.max(maxD, b.maxZ - b.minZ);
+  }
+  const gap = gridGap ?? Math.max(40, Math.max(maxW, maxD) * 0.25);
+  const cellW = maxW + gap;
+  const cellD = maxD + gap;
+
+  // Grid extent from the gridCell-bearing sources only. `row` grows downward.
+  let cols = 1;
+  let rows = 1;
+  for (const s of sources) {
+    if (!s.gridCell) continue;
+    cols = Math.max(cols, s.gridCell.col + 1);
+    rows = Math.max(rows, s.gridCell.row + 1);
+  }
+  const originX = -(cols * cellW) / 2 + cellW / 2;
+  const originZ = -(rows * cellD) / 2 + cellD / 2;
+
+  return sources.map(s => {
+    if (!s.gridCell) return s.positionOffset ?? { x: 0, z: 0 };
+    return {
+      x: originX + s.gridCell.col * cellW,
+      z: originZ + s.gridCell.row * cellD,
+    };
+  });
+}
+
+/**
  * Compute the combined bounding box from multiple CitySource instances.
  *
  * CityContent subtracts each city's own centerOffset from its building
@@ -2250,13 +2470,15 @@ function CityScene({
  */
 function computeGlobalBounds(
   sources: CitySource[],
+  offsets: { x: number; z: number }[],
 ): { minX: number; maxX: number; minZ: number; maxZ: number; centerX: number; centerZ: number; width: number; depth: number; size: number } {
   let minX = Infinity, maxX = -Infinity;
   let minZ = Infinity, maxZ = -Infinity;
-  for (const s of sources) {
+  for (let i = 0; i < sources.length; i++) {
+    const s = sources[i];
+    const ox = offsets[i].x;
+    const oz = offsets[i].z;
     const b = s.cityData.bounds;
-    const ox = s.positionOffset.x;
-    const oz = s.positionOffset.z;
     const halfW = (b.maxX - b.minX) / 2;
     const halfD = (b.maxZ - b.minZ) / 2;
     minX = Math.min(minX, ox - halfW);
@@ -2282,10 +2504,23 @@ export function CitySourceLabel({
   source,
   onClick,
   focused = false,
+  positionOffset,
+  cameraReady,
 }: {
   source: CitySource;
   onClick?: (source: CitySource) => void;
   focused?: boolean;
+  /**
+   * World-space offset for the label anchor. Defaults to `source.positionOffset`.
+   * Grid-layout hosts pass the library-resolved offset here (their sources carry
+   * `gridCell`, not world offsets).
+   */
+  positionOffset?: { x: number; z: number };
+  /**
+   * When true, the screen-space overlay re-mounts against the settled camera so
+   * its projection is correct on first paint (see MultiCitySceneProps.cameraReady).
+   */
+  cameraReady?: boolean;
 }) {
   const [badgeFailed, setBadgeFailed] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
@@ -2294,13 +2529,14 @@ export function CitySourceLabel({
   // for static scenes that don't drive a transition). While hidden, the chip
   // must not intercept clicks.
   const labelProgress = Math.max(0, Math.min(1, source.labelProgress ?? 1));
-  const { positionOffset, cityData } = source;
+  const { cityData } = source;
   const { bounds } = cityData;
+  const resolvedOffset = positionOffset ?? source.positionOffset;
   // The chip's bottom (near) edge anchors just behind the city's back edge and
   // the chip extends away from the city (world -Z, the side opposite the default
   // camera), so the whole chip lands in the empty grid space behind the
   // footprint instead of overlaying its buildings.
-  const anchor = computeCityLabelAnchor({ positionOffset, bounds });
+  const anchor = computeCityLabelAnchor({ positionOffset: resolvedOffset, bounds });
   const position: [number, number, number] = [
     anchor.position.x,
     anchor.position.y,
@@ -2315,6 +2551,9 @@ export function CitySourceLabel({
       ?.replace(/\.(png|jpg|jpeg|webp)$/i, '') ?? null;
   return (
     <Html
+      // Re-mount when the camera settles: the initial projection in demand
+      // mode can otherwise freeze against the pre-measurement camera pose.
+      key={cameraReady ? 'ready' : 'booting'}
       position={position}
       // No `center`: the chip is anchored at its bottom edge via the transform
       // (translateX centers it on the cell column, translateY(-100%) puts its
@@ -2335,7 +2574,8 @@ export function CitySourceLabel({
           maxWidth: 128,
           borderRadius: 6,
           opacity: labelProgress,
-          transition: 'opacity 120ms linear',
+          transition:
+            'opacity 120ms linear, border-color 700ms ease-out, box-shadow 700ms ease-out',
           background: 'rgba(10, 14, 22, 0.72)',
           backdropFilter: 'blur(2px)',
           border: focused ? '1px solid rgba(251, 191, 36, 0.55)' : '1px solid rgba(255,255,255,0.14)',
@@ -2430,6 +2670,26 @@ interface MultiCitySceneProps {
   adaptCameraToBuildings?: boolean;
   onCameraFrame?: OnCameraFrame;
   onCameraReady?: () => void;
+  /** Gap (world units) between cells when sources use `gridCell`. Defaults to a
+   *  sensible fraction of the largest footprint. */
+  gridGap?: number;
+  /** Sources to focus: the camera frames their combined bounds and every other
+   *  source is dimmed to `dimOpacity`. Omitted/empty = overview, no dim. */
+  focusedSources?: CitySource[];
+  /** Default alpha for sources outside `focusedSources` (0–1). Default 0.2. */
+  dimOpacity?: number;
+  /** Fired when the user clicks a repo's label (or the focused one again to
+   *  reset). The host feeds it back via `focusedSources` — single source of
+   *  truth for focus. */
+  onSourceFocusChange?: (source: CitySource | null) => void;
+  /**
+   * True once the camera has settled into its initial framing. With
+   * `frameloop="demand"` the screen-space `Html` label overlays only re-project
+   * while frames render, so they'd otherwise freeze at their mount-time
+   * projection (pre-measurement camera). When this flips, each label re-mounts
+   * and projects against the settled camera.
+   */
+  cameraReady?: boolean;
 }
 
 function MultiCityScene({
@@ -2452,20 +2712,64 @@ function MultiCityScene({
   adaptCameraToBuildings = false,
   onCameraFrame,
   onCameraReady,
+  gridGap,
+  focusedSources,
+  dimOpacity = 0.2,
+  onSourceFocusChange,
+  cameraReady,
 }: MultiCitySceneProps) {
   const invalidate = useThree((s) => s.invalidate);
   useEffect(() => { invalidate(); });
 
+  // Resolve each source's effective world-space offset (grid sources get a
+  // centered cell; others keep their `positionOffset`). Re-computed only when
+  // the source identity or grid shape changes — the *focus* subset doesn't
+  // move cities, only the camera target and dim, so this stays stable across a
+  // focus change.
+  const offsets = useMemo(
+    () => resolveSourceOffsets(sources, gridGap),
+    // Identity of sources + their grid cells. A new `sources` array reference
+    // (common during transitions) is fine as long as cells don't change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sources, gridGap, sources.map(s => s.gridCell).join('|')],
+  );
+
+  // Focused subset — a source is "focused" if it's the same object reference as
+  // one in `focusedSources`. Compared by reference (not offset) because the
+  // host identifies the focused repos by the same objects it passed in, and a
+  // transition rebuilding the array would break offset-keyed comparisons.
+  const focusedOffsets = useMemo(() => {
+    const focused = focusedSources ?? [];
+    if (focused.length === 0) return null;
+    const out: { x: number; z: number }[] = [];
+    for (let i = 0; i < sources.length; i++) {
+      if (focused.includes(sources[i])) out.push(offsets[i]);
+    }
+    return out.length > 0 ? out : null;
+  }, [sources, focusedSources, offsets]);
+  const focusedOffsetSet = useMemo(() => {
+    if (!focusedOffsets) return null;
+    return new Set(focusedOffsets.map(o => `${o.x},${o.z}`));
+  }, [focusedOffsets]);
+
   // Clicking a city's repo label frames the camera on that city's footprint and
-  // highlights its chip. Clicking the same city's label again resets to the
-  // overview. Compared by grid offset (not object identity) because the sources
-  // array is recreated every frame during a transition.
+  // highlights its chip. When `onSourceFocusChange` is wired, the click delegates
+  // to the host (which feeds it back via `focusedSources`) — keeping a single
+  // source of truth. The internal `focusedCell` only drives the legacy
+  // self-contained behavior when no host callback is provided.
   const [focusedCell, setFocusedCell] = useState<{ x: number; z: number } | null>(null);
   const handleCityLabelClick = useCallback(
     (s: CitySource) => {
+      const off = offsets[sources.indexOf(s)];
+      if (onSourceFocusChange) {
+        const sameCity =
+          focusedOffsetSet !== null && off && focusedOffsetSet.has(`${off.x},${off.z}`);
+        onSourceFocusChange(sameCity ? null : s);
+        return;
+      }
+      if (!off) return;
       const b = s.cityData.bounds;
       const size = Math.max(b.maxX - b.minX, b.maxZ - b.minZ);
-      const off = s.positionOffset;
       const sameCity =
         focusedCell !== null && focusedCell.x === off.x && focusedCell.z === off.z;
       if (sameCity) {
@@ -2476,10 +2780,43 @@ function MultiCityScene({
         moveCameraTo(off.x, off.z, size);
       }
     },
-    [focusedCell],
+    [sources, offsets, onSourceFocusChange, focusedOffsetSet, focusedCell],
   );
 
-  const global = useMemo(() => computeGlobalBounds(sources), [sources]);
+  // Camera framing: frame the focused subset when set, otherwise the whole
+  // arrangement. `AnimatedCamera` already eases `cityCenter`/`citySize`
+  // changes, so this animates from the overview to the focused bounds without a
+  // second imperative writer. (The legacy label-click `moveCameraTo` path is a
+  // fallback when no host focus prop is supplied.)
+  const global = useMemo(
+    () => computeGlobalBounds(sources, offsets),
+    [sources, offsets],
+  );
+  const focusBounds = useMemo(() => {
+    if (!focusedOffsets) return null;
+    const focusedSourcesList = sources
+      .map((s, i) => ({ s, off: offsets[i] }))
+      .filter(({ off }) => focusedOffsetSet?.has(`${off.x},${off.z}`))
+      .map(({ s }) => s);
+    if (focusedSourcesList.length === 0) return null;
+    const focusOffsets = sources
+      .map((s, i) => ({ s, off: offsets[i] }))
+      .filter(({ off }) => focusedOffsetSet?.has(`${off.x},${off.z}`))
+      .map(({ off }) => off);
+    return computeGlobalBounds(focusedSourcesList, focusOffsets);
+  }, [sources, offsets, focusedOffsets, focusedOffsetSet]);
+
+  // Resolve effective cityDim per source: explicit `cityDim` wins; else
+  // `dimOpacity` when outside the focused set; else 1.
+  const cityDims = useMemo<number[]>(() => {
+    return sources.map((s) => {
+      if (typeof s.cityDim === 'number') return s.cityDim;
+      if (!focusedOffsetSet) return 1;
+      const off = offsets[sources.indexOf(s)];
+      return focusedOffsetSet.has(`${off.x},${off.z}`) ? 1 : dimOpacity;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sources, offsets, focusedOffsetSet, dimOpacity]);
 
   const maxBuildingHeight = useMemo(() => {
     if (!adaptCameraToBuildings) return 0;
@@ -2492,13 +2829,24 @@ function MultiCityScene({
     return maxH;
   }, [adaptCameraToBuildings, sources]);
 
+  // Camera framing targets the focused subset when present. Both rects are padded
+  // on the back edge so the label chip stays in frame at any zoom (the chip hangs
+  // `gap + chipWorldHeight` behind the footprint, so a footprint-only frame cuts
+  // it off when zoomed in).
+  const globalFrame = padBoundsForLabel(global);
+  const focusFrame = focusBounds ? padBoundsForLabel(focusBounds) : null;
+  const frameCenter = focusFrame ? { x: focusFrame.centerX, z: focusFrame.centerZ } : { x: globalFrame.centerX, z: globalFrame.centerZ };
+  const frameWidth = focusFrame ? focusFrame.width : globalFrame.width;
+  const frameDepth = focusFrame ? focusFrame.depth : globalFrame.depth;
+  const frameSize = focusFrame ? focusFrame.size : globalFrame.size;
+
   return (
     <>
       <AnimatedCamera
-        citySize={global.size}
-        cityWidth={global.width}
-        cityDepth={global.depth}
-        cityCenter={{ x: global.centerX, z: global.centerZ }}
+        citySize={frameSize}
+        cityWidth={frameWidth}
+        cityDepth={frameDepth}
+        cityCenter={frameCenter}
         safeArea={safeArea}
         isFlat={growProgress === 0}
         cityReady={sources.some(s => s.cityData.buildings.length > 0)}
@@ -2506,54 +2854,65 @@ function MultiCityScene({
         maxBuildingHeight={maxBuildingHeight}
         cameraControls={cameraControls}
         onCameraReady={onCameraReady}
+        resnapOnFootprintChange={false}
       />
 
       <CityLights citySize={global.size} />
 
       {onCameraFrame && <CameraFrameBridge onCameraFrame={onCameraFrame} />}
 
-      {sources.map((s, i) => (
-        <React.Fragment key={s.label ?? i}>
-          <CityContent
-            cityData={s.cityData}
-            onBuildingHover={onBuildingHover}
-            onBuildingClick={onBuildingClick}
-            onHighlightClick={onHighlightClick}
-            onHighlightHover={onHighlightHover}
-            hoveredBuilding={hoveredBuilding}
-            selectedBuilding={selectedBuilding}
-            selectedDistrict={selectedDistrict}
-            selectionStyle={selectionStyle}
-            growProgress={growProgress}
-            animationConfig={animationConfig}
-            highlightLayers={s.highlightLayers ?? []}
-            visibilityLayers={s.visibilityLayers ?? []}
-            isolationMode={s.isolationMode ?? 'none'}
-            heightScaling={heightScaling}
-            linearScale={linearScale}
-            flatPatterns={flatPatterns}
-            focusDirectory={s.focusDirectory ?? null}
-            focusColor={s.focusColor ?? null}
-            defaultBuildingColor={s.defaultBuildingColor}
-            elevatedScopePanels={s.elevatedScopePanels}
-            modifiedFiles={s.modifiedFiles}
-            districtAppearingProgress={s.districtAppearingProgress}
-            transitionProgress={s.transitionProgress}
-            positionOffset={s.positionOffset}
-          />
-          {!s.isRemovalLayer && (
-            <CitySourceLabel
-              source={s}
-              onClick={handleCityLabelClick}
-              focused={
-                focusedCell !== null &&
-                focusedCell.x === s.positionOffset.x &&
-                focusedCell.z === s.positionOffset.z
-              }
+      {sources.map((s, i) => {
+        const off = offsets[i];
+        const dim = cityDims[i];
+        const isFocused = focusedOffsetSet?.has(`${off.x},${off.z}`) ?? false;
+        return (
+          <React.Fragment key={s.label ?? i}>
+            <CityContent
+              cityData={s.cityData}
+              onBuildingHover={onBuildingHover}
+              onBuildingClick={onBuildingClick}
+              onHighlightClick={onHighlightClick}
+              onHighlightHover={onHighlightHover}
+              hoveredBuilding={hoveredBuilding}
+              selectedBuilding={selectedBuilding}
+              selectedDistrict={selectedDistrict}
+              selectionStyle={selectionStyle}
+              growProgress={growProgress}
+              animationConfig={animationConfig}
+              highlightLayers={s.highlightLayers ?? []}
+              visibilityLayers={s.visibilityLayers ?? []}
+              isolationMode={s.isolationMode ?? 'none'}
+              heightScaling={heightScaling}
+              linearScale={linearScale}
+              flatPatterns={flatPatterns}
+              focusDirectory={s.focusDirectory ?? null}
+              focusColor={s.focusColor ?? null}
+              defaultBuildingColor={s.defaultBuildingColor}
+              cityDim={dim}
+              elevatedScopePanels={s.elevatedScopePanels}
+              modifiedFiles={s.modifiedFiles}
+              districtAppearingProgress={s.districtAppearingProgress}
+              transitionProgress={s.transitionProgress}
+              positionOffset={off}
             />
-          )}
-        </React.Fragment>
-      ))}
+            {!s.isRemovalLayer && (
+              <CitySourceLabel
+                source={s}
+                positionOffset={off}
+                cameraReady={cameraReady}
+                onClick={handleCityLabelClick}
+                focused={
+                  isFocused ||
+                  (focusedOffsetSet === null &&
+                    focusedCell !== null &&
+                    focusedCell.x === off.x &&
+                    focusedCell.z === off.z)
+                }
+              />
+            )}
+          </React.Fragment>
+        );
+      })}
     </>
   );
 }
@@ -2570,10 +2929,33 @@ export interface FileCity3DProps {
   cityData?: CityData;
   /**
    * Multi-city layout. When set, renders one `CityContent` per source at its
-   * `positionOffset`, sharing a single camera (framing the combined bounding
-   * box) and lighting rig. Ignored when empty/undefined.
+   * `positionOffset` (or its `gridCell` position when set — see {@link
+   * CitySource.gridCell} and {@link FileCity3DProps.gridGap}), sharing a
+   * single camera and lighting rig. Ignored when empty/undefined.
    */
   citySources?: CitySource[];
+  /**
+   * Gap (world units) between grid cells when sources use `gridCell`. Default:
+   * a sensible fraction of the largest source footprint (~25% of the max
+   * footprint, floored at 40). Passed straight to {@link MultiCityScene}.
+   */
+  gridGap?: number;
+  /**
+   * Sources to focus: the camera eases to frame their combined bounds and
+   * every source not in this set is dimmed (see `dimOpacity`). Omitted/empty =
+   * overview framing, no dim. The host feeds label-clicks back into this via
+   * {@link onSourceFocusChange}. Compared by object reference, so pass the same
+   * source objects you put in `citySources`.
+   */
+  focusedSources?: CitySource[];
+  /**
+   * Fired when the user clicks a repo's label (a {@link CitySourceLabel}). The
+   * host decides what to focus and feeds it back through {@link focusedSources}
+   * — single source of truth for focus. Receives `null` when the user clicks the
+   * already-focused repo's label (intent: clear focus). Omit to keep the
+   * legacy self-contained label-click framing behavior.
+   */
+  onSourceFocusChange?: (source: CitySource | null) => void;
   /**
    * Inset rect the flat overview frames itself into (fractions of the canvas).
    * The canvas stays full-size; the component frames as if its boundary were the
@@ -2613,7 +2995,12 @@ export interface FileCity3DProps {
   highlightLayers?: HighlightLayer[];
   /** How to handle non-highlighted buildings when highlights are active */
   isolationMode?: IsolationMode;
-  /** Opacity for dimmed buildings in transparent mode (0-1) */
+  /**
+   * Opacity for dimmed buildings in transparent isolation mode (0–1). Also
+   * doubles as the default alpha applied to sources outside
+   * {@link focusedSources} when a focus is set (0–1, default 0.2). The dim eases
+   * per-frame in lockstep with the focus camera move.
+   */
   dimOpacity?: number;
   /** Whether data is currently loading */
   isLoading?: boolean;
@@ -2749,8 +3136,25 @@ export interface FileCity3DProps {
 export interface CitySource {
   /** City data to render for this source. */
   cityData: CityData;
-  /** World-space offset placing this city in the shared scene. */
+  /**
+   * World-space offset placing this city in the shared scene. **Ignored when
+   * `gridCell` is set** — the library computes the offset from the relative
+   * grid position + `gridGap` (see {@link FileCity3DProps.gridGap}) so the host
+   * never has to do centering math. Set `gridCell` for the common case; reserve
+   * `positionOffset` for the power-user escape hatch (e.g. an absolute layout).
+   */
   positionOffset: { x: number; z: number };
+  /**
+   * Relative grid cell for this source: `{ col, row }` with `row` growing
+   * **downward** (row 0 at the top, like a CSS grid / table). When set, the
+   * library positions this source on a centered grid (uniform cell sized to
+   * the largest source footprint + {@link FileCity3DProps.gridGap}, tiled
+   * across `max(col)+1` columns and `max(row)+1` rows, centered on the world
+   * origin so the camera frames the arrangement symmetrically) and ignores
+   * `positionOffset`. Sources may mix `gridCell` and `positionOffset` freely;
+   * a source without either defaults to `{ x: 0, z: 0 }`.
+   */
+  gridCell?: { col: number; row: number };
   /** Optional label for this city (display only). */
   label?: string;
   /**
@@ -2776,6 +3180,16 @@ export interface CitySource {
   focusColor?: string | null;
   /** Per-city building color fallback. */
   defaultBuildingColor?: string;
+  /**
+   * Per-city alpha multiplier applied to this whole city's buildings + icons.
+   * `1` = full opacity (default), `<1` = transparent. Eased per-frame in
+   * lockstep with the camera move so a focused repo brightens as the camera
+   * settles on it. When {@link FileCity3DProps.focusedSources} is set, sources
+   * outside that set automatically get `cityDim = dimOpacity`; an explicit
+   * `cityDim` on a source always wins (so a focused source can override, and
+   * an unfocused source can stay full if the host wants).
+   */
+  cityDim?: number;
   /** Per-city elevated scope panels (flat mode only). */
   elevatedScopePanels?: ElevatedScopePanel[];
   /** Per-city files modified in the current transition. */
@@ -2805,6 +3219,9 @@ export interface CitySource {
 export function FileCity3D({
   cityData,
   citySources,
+  gridGap,
+  focusedSources,
+  onSourceFocusChange,
   safeArea,
   width = '100%',
   height = 600,
@@ -2822,7 +3239,7 @@ export function FileCity3D({
   onPanelDismissed,
   highlightLayers: externalHighlightLayers,
   isolationMode: externalIsolationMode,
-  dimOpacity: _dimOpacity = 0.15,
+  dimOpacity = 0.2,
   isLoading = false,
   loadingMessage = 'Loading file city...',
   emptyMessage = 'No file tree data available',
@@ -2851,6 +3268,62 @@ export function FileCity3D({
   const [hoveredBuilding, setHoveredBuilding] = useState<CityBuilding | null>(null);
   const [internalIsGrown, setInternalIsGrown] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [mountCanvas, setMountCanvas] = useState(false);
+
+  // Gate the R3F canvas mount on a stable, nonzero container size. The camera
+  // re-frames (with a ~700ms ease) whenever the viewport size changes, so if
+  // the canvas mounted while the container was still settling through
+  // intermediate sizes (0x0 -> 300x150 -> full), the camera would visibly drift
+  // on load with no click. Numeric width+height are known synchronously and
+  // mount immediately; percentage/default sizes wait until the container has
+  // held the same nonzero size for a stable window (~100ms of consecutive rAFs),
+  // so a size that dwells briefly mid-settle can't trigger a premature mount.
+  useEffect(() => {
+    if (typeof width === 'number' && typeof height === 'number') {
+      setMountCanvas(true);
+      return;
+    }
+    const el = containerRef.current;
+    if (!el) return;
+
+    let lastW = -1;
+    let lastH = -1;
+    let stableSince = performance.now();
+    let rafId = 0;
+    let disposed = false;
+
+    const tick = () => {
+      if (disposed) return;
+      const now = performance.now();
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      if (w > 0 && h > 0 && w === lastW && h === lastH) {
+        if (now - stableSince >= 100) {
+          setMountCanvas(true);
+          return;
+        }
+      } else {
+        stableSince = now;
+        lastW = w;
+        lastH = h;
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+
+    // Absolute safety valve: even if rAF is throttled (background tab), mount
+    // once the container actually has a nonzero size.
+    const fallback = setTimeout(() => {
+      if (el.clientWidth > 0 && el.clientHeight > 0) setMountCanvas(true);
+    }, 600);
+
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(rafId);
+      clearTimeout(fallback);
+    };
+  }, [width, height]);
 
   const handleBuildingHover = useCallback(
     (building: CityBuilding | null) => {
@@ -3028,6 +3501,7 @@ export function FileCity3D({
 
   return (
     <div
+      ref={containerRef}
       className={className}
       style={{
         width,
@@ -3041,7 +3515,8 @@ export function FileCity3D({
         ...style,
       }}
     >
-      <Canvas
+      {mountCanvas && (
+        <Canvas
         shadows
         flat // Disables tone mapping for true colors
         // On-demand rendering: render only when something actually changes
@@ -3064,6 +3539,10 @@ export function FileCity3D({
         {hasSources ? (
           <MultiCityScene
             sources={citySources!}
+            gridGap={gridGap}
+            focusedSources={focusedSources}
+            dimOpacity={dimOpacity}
+            onSourceFocusChange={onSourceFocusChange}
             safeArea={safeArea}
             growProgress={growProgress}
             animationConfig={animationConfig}
@@ -3081,6 +3560,7 @@ export function FileCity3D({
             cameraControls={cameraControls}
             adaptCameraToBuildings={adaptCameraToBuildings}
             onCameraFrame={onCameraFrame}
+            cameraReady={cameraReady}
             onCameraReady={() => {
               setCameraReady(true);
               onCameraReadyProp?.();
@@ -3129,6 +3609,7 @@ export function FileCity3D({
           </>
         )}
       </Canvas>
+      )}
       {showInfoPanel && <InfoPanel building={resolvedSelection.building} />}
       {showControls && (
         <ControlsOverlay

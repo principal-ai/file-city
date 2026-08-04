@@ -5,6 +5,7 @@ import { buildPackageSources } from './buildPackageSources';
 import {
   computeChipWorldRect,
   computeCityLabelAnchor,
+  padBoundsForLabel,
   rectsIntersect,
 } from './cityLabelPlacement';
 
@@ -77,7 +78,7 @@ function estimateChipSizePx(label: string): { width: number; height: number } {
 
 function buildSources() {
   const infos: Array<{ path: string; type: 'file' | 'directory'; size: number; lastModified: Date }> = (
-    opencodeFiles as Array<{ path: string; type: 'file' | 'directory'; size: number; lastModified: string }>
+    opencodeFiles as unknown as Array<{ path: string; type: 'file' | 'directory'; size: number; lastModified: string }>
   ).map(f => ({ ...f, lastModified: new Date(f.lastModified) }));
   const fileTree = buildFileSystemTreeFromFileInfoList(infos as never, '4f62295e44');
   return buildPackageSources(fileTree, PACKAGES, {
@@ -115,6 +116,39 @@ describe('computeCityLabelAnchor', () => {
       worldPerPx: 44,
     });
     expect(rectsIntersect(chip, anchor.footprintRect)).toBe(false);
+  });
+});
+
+describe('padBoundsForLabel', () => {
+  test('extends only the back (-Z) edge so the chip stays in frame', () => {
+    const bounds = {
+      minX: -30, maxX: 30, minZ: -30, maxZ: 30,
+      centerX: 0, centerZ: 0, width: 60, depth: 60, size: 60,
+    };
+    const padded = padBoundsForLabel(bounds);
+    expect(padded.minZ).toBeLessThan(bounds.minZ);
+    expect(padded.maxZ).toBe(bounds.maxZ);
+    expect(padded.minX).toBe(bounds.minX);
+    expect(padded.maxX).toBe(bounds.maxX);
+    expect(padded.centerZ).toBeCloseTo(bounds.centerZ - (bounds.minZ - padded.minZ) / 2);
+  });
+
+  test('margin scales with footprint so the chip fits at any zoom', () => {
+    const small = padBoundsForLabel({
+      minX: -30, maxX: 30, minZ: -30, maxZ: 30,
+      centerX: 0, centerZ: 0, width: 60, depth: 60, size: 60,
+    });
+    const large = padBoundsForLabel({
+      minX: -150, maxX: 150, minZ: -150, maxZ: 150,
+      centerX: 0, centerZ: 0, width: 300, depth: 300, size: 300,
+    });
+    const smallMargin = -30 - small.minZ;
+    const largeMargin = -150 - large.minZ;
+    // Chip world height scales with the framing height (which scales with the
+    // footprint), so the margin must grow with the footprint — not be fixed.
+    expect(largeMargin).toBeGreaterThan(smallMargin);
+    // But stay a sane fraction so a focus zoom doesn't dilute into an overview.
+    expect(largeMargin / 300).toBeLessThan(0.2);
   });
 });
 

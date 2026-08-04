@@ -784,6 +784,8 @@ interface InstancedBuildingsProps {
   isolationMode: IsolationMode;
   defaultBuildingColor?: string;
   modifiedFiles?: Record<string, { lineDelta: number }>;
+  /** Whole-city alpha multiplier (0–1), eased per-frame toward full opacity. */
+  cityDim?: number;
 }
 
 function InstancedBuildings({
@@ -805,12 +807,21 @@ function InstancedBuildings({
   isolationMode,
   defaultBuildingColor,
   modifiedFiles,
+  cityDim = 1,
 }: InstancedBuildingsProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const startTimeRef = useRef<number | null>(null);
   const tempObject = useMemo(() => new THREE.Object3D(), []);
   const tempColor = useMemo(() => new THREE.Color(), []);
   const invalidate = useThree((s) => s.invalidate);
+  const buildingMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const cityDimRef = useRef(1);
+  const cityDimTargetRef = useRef(1);
+  const dimEaseRef = useRef<{ start: number; from: number; to: number } | null>(null);
+
+  useEffect(() => {
+    cityDimTargetRef.current = cityDim;
+  }, [cityDim]);
 
   const heightMultipliersRef = useRef<Float32Array | null>(null);
   const targetMultipliersRef = useRef<Float32Array | null>(null);
@@ -1018,6 +1029,38 @@ function InstancedBuildings({
     if (!meshRef.current || buildingData.length === 0) return;
     if (!heightMultipliersRef.current || !targetMultipliersRef.current) return;
 
+    let stillAnimating = false;
+
+    // Whole-city alpha: ease toward the target `cityDim` in lockstep with the
+    // camera focus move (same 0.7s smoothstep duration as FLAT_EASE_DURATION_S),
+    // so the dim never front-loads ahead of the zoom. Then apply as real
+    // per-city material opacity.
+    const dimTarget = cityDimTargetRef.current;
+    let dimEased = cityDimRef.current;
+    if (Math.abs(dimTarget - dimEased) > 0.001) {
+      const ease = dimEaseRef.current;
+      if (!ease || ease.to !== dimTarget) {
+        dimEaseRef.current = { start: clock.elapsedTime, from: dimEased, to: dimTarget };
+      }
+      const e = dimEaseRef.current!;
+      const t = Math.min(1, Math.max(0, (clock.elapsedTime - e.start) / 0.7));
+      const p = t >= 1 ? 1 : t * t * (3 - 2 * t);
+      dimEased = e.from + (e.to - e.from) * p;
+      if (t < 1) stillAnimating = true;
+    } else {
+      dimEaseRef.current = null;
+    }
+    cityDimRef.current = dimEased;
+    if (buildingMaterialRef.current) {
+      const mat = buildingMaterialRef.current;
+      mat.opacity = cityDimRef.current;
+      const wantTransparent = cityDimRef.current < 0.999;
+      if (mat.transparent !== wantTransparent) {
+        mat.transparent = wantTransparent;
+        mat.needsUpdate = true;
+      }
+    }
+
     if (startTimeRef.current === null && growProgress > 0) {
       startTimeRef.current = clock.elapsedTime * 1000;
     }
@@ -1025,7 +1068,6 @@ function InstancedBuildings({
     const currentTime = clock.elapsedTime * 1000;
     const animStartTime = startTimeRef.current ?? currentTime;
     const collapseSpeed = 0.08;
-    let stillAnimating = false;
     const SETTLE_EPS = 0.001;
 
     buildingData.forEach((data, instanceIndex) => {
@@ -1157,7 +1199,7 @@ function InstancedBuildings({
         frustumCulled={false}
       >
         <boxGeometry args={[1, 1, 1]} />
-        <meshBasicMaterial />
+        <meshBasicMaterial ref={buildingMaterialRef} />
       </instancedMesh>
 
       <BuildingEdges
@@ -1208,6 +1250,8 @@ interface BuildingIconsProps {
   isolationMode: IsolationMode;
   hasActiveHighlights: boolean;
   modifiedFiles?: Record<string, { lineDelta: number }>;
+  /** Whole-city alpha multiplier (0–1) applied to every icon. */
+  cityDim?: number;
 }
 
 interface AnimatedIconProps {
@@ -1218,15 +1262,20 @@ interface AnimatedIconProps {
   texture: THREE.Texture;
   opacity: number;
   growProgress: number;
+  /** Whole-city alpha multiplier (0–1), eased per-frame toward full opacity. */
+  cityDim: number;
 }
 
 function AnimatedIcon({
-  x, z, targetHeight, iconSize, texture, opacity, growProgress,
+  x, z, targetHeight, iconSize, texture, opacity, growProgress, cityDim,
 }: AnimatedIconProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const cityDimRef = useRef(1);
+  const dimEaseRef = useRef<{ start: number; from: number; to: number } | null>(null);
+  const invalidate = useThree((s) => s.invalidate);
 
-  useFrame(() => {
+  useFrame(({ clock }) => {
     if (!meshRef.current) return;
     const minHeight = 0.3;
     const baseOffset = 0.2;
@@ -1239,8 +1288,25 @@ function AnimatedIcon({
     meshRef.current.position.y = yPosition;
     meshRef.current.rotation.x = -Math.PI / 2;
 
+    // Icon fade tracks the whole-city camera-focus dim (0.7s smoothstep), so
+    // icons and buildings dim in lockstep instead of icons front-loading.
+    let dimEased = cityDimRef.current;
+    if (Math.abs(cityDim - dimEased) > 0.001) {
+      const ease = dimEaseRef.current;
+      if (!ease || ease.to !== cityDim) {
+        dimEaseRef.current = { start: clock.elapsedTime, from: dimEased, to: cityDim };
+      }
+      const e = dimEaseRef.current!;
+      const t = Math.min(1, Math.max(0, (clock.elapsedTime - e.start) / 0.7));
+      const p = t >= 1 ? 1 : t * t * (3 - 2 * t);
+      dimEased = e.from + (e.to - e.from) * p;
+      if (t < 1) invalidate();
+    } else {
+      dimEaseRef.current = null;
+    }
+    cityDimRef.current = dimEased;
     if (materialRef.current) {
-      materialRef.current.opacity = opacity;
+      materialRef.current.opacity = opacity * cityDimRef.current;
     }
   });
 
@@ -1276,6 +1342,7 @@ function BuildingIcons({
   isolationMode,
   hasActiveHighlights,
   modifiedFiles,
+  cityDim = 1,
 }: BuildingIconsProps) {
   const narrowedDirectories = useMemo(() => {
     const dirs: string[] = [];
@@ -1363,6 +1430,7 @@ function BuildingIcons({
               texture={texture}
               opacity={opacity}
               growProgress={growProgress}
+              cityDim={cityDim}
             />
           );
         },
@@ -1810,6 +1878,13 @@ export interface CityContentProps {
    * Defaults to `{ x: 0, z: 0 }` (no offset).
    */
   positionOffset?: { x: number; z: number };
+  /**
+   * Per-city alpha multiplier applied to this city's buildings + icons.
+   * `1` = full opacity (default), `<1` = transparent. Eased per-frame in
+   * lockstep with the camera move so a focused repo brightens as the camera
+   * settles on it.
+   */
+  cityDim?: number;
 }
 
 export function CityContent({
@@ -1840,6 +1915,7 @@ export function CityContent({
   modifiedFiles,
   transitionProgress = 0,
   positionOffset = { x: 0, z: 0 },
+  cityDim = 1,
 }: CityContentProps) {
   const invalidate = useThree((s) => s.invalidate);
   useEffect(() => { invalidate(); });
@@ -2000,6 +2076,7 @@ export function CityContent({
         isolationMode={isolationMode}
         defaultBuildingColor={defaultBuildingColor}
         modifiedFiles={modifiedFiles}
+        cityDim={cityDim}
       />
 
       <DirectoryFills
@@ -2023,6 +2100,7 @@ export function CityContent({
         isolationMode={isolationMode}
         hasActiveHighlights={activeHighlights}
         modifiedFiles={modifiedFiles}
+        cityDim={cityDim}
       />
 
       {modifiedFiles && transitionProgress > 0 && transitionProgress < 1 && cityData.buildings
