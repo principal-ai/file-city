@@ -2866,6 +2866,9 @@ function MultiCityScene({
         const off = offsets[i];
         const dim = cityDims[i];
         const isFocused = focusedOffsetSet?.has(`${off.x},${off.z}`) ?? false;
+        // A source outside the focused set is dimmed — hide its label badge
+        // entirely rather than leave a floating chip over a dimmed city.
+        const dimmed = focusedOffsetSet !== null && !isFocused;
         return (
           <React.Fragment key={s.label ?? i}>
             <CityContent
@@ -2896,7 +2899,7 @@ function MultiCityScene({
               transitionProgress={s.transitionProgress}
               positionOffset={off}
             />
-            {!s.isRemovalLayer && (
+            {!s.isRemovalLayer && !dimmed && (
               <CitySourceLabel
                 source={s}
                 positionOffset={off}
