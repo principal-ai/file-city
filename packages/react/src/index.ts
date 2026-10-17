@@ -4,6 +4,13 @@ export {
   type ArchitectureMapHighlightLayersProps,
 } from './components/ArchitectureMapHighlightLayers';
 
+// Multi-city layout math — shared by the 2D and 3D renderers.
+export {
+  resolveSourceOffsets,
+  computeGlobalBounds,
+  type GlobalBounds,
+} from './utils/citySourceLayout';
+
 // Layer and rendering types
 export {
   type LayerRenderStrategy,

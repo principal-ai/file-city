@@ -81,14 +81,12 @@ function StressTestWrapper({
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <ArchitectureMapHighlightLayers
         cityData={cityData}
-        zoomToPath={zoomToPath}
+        focusDirectory={zoomToPath}
         onZoomComplete={handleZoomComplete}
         zoomAnimationSpeed={0.1}
         highlightLayers={highlightLayers}
-        onFileClick={(path, type) => {
-          if (type === 'directory') {
-            handleZoomTo(path);
-          }
+        onDirectorySelect={(dir) => {
+          if (dir) handleZoomTo(dir);
         }}
         {...props}
       />

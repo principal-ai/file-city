@@ -155,7 +155,7 @@ export const Interactive: Story = {
           cityData={createSampleCityData()}
           fullSize={true}
           enableZoom={true}
-          onHover={info => {
+          onHoverInfo={info => {
             if (info.hoveredBuilding) {
               setHoveredInfo(`File: ${info.hoveredBuilding.path}`);
             } else if (info.hoveredDistrict) {
@@ -164,8 +164,11 @@ export const Interactive: Story = {
               setHoveredInfo('');
             }
           }}
-          onFileClick={(path, type) => {
-            setClickedPath(`Clicked: ${type} - ${path}`);
+          onBuildingClick={(building) => {
+            setClickedPath(`Clicked: file - ${building.path}`);
+          }}
+          onDirectorySelect={(dir) => {
+            setClickedPath(`Clicked: directory - ${dir ?? '(root)'}`);
           }}
         />
         <div
@@ -364,8 +367,7 @@ export const ProgrammaticZoomOnly: Story = {
           cityData={cityData}
           fullSize={true}
           enableZoom={false} // User interactions disabled
-          allowZoomToPath={true} // But programmatic zoom works (this is the default)
-          zoomToPath={zoomToPath}
+          focusDirectory={zoomToPath} // Programmatic focus always applies
           onZoomComplete={handleZoomComplete}
           zoomAnimationSpeed={0.1}
           highlightLayers={highlightLayers}
@@ -523,14 +525,12 @@ export const AnimatedZoomToDirectory: Story = {
           cityData={cityData}
           fullSize={true}
           enableZoom={true}
-          zoomToPath={zoomToPath}
+          focusDirectory={zoomToPath}
           onZoomComplete={handleZoomComplete}
           zoomAnimationSpeed={0.1}
           highlightLayers={highlightLayers}
-          onFileClick={(path, type) => {
-            if (type === 'directory') {
-              handleZoomTo(path);
-            }
+          onDirectorySelect={(dir) => {
+            if (dir) handleZoomTo(dir);
           }}
         />
         {/* Navigation Controls */}

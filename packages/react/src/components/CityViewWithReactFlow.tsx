@@ -154,7 +154,8 @@ const CellNode: React.FC<NodeProps<CellNodeData>> = ({ data, selected }) => {
               defaultDirectoryColor={theme.colors.backgroundSecondary}
               className="w-full h-full"
               // Disable interactions to prevent conflicts with React Flow
-              onFileClick={undefined}
+              onBuildingClick={undefined}
+              onBuildingHover={undefined}
             />
           </div>
         ) : (

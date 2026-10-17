@@ -789,11 +789,25 @@ export function drawLayeredBuildings(
   defaultBuildingColor?: string,
   showFileNames?: boolean,
   hoverBorderColor?: string,
-  disableOpacityDimming?: boolean,
+  /**
+   * How to handle buildings not matched by any enabled highlight layer.
+   * `none` — draw normally; `transparent` — dim to `dimOpacity`;
+   * `collapse` — draw in the muted neutral color (2D has no height to flatten);
+   * `hide` — skip drawing them. Defaults to `none`.
+   */
+  isolationMode?: 'none' | 'transparent' | 'collapse' | 'hide',
+  /** Opacity for `transparent` isolation. Default 0.2. */
+  dimOpacity?: number,
+  /** Whether any highlight layers are active. When omitted it's derived from
+   *  `layers`. Isolation only applies when highlights are active. */
+  hasActiveHighlights?: boolean,
   showFileTypeIcons?: boolean,
   borderRadius: number = 0, // Border radius for buildings (default: 0 - sharp corners)
   layerIndex?: LayerIndex, // Optional pre-built index for performance
   iconMap?: Map<string, FileTypeIconConfig>, // Optional icon configuration map
+  /** Extra per-building opacity multiplier (e.g. per-source dim in a
+   *  multi-city layout). Multiplied into the final opacity. */
+  buildingDim?: (building: CityBuilding) => number,
 ) {
   // Build index once for all buildings (O(n) instead of O(n²))
   const index = layerIndex || new LayerIndex(layers);
@@ -830,6 +844,17 @@ export function drawLayeredBuildings(
     const hasLayerHighlight = layerMatches.length > 0;
     const isHovered = hoveredBuilding === building;
 
+    // Isolation: how buildings not matched by an enabled highlight layer render.
+    const mode = isolationMode ?? 'none';
+    const isolationActive =
+      (hasActiveHighlights ?? layers.some(l => l.enabled && l.items.length > 0)) &&
+      !hasLayerHighlight &&
+      !isHovered;
+
+    if (isolationActive && mode === 'hide') {
+      return; // skip drawing this building entirely
+    }
+
     // Building color
     let color: string;
     if (building.color) {
@@ -838,11 +863,18 @@ export function drawLayeredBuildings(
       color = defaultBuildingColor || '#A1A7AE';
     }
 
-    // Opacity
+    // Opacity / de-emphasis for isolated-out buildings.
     let opacity = 1;
-    if (!disableOpacityDimming) {
-      opacity = hasLayerHighlight ? 1 : 0.3;
+    if (isolationActive && mode === 'transparent') {
+      opacity = dimOpacity ?? 0.2;
+    } else if (isolationActive && mode === 'collapse') {
+      // 2D has no height to flatten — de-emphasize with the muted neutral color.
+      color = defaultBuildingColor || '#A1A7AE';
     }
+
+    // Per-source dim multiplier (multi-city layout).
+    const dimMul = buildingDim?.(building);
+    if (dimMul !== undefined) opacity *= dimMul;
 
     // Draw building with configurable border radius
     ctx.globalAlpha = opacity;

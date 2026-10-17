@@ -24,6 +24,8 @@ import { MapInteractionState, MapDisplayOptions } from '../types/react-types';
 import { getDefaultFileColorConfig } from '../utils/fileColorHighlightLayers';
 import { extractIconConfig } from '../utils/fileTypeIcons';
 import { resolveVisualizationIntent } from '../utils/visualizationResolution';
+import type { CitySource, IsolationMode, SafeArea } from './FileCity3D';
+import { resolveSourceOffsets, computeGlobalBounds } from '../utils/citySourceLayout';
 
 const DEFAULT_DISPLAY_OPTIONS: MapDisplayOptions = {
   showGrid: false,
@@ -34,8 +36,19 @@ const DEFAULT_DISPLAY_OPTIONS: MapDisplayOptions = {
 };
 
 export interface ArchitectureMapHighlightLayersProps {
-  // Core data
+  // Core data — one city, or several (mirrors FileCity3D). When `citySources`
+  // is set it renders instead of `cityData` (each source at its resolved
+  // offset) and the canvas fits the combined bounds; `cityData` is ignored.
   cityData?: CityData;
+  citySources?: CitySource[];
+  /** Gap (world units) between grid cells when sources use `gridCell`. */
+  gridGap?: number;
+  /** Sources to focus: every other source is dimmed to `dimOpacity`.
+   *  Omitted/empty = overview framing, no dim. Compared by object reference. */
+  focusedSources?: CitySource[];
+  /** Fired when a repo label is clicked; receives `null` for a clear-focus
+   *  intent (clicking the already-focused source). */
+  onSourceFocusChange?: (source: CitySource | null) => void;
 
   // Layer-based highlighting instead of path sets
   highlightLayers?: HighlightLayer[];
@@ -47,14 +60,20 @@ export interface ArchitectureMapHighlightLayersProps {
   focusDirectory?: string | null;
   rootDirectoryName?: string;
   onDirectorySelect?: (directory: string | null) => void;
-  onFileClick?: (path: string, type: 'file' | 'directory') => void;
+  onDirectoryHover?: (directory: string | null) => void;
+  onBuildingClick?: (building: CityBuilding, event: MouseEvent) => void;
+  onBuildingHover?: (building: CityBuilding | null) => void;
   enableZoom?: boolean;
 
-  // Animated zoom to directory
-  zoomToPath?: string | null; // When set, animates zoom to frame this directory/file
-  onZoomComplete?: () => void; // Called when zoom animation completes
+  // Animated focus framing. 2D-only companions (the 3D camera animation
+  // exposes no completion callback).
+  onZoomComplete?: () => void; // Called when the focus animation completes
   zoomAnimationSpeed?: number; // Animation easing factor (0-1), default 0.12
-  allowZoomToPath?: boolean; // Allow programmatic zoomToPath even when enableZoom is false (default: true)
+
+  // Safe area — inset rect (fractions of the canvas) the flat city frames
+  // itself into, matching FileCity3D's `safeArea`. The canvas stays full-size;
+  // the fit (and hit-testing) treat the inner rect as the boundary.
+  safeArea?: SafeArea;
 
   // Display options
   fullSize?: boolean;
@@ -71,7 +90,13 @@ export interface ArchitectureMapHighlightLayersProps {
 
   // Additional styling options
   hoverBorderColor?: string;
-  disableOpacityDimming?: boolean;
+  /** How to handle non-highlighted buildings when highlights are active
+   *  (`none` | `transparent` | `collapse` | `hide`). Defaults to `collapse`
+   *  when highlights are present, `none` otherwise — same as FileCity3D. */
+  isolationMode?: IsolationMode;
+  /** Opacity for dimmed buildings (`transparent` isolation) and for unfocused
+   *  sources. Default 0.2. */
+  dimOpacity?: number;
   defaultDirectoryColor?: string;
 
   // Subdirectory mode
@@ -94,7 +119,9 @@ export interface ArchitectureMapHighlightLayersProps {
     flipVertical?: boolean; // Mirror along horizontal axis
   };
 
-  onHover?: (info: {
+  /** Rich hover payload (2D-only extras: mouse position, tooltips, file
+   *  count). Fires alongside `onBuildingHover`; ignore if you don't need it. */
+  onHoverInfo?: (info: {
     hoveredDistrict: CityDistrict | null;
     hoveredBuilding: CityBuilding | null;
     mousePos: { x: number; y: number };
@@ -294,19 +321,42 @@ interface HitTestCache {
   timestamp: number;
 }
 
+/** Screen-space rect of a rendered source label, for click hit-testing. */
+interface LabelHitRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  source: CitySource;
+}
+
+/** A source label's world anchor plus the source's dim state. */
+interface SourceLabelPlacement {
+  source: CitySource;
+  focused: boolean;
+  dim: number;
+  x: number;
+  z: number;
+}
+
 function ArchitectureMapHighlightLayersInner({
   cityData,
+  citySources,
+  gridGap,
+  focusedSources,
+  onSourceFocusChange,
   highlightLayers: externalHighlightLayers,
   onLayerToggle,
   focusDirectory = null,
   rootDirectoryName,
   onDirectorySelect,
-  onFileClick,
+  onDirectoryHover,
+  onBuildingClick,
+  onBuildingHover,
   enableZoom = false,
-  zoomToPath: externalZoomToPath,
   onZoomComplete,
   zoomAnimationSpeed = 0.12,
-  allowZoomToPath = true,
+  safeArea,
   fullSize = false,
   showGrid = false,
   showFileNames = false,
@@ -315,7 +365,8 @@ function ArchitectureMapHighlightLayersInner({
   canvasBackgroundColor,
   maxCanvasSize,
   hoverBorderColor,
-  disableOpacityDimming = true,
+  isolationMode: externalIsolationMode,
+  dimOpacity = 0.2,
   defaultDirectoryColor,
   defaultBuildingColor,
   subdirectoryMode,
@@ -323,7 +374,7 @@ function ArchitectureMapHighlightLayersInner({
   showFileTypeIcons = true,
   showDirectoryLabels = true,
   transform = { rotation: 0 }, // Default to no rotation
-  onHover,
+  onHoverInfo,
   buildingBorderRadius = 0,
   districtBorderRadius = 0,
   focusColor: externalFocusColor,
@@ -339,7 +390,7 @@ function ArchitectureMapHighlightLayersInner({
   const resolved = useMemo(() => {
     // Cast to InputHighlightLayer[] for resolution - types are compatible at runtime
     const resolution = resolveVisualizationIntent({
-      focusPath: externalZoomToPath,
+      focusPath: focusDirectory,
       focusColor: externalFocusColor,
       highlightLayers: (externalHighlightLayers ?? []) as Parameters<typeof resolveVisualizationIntent>[0]['highlightLayers'],
       fileColorLayers: (fileColorLayers ?? []) as Parameters<typeof resolveVisualizationIntent>[0]['fileColorLayers'],
@@ -347,14 +398,14 @@ function ArchitectureMapHighlightLayersInner({
 
     return {
       highlightLayers: resolution.highlightLayers,
-      zoomToPath: resolution.cameraFocusPath,
+      focusPath: resolution.cameraFocusPath,
       focusColor: resolution.focusColor,
-      shouldDim: resolution.shouldIsolate,
+      shouldIsolate: resolution.shouldIsolate,
     };
   }, [
     fileColorLayers,
     externalHighlightLayers,
-    externalZoomToPath,
+    focusDirectory,
     externalFocusColor,
   ]);
 
@@ -366,8 +417,120 @@ function ArchitectureMapHighlightLayersInner({
     })) as HighlightLayer[],
     [resolved.highlightLayers]
   );
-  const zoomToPath = resolved.zoomToPath;
+  const focusPath = resolved.focusPath;
   const focusColor = resolved.focusColor;
+
+  // Isolation — mirror FileCity3D's resolution: `collapse` when highlights are
+  // active, `none` otherwise, unless the host sets it explicitly.
+  const hasActiveHighlights = useMemo(
+    () => highlightLayers.some(l => l.enabled && l.items.length > 0),
+    [highlightLayers],
+  );
+  const isolationMode: IsolationMode =
+    externalIsolationMode ?? (resolved.shouldIsolate ? 'collapse' : 'none');
+
+  // --- Multi-source model --------------------------------------------------
+  // When `citySources` is set, every source's buildings/districts are shifted
+  // into one shared global X/Z space (each city centered on its resolved
+  // offset — the same math FileCity3D uses), so the fit, hit-testing,
+  // abstraction, and focus all run against a single synthetic city. Per-source
+  // dim rides on a WeakMap keyed by the shifted building objects, and labels
+  // are drawn per source.
+  const sourceModel = useMemo(() => {
+    if (!citySources || citySources.length === 0) return null;
+
+    const offsets = resolveSourceOffsets(citySources, gridGap);
+    const global = computeGlobalBounds(citySources, offsets);
+    const focusedSet =
+      focusedSources && focusedSources.length > 0 ? new Set(focusedSources) : null;
+
+    const buildings: CityBuilding[] = [];
+    const districts: CityDistrict[] = [];
+    const dimByBuilding = new WeakMap<CityBuilding, number>();
+    const labels: SourceLabelPlacement[] = [];
+
+    citySources.forEach((s, i) => {
+      const b = s.cityData.bounds;
+      const cx = (b.minX + b.maxX) / 2;
+      const cz = (b.minZ + b.maxZ) / 2;
+      const dx = offsets[i].x - cx;
+      const dz = offsets[i].z - cz;
+      const focused = focusedSet ? focusedSet.has(s) : false;
+      const dim = focusedSet ? (focused ? 1 : dimOpacity) : 1;
+
+      s.cityData.buildings.forEach(bd => {
+        const shifted: CityBuilding = {
+          ...bd,
+          position: { ...bd.position, x: bd.position.x + dx, z: bd.position.z + dz },
+        };
+        buildings.push(shifted);
+        if (dim !== 1) dimByBuilding.set(shifted, dim);
+      });
+
+      s.cityData.districts.forEach(d => {
+        districts.push({
+          ...d,
+          worldBounds: {
+            minX: d.worldBounds.minX + dx,
+            maxX: d.worldBounds.maxX + dx,
+            minZ: d.worldBounds.minZ + dz,
+            maxZ: d.worldBounds.maxZ + dz,
+          },
+        });
+      });
+
+      if (s.label) {
+        labels.push({
+          source: s,
+          focused,
+          dim,
+          // Anchor just behind the city's back edge (world −Z), centered on its column.
+          x: offsets[i].x,
+          z: offsets[i].z - (b.maxZ - b.minZ) / 2,
+        });
+      }
+    });
+
+    const merged: CityData = {
+      ...citySources[0].cityData,
+      bounds: {
+        minX: global.minX,
+        maxX: global.maxX,
+        minZ: global.minZ,
+        maxZ: global.maxZ,
+      },
+      buildings,
+      districts,
+    };
+
+    return { merged, dimByBuilding, labels };
+  }, [citySources, gridGap, focusedSources, dimOpacity]);
+
+  // The city everything downstream renders/fits against — the merged
+  // multi-source city, or the single `cityData` prop.
+  const sourceCityData: CityData | undefined = sourceModel
+    ? sourceModel.merged
+    : cityData;
+
+  // Screen-space rects of the source labels, written during the draw pass and
+  // read by the click handler to drive `onSourceFocusChange`.
+  const labelRectsRef = useRef<LabelHitRect[]>([]);
+
+  // Per-building opacity multiplier: per-source dim (multi-city) × focus-out
+  // dimming. Mirrors FileCity3D, where `focusDirectory` recedes every building
+  // outside its subtree (independent of highlight layers).
+  const buildingDimFn = useCallback(
+    (b: CityBuilding) => {
+      let mul = sourceModel ? sourceModel.dimByBuilding.get(b) ?? 1 : 1;
+      if (focusPath) {
+        const fp = focusPath.replace(/\/+$/, '');
+        const inFocus = b.path === fp || b.path.startsWith(fp + '/');
+        if (!inFocus) mul *= dimOpacity;
+      }
+      return mul;
+    },
+    [sourceModel, focusPath, dimOpacity],
+  );
 
   // Use theme colors as defaults, with prop overrides
   const resolvedCanvasBackgroundColor = canvasBackgroundColor ?? theme.colors.background;
@@ -413,15 +576,16 @@ function ArchitectureMapHighlightLayersInner({
   // Track if we're currently animating
   const isAnimating = targetZoom !== null;
 
-  // Track the last zoomToPath to detect changes
-  const lastZoomToPathRef = useRef<string | null>(null);
+  // Track the last focusPath to detect changes
+  const lastFocusPathRef = useRef<string | null>(null);
 
   // Throttle ref for hover updates (improves performance with large datasets)
   const lastHoverUpdateRef = useRef<number>(0);
   const HOVER_THROTTLE_MS = 16; // ~60fps max for hover updates
 
   useEffect(() => {
-    // Reset user interaction state when enableZoom is disabled
+    // Reset user interaction state when enableZoom is disabled. Programmatic
+    // focus (`focusDirectory`) is always honored regardless of `enableZoom`.
     if (!enableZoom) {
       setZoomState(prev => ({
         ...prev,
@@ -429,17 +593,7 @@ function ArchitectureMapHighlightLayersInner({
         hasMouseMoved: false,
       }));
     }
-    // Only reset zoom position when both user zoom AND programmatic zoom are disabled
-    if (!enableZoom && !allowZoomToPath) {
-      setZoomState(prev => ({
-        ...prev,
-        scale: 1,
-        offsetX: 0,
-        offsetY: 0,
-      }));
-      setTargetZoom(null);
-    }
-  }, [enableZoom, allowZoomToPath]);
+  }, [enableZoom]);
 
   // Animation loop for smooth zoom transitions
   useEffect(() => {
@@ -535,7 +689,10 @@ function ArchitectureMapHighlightLayersInner({
   };
 
   const [canvasSize, setCanvasSize] = useState(() =>
-    calculateCanvasResolution(cityData?.buildings?.length || 10, cityData?.bounds),
+    calculateCanvasResolution(
+      sourceCityData?.buildings?.length || 10,
+      sourceCityData?.bounds,
+    ),
   );
 
   const [displayOptions] = useState<MapDisplayOptions>({
@@ -544,18 +701,18 @@ function ArchitectureMapHighlightLayersInner({
   });
 
   const filteredCityData = useMemo(() => {
-    if (!cityData) {
+    if (!sourceCityData) {
       return undefined;
     }
 
-    let processedData = cityData;
+    let processedData = sourceCityData;
     if (subdirectoryMode?.enabled) {
       const autoCenter = subdirectoryMode.autoCenter === true;
 
       // Use new multi-filter function if filters are provided
       if (subdirectoryMode.filters && subdirectoryMode.filters.length > 0) {
         processedData = filterCityDataForMultipleDirectories(
-          cityData,
+          sourceCityData,
           subdirectoryMode.filters,
           autoCenter,
           subdirectoryMode.combineMode || 'union',
@@ -563,7 +720,7 @@ function ArchitectureMapHighlightLayersInner({
       } else if (subdirectoryMode.rootPath) {
         // Fallback to single path for backward compatibility
         processedData = filterCityDataForSubdirectory(
-          cityData,
+          sourceCityData,
           subdirectoryMode.rootPath,
           autoCenter,
         );
@@ -571,26 +728,26 @@ function ArchitectureMapHighlightLayersInner({
     }
 
     return filterCityDataForSelectiveRender(processedData, selectiveRender);
-  }, [cityData, selectiveRender, subdirectoryMode]);
+  }, [sourceCityData, selectiveRender, subdirectoryMode]);
 
   const canvasSizingData = useMemo(() => {
-    if (subdirectoryMode?.enabled && subdirectoryMode.autoCenter !== true && cityData) {
-      return cityData;
+    if (subdirectoryMode?.enabled && subdirectoryMode.autoCenter !== true && sourceCityData) {
+      return sourceCityData;
     }
     return filteredCityData;
-  }, [subdirectoryMode?.enabled, subdirectoryMode?.autoCenter, cityData, filteredCityData]);
+  }, [subdirectoryMode?.enabled, subdirectoryMode?.autoCenter, sourceCityData, filteredCityData]);
 
-  // Handle zoomToPath changes - calculate target zoom to frame the specified path
+  // Handle focusPath changes - calculate target zoom to frame the specified path
   useEffect(() => {
-    // Skip if programmatic zoom is not allowed or path hasn't changed
-    if (!allowZoomToPath || zoomToPath === lastZoomToPathRef.current) {
+    // Skip if the focus path hasn't changed
+    if (focusPath === lastFocusPathRef.current) {
       return;
     }
 
-    lastZoomToPathRef.current = zoomToPath;
+    lastFocusPathRef.current = focusPath;
 
-    // If zoomToPath is null, reset to default view
-    if (zoomToPath === null) {
+    // If focusPath is null, reset to default view
+    if (focusPath === null) {
       setTargetZoom({
         scale: 1,
         offsetX: 0,
@@ -614,12 +771,12 @@ function ArchitectureMapHighlightLayersInner({
     }
 
     // Find the target - first check districts, then buildings
-    const normalizedPath = zoomToPath.replace(/^\/+|\/+$/g, '');
+    const normalizedPath = focusPath.replace(/^\/+|\/+$/g, '');
     const targetDistrict = filteredCityData.districts.find(
-      d => d.path === normalizedPath || d.path === zoomToPath,
+      d => d.path === normalizedPath || d.path === focusPath,
     );
     const targetBuilding = filteredCityData.buildings.find(
-      b => b.path === normalizedPath || b.path === zoomToPath,
+      b => b.path === normalizedPath || b.path === focusPath,
     );
 
     if (!targetDistrict && !targetBuilding) {
@@ -647,11 +804,20 @@ function ArchitectureMapHighlightLayersInner({
 
     // Use the same coordinate system as rendering
     const coordinateData = canvasSizingData || filteredCityData;
-    const { scale: baseScale, offsetX: baseOffsetX, offsetZ: baseOffsetZ } = calculateScaleAndOffset(
+    const {
+      scale: baseScale,
+      offsetX: baseOffsetX,
+      offsetZ: baseOffsetZ,
+      innerLeft,
+      innerTop,
+      innerWidth,
+      innerHeight,
+    } = calculateFitWithSafeArea(
       coordinateData,
       displayWidth,
       displayHeight,
       displayOptions.padding,
+      safeArea,
     );
 
     // Calculate target center in world coordinates
@@ -662,10 +828,10 @@ function ArchitectureMapHighlightLayersInner({
     const targetScreenWidth = (targetBounds.maxX - targetBounds.minX) * baseScale;
     const targetScreenHeight = (targetBounds.maxZ - targetBounds.minZ) * baseScale;
 
-    // Calculate zoom scale to fit target with padding (80% of display)
+    // Calculate zoom scale to fit target with padding (80% of the inset rect)
     const paddingFactor = 0.8;
-    const scaleToFitWidth = (displayWidth * paddingFactor) / targetScreenWidth;
-    const scaleToFitHeight = (displayHeight * paddingFactor) / targetScreenHeight;
+    const scaleToFitWidth = (innerWidth * paddingFactor) / targetScreenWidth;
+    const scaleToFitHeight = (innerHeight * paddingFactor) / targetScreenHeight;
     const newZoomScale = Math.min(scaleToFitWidth, scaleToFitHeight, 5); // Cap at 5x
 
     // Calculate the base screen position of target center (before zoom transform)
@@ -673,12 +839,12 @@ function ArchitectureMapHighlightLayersInner({
     const baseScreenX = (targetCenterX - coordinateData.bounds.minX) * baseScale + baseOffsetX;
     const baseScreenY = (targetCenterZ - coordinateData.bounds.minZ) * baseScale + baseOffsetZ;
 
-    // Calculate offset to center the target
+    // Calculate offset to center the target on the inset rect's center.
     // Full formula: screenPos = baseScreenPos * zoomScale + zoomOffset
-    // To center: displayCenter = baseScreen * zoomScale + zoomOffset
-    // Therefore: zoomOffset = displayCenter - baseScreen * zoomScale
-    const newOffsetX = displayWidth / 2 - baseScreenX * newZoomScale;
-    const newOffsetY = displayHeight / 2 - baseScreenY * newZoomScale;
+    // To center: innerCenter = baseScreen * zoomScale + zoomOffset
+    // Therefore: zoomOffset = innerCenter - baseScreen * zoomScale
+    const newOffsetX = innerLeft + innerWidth / 2 - baseScreenX * newZoomScale;
+    const newOffsetY = innerTop + innerHeight / 2 - baseScreenY * newZoomScale;
 
     setTargetZoom({
       scale: newZoomScale,
@@ -686,12 +852,15 @@ function ArchitectureMapHighlightLayersInner({
       offsetY: newOffsetY,
     });
   }, [
-    zoomToPath,
-    allowZoomToPath,
+    focusPath,
     filteredCityData,
     canvasSizingData,
     canvasSize,
     displayOptions.padding,
+    safeArea?.left,
+    safeArea?.right,
+    safeArea?.top,
+    safeArea?.bottom,
   ]);
 
   // Build hit test cache with spatial indexing
@@ -838,15 +1007,16 @@ function ArchitectureMapHighlightLayersInner({
       const displayHeight = canvasRef.current.clientHeight || canvasSize.height;
 
       const coordinateSystemData =
-        subdirectoryMode?.enabled && subdirectoryMode.autoCenter !== true && cityData
-          ? cityData
+        subdirectoryMode?.enabled && subdirectoryMode.autoCenter !== true && sourceCityData
+          ? sourceCityData
           : filteredCityData;
 
-      const { scale } = calculateScaleAndOffset(
+      const { scale } = calculateFitWithSafeArea(
         coordinateSystemData,
         displayWidth,
         displayHeight,
         displayOptions.padding,
+        safeArea,
       );
 
       // Use stableZoomScale for abstraction calculation to avoid recalculating during animation
@@ -1050,8 +1220,12 @@ function ArchitectureMapHighlightLayersInner({
     displayOptions.padding,
     stableZoomScale, // Use stable zoom scale instead of live zoomState.scale
     subdirectoryMode,
-    cityData,
+    sourceCityData,
     allLayersWithoutAbstraction,
+    safeArea?.left,
+    safeArea?.right,
+    safeArea?.top,
+    safeArea?.bottom,
   ]);
 
   // Combine all layers for rendering, including calculated abstraction layer
@@ -1146,11 +1320,12 @@ function ArchitectureMapHighlightLayersInner({
 
     const width = canvasRef.current?.clientWidth || canvasSize.width;
     const height = canvasRef.current?.clientHeight || canvasSize.height;
-    const { scale, offsetX, offsetZ } = calculateScaleAndOffset(
+    const { scale, offsetX, offsetZ } = calculateFitWithSafeArea(
       filteredCityData,
       width,
       height,
       displayOptions.padding,
+      safeArea,
     );
 
     // Get abstracted paths from the abstraction layer
@@ -1189,6 +1364,10 @@ function ArchitectureMapHighlightLayersInner({
     stableZoomScale, // Only rebuild when zoom stabilizes
     buildHitTestCache,
     abstractionLayer,
+    safeArea?.left,
+    safeArea?.right,
+    safeArea?.top,
+    safeArea?.bottom,
   ]);
 
   // Main canvas drawing with layer-based highlighting
@@ -1225,15 +1404,16 @@ function ArchitectureMapHighlightLayersInner({
     }
 
     const coordinateSystemData =
-      subdirectoryMode?.enabled && subdirectoryMode.autoCenter !== true && cityData
-        ? cityData
+      subdirectoryMode?.enabled && subdirectoryMode.autoCenter !== true && sourceCityData
+        ? sourceCityData
         : filteredCityData;
 
-    const { scale, offsetX, offsetZ } = calculateScaleAndOffset(
+    const { scale, offsetX, offsetZ } = calculateFitWithSafeArea(
       coordinateSystemData,
       displayWidth,
       displayHeight,
       displayOptions.padding,
+      safeArea,
     );
 
     const worldToCanvas = (x: number, z: number) => ({
@@ -1274,23 +1454,60 @@ function ArchitectureMapHighlightLayersInner({
       resolvedDefaultBuildingColor,
       showFileNames,
       resolvedHoverBorderColor,
-      disableOpacityDimming,
+      isolationMode,
+      dimOpacity,
+      hasActiveHighlights,
       showFileTypeIcons,
       buildingBorderRadius,
       layerIndex, // Pre-built index for O(1) lookups
       iconMap, // Icon configuration map for file type icons
+      buildingDimFn,
     );
 
-    // Draw focus color border around the zoomToPath target
-    if (focusColor && zoomToPath) {
-      const normalizedPath = zoomToPath.replace(/^\/+|\/+$/g, '');
+    // Source labels (multi-city). Drawn in screen space at each source's
+    // back-center; hit rects are cached so clicks can drive onSourceFocusChange.
+    if (sourceModel && sourceModel.labels.length > 0) {
+      const rects: LabelHitRect[] = [];
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      for (const label of sourceModel.labels) {
+        const p = worldToCanvas(label.x, label.z);
+        const text = label.source.label as string;
+        ctx.font = '600 13px -apple-system, "SF Pro", "Segoe UI", Roboto, sans-serif';
+        const padX = 8;
+        const padY = 4;
+        const w = ctx.measureText(text).width + padX * 2;
+        const h = 13 + padY * 2;
+        const rx = p.x - w / 2;
+        const ry = p.y - h - 8;
+        ctx.globalAlpha = label.dim;
+        ctx.fillStyle = 'rgba(10, 14, 22, 0.72)';
+        ctx.fillRect(rx, ry, w, h);
+        if (label.focused) {
+          ctx.strokeStyle = 'rgba(251, 191, 36, 0.55)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(rx + 0.5, ry + 0.5, w - 1, h - 1);
+        }
+        ctx.fillStyle = '#fff';
+        ctx.fillText(text, p.x, ry + h - padY);
+        ctx.globalAlpha = 1;
+        rects.push({ x: rx, y: ry, width: w, height: h, source: label.source });
+      }
+      labelRectsRef.current = rects;
+    } else if (labelRectsRef.current.length > 0) {
+      labelRectsRef.current = [];
+    }
+
+    // Draw focus color border around the focusPath target
+    if (focusColor && focusPath) {
+      const normalizedPath = focusPath.replace(/^\/+|\/+$/g, '');
       // Find the district or building that matches the path
       const targetDistrict = filteredCityData.districts?.find(
-        d => d.path === normalizedPath || d.path === zoomToPath,
+        d => d.path === normalizedPath || d.path === focusPath,
       );
       const targetBuilding = !targetDistrict
         ? filteredCityData.buildings?.find(
-            b => b.path === normalizedPath || b.path === zoomToPath,
+            b => b.path === normalizedPath || b.path === focusPath,
           )
         : null;
 
@@ -1347,10 +1564,12 @@ function ArchitectureMapHighlightLayersInner({
     showFileNames,
     fullSize,
     resolvedHoverBorderColor,
-    disableOpacityDimming,
+    isolationMode,
+    dimOpacity,
+    hasActiveHighlights,
     focusDirectory,
     subdirectoryMode,
-    cityData,
+    sourceCityData,
     resolvedCanvasBackgroundColor,
     showDirectoryLabels,
     allLayers,
@@ -1366,7 +1585,13 @@ function ArchitectureMapHighlightLayersInner({
     iconMap,
     // Focus color border
     focusColor,
-    zoomToPath,
+    focusPath,
+    sourceModel,
+    buildingDimFn,
+    safeArea?.left,
+    safeArea?.right,
+    safeArea?.top,
+    safeArea?.bottom,
   ]);
 
   // Optimized hit testing
@@ -1386,15 +1611,16 @@ function ArchitectureMapHighlightLayersInner({
       const height = canvasRef.current?.clientHeight || canvasSize.height;
 
       const coordinateSystemData =
-        subdirectoryMode?.enabled && subdirectoryMode.autoCenter !== true && cityData
-          ? cityData
+        subdirectoryMode?.enabled && subdirectoryMode.autoCenter !== true && sourceCityData
+          ? sourceCityData
           : filteredCityData;
 
-      const { scale, offsetX, offsetZ } = calculateScaleAndOffset(
+      const { scale, offsetX, offsetZ } = calculateFitWithSafeArea(
         coordinateSystemData,
         width,
         height,
         displayOptions.padding,
+        safeArea,
       );
 
       const screenX = (canvasX - zoomState.offsetX) / zoomState.scale;
@@ -1466,39 +1692,50 @@ function ArchitectureMapHighlightLayersInner({
       displayOptions.padding,
       zoomState,
       subdirectoryMode,
-      cityData,
+      sourceCityData,
+      safeArea?.left,
+      safeArea?.right,
+      safeArea?.top,
+      safeArea?.bottom,
     ],
   );
 
   // Mouse event handlers
-  // Call onHover callback when interaction state changes
+  // Fire the 3D-shaped hover callbacks plus the rich 2D hover payload whenever
+  // interaction state changes. `onBuildingHover` / `onDirectoryHover` mirror
+  // FileCity3D's shapes; `onHoverInfo` carries the 2D-only extras.
   useEffect(() => {
-    if (onHover && interactionState) {
-      const fileTooltip = interactionState.hoveredBuilding
-        ? {
-            text:
-              interactionState.hoveredBuilding.path.split('/').pop() ||
-              interactionState.hoveredBuilding.path,
-          }
+    if (!interactionState) return;
+
+    onBuildingHover?.(interactionState.hoveredBuilding ?? null);
+    onDirectoryHover?.(interactionState.hoveredDistrict?.path || null);
+
+    if (!onHoverInfo) return;
+
+    const fileTooltip = interactionState.hoveredBuilding
+      ? {
+          text:
+            interactionState.hoveredBuilding.path.split('/').pop() ||
+            interactionState.hoveredBuilding.path,
+        }
+      : null;
+
+    const directoryTooltip =
+      interactionState.hoveredDistrict && interactionState.hoveredDistrict.path !== '/'
+        ? { text: interactionState.hoveredDistrict.path || '/' }
         : null;
 
-      const directoryTooltip =
-        interactionState.hoveredDistrict && interactionState.hoveredDistrict.path !== '/'
-          ? { text: interactionState.hoveredDistrict.path || '/' }
-          : null;
-
-      onHover({
-        hoveredDistrict: interactionState.hoveredDistrict,
-        hoveredBuilding: interactionState.hoveredBuilding,
-        mousePos: interactionState.mousePos,
-        fileTooltip,
-        directoryTooltip,
-        fileCount: interactionState.hoveredDistrict
-          ? Math.round(interactionState.hoveredDistrict.fileCount || 0)
-          : null,
-      });
-    }
-  }, [interactionState, onHover]);
+    onHoverInfo({
+      hoveredDistrict: interactionState.hoveredDistrict,
+      hoveredBuilding: interactionState.hoveredBuilding,
+      mousePos: interactionState.mousePos,
+      fileTooltip,
+      directoryTooltip,
+      fileCount: interactionState.hoveredDistrict
+        ? Math.round(interactionState.hoveredDistrict.fileCount || 0)
+        : null,
+    });
+  }, [interactionState, onBuildingHover, onDirectoryHover, onHoverInfo]);
 
   // Helper function to transform mouse coordinates based on rotation/flip
   const transformMouseCoordinates = useCallback(
@@ -1629,33 +1866,52 @@ function ArchitectureMapHighlightLayersInner({
     [enableZoom, zoomState.isDragging, zoomState.lastMousePos, handleMouseMoveInternal, transform],
   );
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (zoomState.hasMouseMoved) {
       return;
     }
 
-    if (interactionState.hoveredBuilding && onFileClick) {
-      /*const fullPath = subdirectoryMode?.enabled && subdirectoryMode.rootPath
-        ? `${subdirectoryMode.rootPath}/${interactionState.hoveredBuilding.path}`
-        : interactionState.hoveredBuilding.path;*/
-      onFileClick(interactionState.hoveredBuilding.path, 'file');
+    // Source labels take priority — a label click focuses that repo (or clears
+    // focus when it's already focused), mirroring FileCity3D's source focus.
+    if (
+      sourceModel &&
+      canvasRef.current &&
+      labelRectsRef.current.length > 0 &&
+      containerRef.current
+    ) {
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const { x, y } = transformMouseCoordinates(
+        e.clientX - containerRect.left,
+        e.clientY - containerRect.top,
+        canvasRef.current.width,
+        canvasRef.current.height,
+      );
+      const hit = labelRectsRef.current.find(
+        r => x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height,
+      );
+      if (hit) {
+        const alreadyFocused = (focusedSources ?? []).includes(hit.source);
+        onSourceFocusChange?.(alreadyFocused ? null : hit.source);
+        return;
+      }
+    }
+
+    if (interactionState.hoveredBuilding) {
+      onBuildingClick?.(interactionState.hoveredBuilding, e.nativeEvent);
       return;
     }
 
     if (interactionState.hoveredDistrict) {
       const districtPath = interactionState.hoveredDistrict.path || '';
       const isRoot = !districtPath || districtPath === '';
+      if (isRoot) return;
 
       const fullPath =
-        subdirectoryMode?.enabled && subdirectoryMode.rootPath && !isRoot
+        subdirectoryMode?.enabled && subdirectoryMode.rootPath
           ? `${subdirectoryMode.rootPath}/${districtPath}`
           : districtPath;
 
-      if (onFileClick && !isRoot) {
-        onFileClick(fullPath, 'directory');
-      } else if (onDirectorySelect) {
-        onDirectorySelect(focusDirectory === fullPath ? null : fullPath);
-      }
+      onDirectorySelect?.(focusDirectory === fullPath ? null : fullPath);
     }
   };
 
@@ -1949,6 +2205,49 @@ function calculateScaleAndOffset(
   const offsetZ = (height - scaledCityHeight) / 2;
 
   return { scale, offsetX, offsetZ };
+}
+
+/**
+ * Fit the city into the canvas, honoring `safeArea`. The canvas stays
+ * full-size; the fit treats the inset inner rect as the boundary (so chrome can
+ * float over the margins), matching FileCity3D's `safeArea` semantics. Returns
+ * the shifted `offsetX`/`offsetZ` (so `worldToCanvas` and hit-testing, which
+ * both run through this, stay in lockstep) plus the inner-rect metrics needed
+ * to center a focus zoom on the inset region rather than the full canvas.
+ */
+function calculateFitWithSafeArea(
+  cityData: CityData,
+  width: number,
+  height: number,
+  padding: number,
+  safeArea?: SafeArea,
+) {
+  const left = safeArea?.left ?? 0;
+  const right = safeArea?.right ?? 0;
+  const top = safeArea?.top ?? 0;
+  const bottom = safeArea?.bottom ?? 0;
+
+  const insetLeft = left * width;
+  const insetTop = top * height;
+  const innerWidth = Math.max(1, width * Math.max(0, 1 - left - right));
+  const innerHeight = Math.max(1, height * Math.max(0, 1 - top - bottom));
+
+  const { scale, offsetX, offsetZ } = calculateScaleAndOffset(
+    cityData,
+    innerWidth,
+    innerHeight,
+    padding,
+  );
+
+  return {
+    scale,
+    offsetX: offsetX + insetLeft,
+    offsetZ: offsetZ + insetTop,
+    innerLeft: insetLeft,
+    innerTop: insetTop,
+    innerWidth,
+    innerHeight,
+  };
 }
 
 export const ArchitectureMapHighlightLayers = ArchitectureMapHighlightLayersInner;
