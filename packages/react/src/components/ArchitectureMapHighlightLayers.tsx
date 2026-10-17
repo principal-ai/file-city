@@ -2195,12 +2195,15 @@ function calculateScaleAndOffset(
   const horizontalPadding = padding;
   const verticalPadding = padding * 2;
 
-  const scaleX = (width - horizontalPadding) / cityDepth;
-  const scaleZ = (height - verticalPadding) / cityWidth;
+  // Screen X spans the city's world-X extent and screen Y its world-Z extent
+  // (see `worldToCanvas`), so each axis fits its own extent. Dividing by the
+  // swapped pair pushed non-square cities off-center.
+  const scaleX = (width - horizontalPadding) / cityWidth;
+  const scaleZ = (height - verticalPadding) / cityDepth;
   const scale = Math.min(scaleX, scaleZ);
 
-  const scaledCityWidth = cityDepth * scale;
-  const scaledCityHeight = cityWidth * scale;
+  const scaledCityWidth = cityWidth * scale;
+  const scaledCityHeight = cityDepth * scale;
   const offsetX = (width - scaledCityWidth) / 2;
   const offsetZ = (height - scaledCityHeight) / 2;
 
