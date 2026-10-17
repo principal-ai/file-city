@@ -521,6 +521,9 @@ export function drawLayeredDistricts(
   showDirectoryLabels: boolean = true,
   borderRadius: number = 0, // Border radius for districts (default: sharp corners)
   layerIndex?: LayerIndex, // Optional pre-built index for performance
+  /** Per-district appear progress (0-1) — a new directory pops in with a
+   *  brighter, thicker border while it animates in. Keyed by district path. */
+  appearingProgress?: Record<string, number>,
 ) {
   // Build index once for all districts (O(n) instead of O(n²))
   const index = layerIndex || new LayerIndex(layers);
@@ -578,6 +581,14 @@ export function drawLayeredDistricts(
       borderOpacity = Math.max(borderOpacity, 0.7);
     }
 
+    // "Appearing" districts (transition) brighten and thicken as they pop in.
+    const ap = appearingProgress?.[districtPath] ?? 0;
+    if (ap > 0) {
+      const a = Math.min(1, ap);
+      opacity = Math.max(opacity, 0.3 + 0.4 * a);
+      borderOpacity = Math.max(borderOpacity, 0.4 + 0.6 * a);
+    }
+
     // Fill districts with configurable border radius
     ctx.fillStyle = `rgba(${baseColor[0]}, ${baseColor[1]}, ${baseColor[2]}, ${opacity})`;
     if (borderRadius > 0) {
@@ -596,11 +607,17 @@ export function drawLayeredDistricts(
     }
 
     // Border with configurable border radius
-    ctx.strokeStyle = `rgba(${Math.min(255, baseColor[0] + 40)}, ${Math.min(
-      255,
-      baseColor[1] + 40,
-    )}, ${Math.min(255, baseColor[2] + 40)}, ${borderOpacity})`;
-    ctx.lineWidth = 1;
+    if (ap > 0) {
+      const a = Math.min(1, ap);
+      ctx.strokeStyle = `rgba(250, 204, 21, ${0.35 + 0.65 * a})`;
+      ctx.lineWidth = 1 + 4 * a;
+    } else {
+      ctx.strokeStyle = `rgba(${Math.min(255, baseColor[0] + 40)}, ${Math.min(
+        255,
+        baseColor[1] + 40,
+      )}, ${Math.min(255, baseColor[2] + 40)}, ${borderOpacity})`;
+      ctx.lineWidth = 1;
+    }
     if (borderRadius > 0) {
       drawRoundedRect(
         ctx,

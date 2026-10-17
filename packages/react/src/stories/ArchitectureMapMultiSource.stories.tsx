@@ -45,12 +45,36 @@ const MultiSourceRender: React.FC<{ safeArea: boolean }> = ({ safeArea }) => {
         positionOffset: { x: 0, z: 0 },
         gridCell: { col: 0, row: 0 },
         label: 'repo-a',
+        // Per-source highlight + isolation, exactly how the consumer's
+        // `attachHighlights` wires repo overview / agent sessions.
+        highlightLayers: [
+          {
+            id: 'a-src',
+            name: 'repo-a/src',
+            enabled: true,
+            color: '#22c55e',
+            priority: 5,
+            items: [{ path: 'src', type: 'directory', renderStrategy: 'fill' }],
+          },
+        ],
+        isolationMode: 'collapse',
       },
       {
         cityData: createSmallSampleCityData(),
         positionOffset: { x: 0, z: 0 },
         gridCell: { col: 1, row: 0 },
         label: 'repo-b',
+        highlightLayers: [
+          {
+            id: 'b-tests',
+            name: 'repo-b/tests',
+            enabled: true,
+            color: '#f59e0b',
+            priority: 5,
+            items: [{ path: 'tests', type: 'directory', renderStrategy: 'fill' }],
+          },
+        ],
+        isolationMode: 'collapse',
       },
     ],
     [],

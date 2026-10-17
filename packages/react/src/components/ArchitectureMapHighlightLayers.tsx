@@ -341,6 +341,26 @@ interface SourceLabelPlacement {
   z: number;
 }
 
+/**
+ * One source's draw group in a multi-city layout. Each carries its own
+ * highlight layers / isolation / focus / color (matching FileCity3D's
+ * MultiCityScene, which reads these from `CitySource` rather than the
+ * top-level props) plus its buildings/districts shifted into the shared
+ * global X/Z space.
+ */
+interface SourceDrawGroup {
+  source: CitySource;
+  dim: number;
+  buildings: CityBuilding[];
+  districts: CityDistrict[];
+  layers: HighlightLayer[];
+  isolationMode: IsolationMode;
+  focusDirectory: string | null;
+  focusColor: string | null;
+  defaultBuildingColor?: string;
+  districtAppearingProgress?: Record<string, number>;
+}
+
 function ArchitectureMapHighlightLayersInner({
   cityData,
   citySources,
@@ -432,14 +452,24 @@ function ArchitectureMapHighlightLayersInner({
     externalIsolationMode ?? (resolved.shouldIsolate ? 'collapse' : 'none');
 
   // --- Multi-source model --------------------------------------------------
-  // When `citySources` is set, every source's buildings/districts are shifted
-  // into one shared global X/Z space (each city centered on its resolved
-  // offset — the same math FileCity3D uses), so the fit, hit-testing,
-  // abstraction, and focus all run against a single synthetic city. Per-source
-  // dim rides on a WeakMap keyed by the shifted building objects, and labels
-  // are drawn per source.
+  // When `citySources` is set, each source's buildings/districts are shifted
+  // into one shared global X/Z space (centered on its resolved offset — the
+  // same math FileCity3D uses) so the fit, hit-testing, abstraction, and focus
+  // run against a single synthetic city. Drawing, however, stays *per source*:
+  // each group carries its own highlight layers, isolation mode, directory
+  // focus, and default building color — matching FileCity3D's MultiCityScene,
+  // which reads those from `CitySource` rather than the top-level props.
   const sourceModel = useMemo(() => {
     if (!citySources || citySources.length === 0) return null;
+
+    // Base file-type colors (unscoped) — per-source layers sit on top.
+    const fileColorOnly = resolveVisualizationIntent({
+      focusPath: null,
+      highlightLayers: [],
+      fileColorLayers: (fileColorLayers ?? []) as Parameters<
+        typeof resolveVisualizationIntent
+      >[0]['fileColorLayers'],
+    }).highlightLayers as HighlightLayer[];
 
     const offsets = resolveSourceOffsets(citySources, gridGap);
     const global = computeGlobalBounds(citySources, offsets);
@@ -448,7 +478,7 @@ function ArchitectureMapHighlightLayersInner({
 
     const buildings: CityBuilding[] = [];
     const districts: CityDistrict[] = [];
-    const dimByBuilding = new WeakMap<CityBuilding, number>();
+    const groups: SourceDrawGroup[] = [];
     const labels: SourceLabelPlacement[] = [];
 
     citySources.forEach((s, i) => {
@@ -458,33 +488,42 @@ function ArchitectureMapHighlightLayersInner({
       const dx = offsets[i].x - cx;
       const dz = offsets[i].z - cz;
       const focused = focusedSet ? focusedSet.has(s) : false;
+      const dimmed = focusedSet !== null && !focused;
       // Per-source alpha: an explicit `cityDim` wins; else focus-driven dim.
-      const dim = s.cityDim ?? (focusedSet ? (focused ? 1 : dimOpacity) : 1);
+      const dim = s.cityDim ?? (dimmed ? dimOpacity : 1);
 
-      s.cityData.buildings.forEach(bd => {
-        const shifted: CityBuilding = {
-          ...bd,
-          position: { ...bd.position, x: bd.position.x + dx, z: bd.position.z + dz },
-        };
-        buildings.push(shifted);
-        if (dim !== 1) dimByBuilding.set(shifted, dim);
+      const gBuildings: CityBuilding[] = s.cityData.buildings.map(bd => ({
+        ...bd,
+        position: { ...bd.position, x: bd.position.x + dx, z: bd.position.z + dz },
+      }));
+      const gDistricts: CityDistrict[] = s.cityData.districts.map(d => ({
+        ...d,
+        worldBounds: {
+          minX: d.worldBounds.minX + dx,
+          maxX: d.worldBounds.maxX + dx,
+          minZ: d.worldBounds.minZ + dz,
+          maxZ: d.worldBounds.maxZ + dz,
+        },
+      }));
+
+      buildings.push(...gBuildings);
+      districts.push(...gDistricts);
+      groups.push({
+        source: s,
+        dim,
+        buildings: gBuildings,
+        districts: gDistricts,
+        layers: [...(s.highlightLayers ?? []), ...fileColorOnly],
+        isolationMode: s.isolationMode ?? 'none',
+        focusDirectory: s.focusDirectory ?? null,
+        focusColor: s.focusColor ?? null,
+        defaultBuildingColor: s.defaultBuildingColor,
+        districtAppearingProgress: s.districtAppearingProgress,
       });
 
-      s.cityData.districts.forEach(d => {
-        districts.push({
-          ...d,
-          worldBounds: {
-            minX: d.worldBounds.minX + dx,
-            maxX: d.worldBounds.maxX + dx,
-            minZ: d.worldBounds.minZ + dz,
-            maxZ: d.worldBounds.maxZ + dz,
-          },
-        });
-      });
-
-      // Labels: skip synthetic removal layers (they render the shrinking city
-      // but no badge) and honor the transition's `labelProgress` fade.
-      if (s.label && !s.isRemovalLayer) {
+      // Labels: synthetic removal layers draw no badge, and a source dimmed by
+      // focus hides its label (mirrors FileCity3D's MultiCityScene).
+      if (s.label && !s.isRemovalLayer && !dimmed) {
         const labelProgress = Math.max(0, Math.min(1, s.labelProgress ?? 1));
         if (labelProgress > 0) {
           labels.push({
@@ -513,8 +552,8 @@ function ArchitectureMapHighlightLayersInner({
       districts,
     };
 
-    return { merged, dimByBuilding, labels };
-  }, [citySources, gridGap, focusedSources, dimOpacity]);
+    return { merged, groups, labels };
+  }, [citySources, gridGap, focusedSources, dimOpacity, fileColorLayers]);
 
   // The city everything downstream renders/fits against — the merged
   // multi-source city, or the single `cityData` prop.
@@ -526,20 +565,19 @@ function ArchitectureMapHighlightLayersInner({
   // read by the click handler to drive `onSourceFocusChange`.
   const labelRectsRef = useRef<LabelHitRect[]>([]);
 
-  // Per-building opacity multiplier: per-source dim (multi-city) × focus-out
-  // dimming. Mirrors FileCity3D, where `focusDirectory` recedes every building
-  // outside its subtree (independent of highlight layers).
-  const buildingDimFn = useCallback(
-    (b: CityBuilding) => {
-      let mul = sourceModel ? sourceModel.dimByBuilding.get(b) ?? 1 : 1;
-      if (focusPath) {
-        const fp = focusPath.replace(/\/+$/, '');
+  // Focus-out dimming: `focusDirectory` recedes every building outside its
+  // subtree (independent of highlight layers), mirroring FileCity3D.
+  const focusOutDim = useCallback(
+    (b: CityBuilding, focusDir: string | null, base = 1) => {
+      let mul = base;
+      if (focusDir) {
+        const fp = focusDir.replace(/\/+$/, '');
         const inFocus = b.path === fp || b.path.startsWith(fp + '/');
         if (!inFocus) mul *= dimOpacity;
       }
       return mul;
     },
-    [sourceModel, focusPath, dimOpacity],
+    [dimOpacity],
   );
 
   // Use theme colors as defaults, with prop overrides
@@ -1436,43 +1474,86 @@ function ArchitectureMapHighlightLayersInner({
     });
 
     // Use memoized visible districts and buildings (pre-filtered, doesn't recalculate on hover)
-    // Draw districts with layer support
-    drawLayeredDistricts(
-      ctx,
-      visibleDistrictsMemo,
-      worldToCanvas,
-      scale * zoomState.scale,
-      allLayers,
-      interactionState.hoveredDistrict,
-      fullSize,
-      resolvedDefaultDirectoryColor,
-      filteredCityData.metadata.layoutConfig,
-      abstractedPathsSet, // Pass abstracted paths to skip labels
-      showDirectoryLabels,
-      districtBorderRadius,
-      layerIndex, // Pre-built index for O(1) lookups
-    );
+    if (sourceModel) {
+      // Multi-source: draw each source with its own layers / isolation /
+      // default color / directory focus, sharing the global transform.
+      for (const g of sourceModel.groups) {
+        const groupHasHighlights = g.layers.some(l => l.enabled && l.items.length > 0);
+        drawLayeredDistricts(
+          ctx,
+          g.districts,
+          worldToCanvas,
+          scale * zoomState.scale,
+          g.layers,
+          interactionState.hoveredDistrict,
+          fullSize,
+          resolvedDefaultDirectoryColor,
+          filteredCityData.metadata.layoutConfig,
+          abstractedPathsSet,
+          showDirectoryLabels,
+          districtBorderRadius,
+          undefined, // per-source index (small sets)
+          g.districtAppearingProgress,
+        );
+        drawLayeredBuildings(
+          ctx,
+          g.buildings,
+          worldToCanvas,
+          scale * zoomState.scale,
+          g.layers,
+          interactionState.hoveredBuilding,
+          g.defaultBuildingColor ?? resolvedDefaultBuildingColor,
+          showFileNames,
+          resolvedHoverBorderColor,
+          g.isolationMode,
+          dimOpacity,
+          groupHasHighlights,
+          showFileTypeIcons,
+          buildingBorderRadius,
+          undefined, // per-source index (small sets)
+          iconMap,
+          b => focusOutDim(b, g.focusDirectory, g.dim),
+        );
+      }
+    } else {
+      // Draw districts with layer support
+      drawLayeredDistricts(
+        ctx,
+        visibleDistrictsMemo,
+        worldToCanvas,
+        scale * zoomState.scale,
+        allLayers,
+        interactionState.hoveredDistrict,
+        fullSize,
+        resolvedDefaultDirectoryColor,
+        filteredCityData.metadata.layoutConfig,
+        abstractedPathsSet, // Pass abstracted paths to skip labels
+        showDirectoryLabels,
+        districtBorderRadius,
+        layerIndex, // Pre-built index for O(1) lookups
+      );
 
-    // Draw buildings with layer support
-    drawLayeredBuildings(
-      ctx,
-      visibleBuildingsMemo,
-      worldToCanvas,
-      scale * zoomState.scale,
-      allLayers,
-      interactionState.hoveredBuilding,
-      resolvedDefaultBuildingColor,
-      showFileNames,
-      resolvedHoverBorderColor,
-      isolationMode,
-      dimOpacity,
-      hasActiveHighlights,
-      showFileTypeIcons,
-      buildingBorderRadius,
-      layerIndex, // Pre-built index for O(1) lookups
-      iconMap, // Icon configuration map for file type icons
-      buildingDimFn,
-    );
+      // Draw buildings with layer support
+      drawLayeredBuildings(
+        ctx,
+        visibleBuildingsMemo,
+        worldToCanvas,
+        scale * zoomState.scale,
+        allLayers,
+        interactionState.hoveredBuilding,
+        resolvedDefaultBuildingColor,
+        showFileNames,
+        resolvedHoverBorderColor,
+        isolationMode,
+        dimOpacity,
+        hasActiveHighlights,
+        showFileTypeIcons,
+        buildingBorderRadius,
+        layerIndex, // Pre-built index for O(1) lookups
+        iconMap, // Icon configuration map for file type icons
+        b => focusOutDim(b, focusPath),
+      );
+    }
 
     // Source labels (multi-city). Drawn in screen space at each source's
     // back-center; hit rects are cached so clicks can drive onSourceFocusChange.
@@ -1508,10 +1589,20 @@ function ArchitectureMapHighlightLayersInner({
       labelRectsRef.current = [];
     }
 
-    // Draw focus color border around the focusPath target
-    if (focusColor && focusPath) {
+    // Focus border(s). Single city: the global focusDirectory/focusColor.
+    // Multi-source: each group's own focusDirectory/focusColor.
+    if (sourceModel) {
+      for (const g of sourceModel.groups) {
+        if (!g.focusColor || !g.focusDirectory) continue;
+        const np = g.focusDirectory.replace(/^\/+|\/+$/g, '');
+        const d = g.districts.find(x => x.path === np || x.path === g.focusDirectory);
+        const b2 = d
+          ? undefined
+          : g.buildings.find(x => x.path === np || x.path === g.focusDirectory);
+        strokeFocusBorder(ctx, worldToCanvas, d, b2, g.focusColor, zoomState.scale);
+      }
+    } else if (focusColor && focusPath) {
       const normalizedPath = focusPath.replace(/^\/+|\/+$/g, '');
-      // Find the district or building that matches the path
       const targetDistrict = filteredCityData.districts?.find(
         d => d.path === normalizedPath || d.path === focusPath,
       );
@@ -1520,41 +1611,14 @@ function ArchitectureMapHighlightLayersInner({
             b => b.path === normalizedPath || b.path === focusPath,
           )
         : null;
-
-      if (targetDistrict) {
-        // Draw border around district
-        const { minX, maxX, minZ, maxZ } = targetDistrict.worldBounds;
-        const topLeft = worldToCanvas(minX, minZ);
-        const bottomRight = worldToCanvas(maxX, maxZ);
-        const width = bottomRight.x - topLeft.x;
-        const height = bottomRight.y - topLeft.y;
-
-        ctx.save();
-        ctx.strokeStyle = focusColor;
-        ctx.lineWidth = 3 * zoomState.scale;
-        ctx.strokeRect(topLeft.x, topLeft.y, width, height);
-        ctx.restore();
-      } else if (targetBuilding) {
-        // Draw border around building
-        const size = Math.max(targetBuilding.dimensions[0], targetBuilding.dimensions[2]);
-        const halfSize = size / 2;
-        const topLeft = worldToCanvas(
-          targetBuilding.position.x - halfSize,
-          targetBuilding.position.z - halfSize,
-        );
-        const bottomRight = worldToCanvas(
-          targetBuilding.position.x + halfSize,
-          targetBuilding.position.z + halfSize,
-        );
-        const width = bottomRight.x - topLeft.x;
-        const height = bottomRight.y - topLeft.y;
-
-        ctx.save();
-        ctx.strokeStyle = focusColor;
-        ctx.lineWidth = 3 * zoomState.scale;
-        ctx.strokeRect(topLeft.x, topLeft.y, width, height);
-        ctx.restore();
-      }
+      strokeFocusBorder(
+        ctx,
+        worldToCanvas,
+        targetDistrict,
+        targetBuilding,
+        focusColor,
+        zoomState.scale,
+      );
     }
 
     // Performance monitoring end available for debugging
@@ -1597,7 +1661,7 @@ function ArchitectureMapHighlightLayersInner({
     focusColor,
     focusPath,
     sourceModel,
-    buildingDimFn,
+    focusOutDim,
     safeArea?.left,
     safeArea?.right,
     safeArea?.top,
@@ -2218,6 +2282,49 @@ function calculateScaleAndOffset(
   const offsetZ = (height - scaledCityHeight) / 2;
 
   return { scale, offsetX, offsetZ };
+}
+
+/**
+ * Stroke the focus border for a matched district (preferred) or building, in
+ * the shared global transform. Shared by the single-city and multi-source
+ * draw paths.
+ */
+function strokeFocusBorder(
+  ctx: CanvasRenderingContext2D,
+  worldToCanvas: (x: number, z: number) => { x: number; y: number },
+  district: CityDistrict | undefined | null,
+  building: CityBuilding | undefined | null,
+  color: string,
+  zoomScale: number,
+) {
+  const target = district
+    ? {
+        minX: district.worldBounds.minX,
+        maxX: district.worldBounds.maxX,
+        minZ: district.worldBounds.minZ,
+        maxZ: district.worldBounds.maxZ,
+      }
+    : building
+      ? (() => {
+          const size = Math.max(building.dimensions[0], building.dimensions[2]);
+          const half = size / 2;
+          return {
+            minX: building.position.x - half,
+            maxX: building.position.x + half,
+            minZ: building.position.z - half,
+            maxZ: building.position.z + half,
+          };
+        })()
+      : null;
+  if (!target) return;
+
+  const tl = worldToCanvas(target.minX, target.minZ);
+  const br = worldToCanvas(target.maxX, target.maxZ);
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3 * zoomScale;
+  ctx.strokeRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
+  ctx.restore();
 }
 
 /**
