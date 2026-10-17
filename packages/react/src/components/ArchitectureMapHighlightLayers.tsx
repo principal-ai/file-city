@@ -335,6 +335,8 @@ interface SourceLabelPlacement {
   source: CitySource;
   focused: boolean;
   dim: number;
+  /** Fade-in progress (0-1) from `useCitySourceTransition`. */
+  labelProgress: number;
   x: number;
   z: number;
 }
@@ -456,7 +458,8 @@ function ArchitectureMapHighlightLayersInner({
       const dx = offsets[i].x - cx;
       const dz = offsets[i].z - cz;
       const focused = focusedSet ? focusedSet.has(s) : false;
-      const dim = focusedSet ? (focused ? 1 : dimOpacity) : 1;
+      // Per-source alpha: an explicit `cityDim` wins; else focus-driven dim.
+      const dim = s.cityDim ?? (focusedSet ? (focused ? 1 : dimOpacity) : 1);
 
       s.cityData.buildings.forEach(bd => {
         const shifted: CityBuilding = {
@@ -479,15 +482,22 @@ function ArchitectureMapHighlightLayersInner({
         });
       });
 
-      if (s.label) {
-        labels.push({
-          source: s,
-          focused,
-          dim,
-          // Anchor just behind the city's back edge (world −Z), centered on its column.
-          x: offsets[i].x,
-          z: offsets[i].z - (b.maxZ - b.minZ) / 2,
-        });
+      // Labels: skip synthetic removal layers (they render the shrinking city
+      // but no badge) and honor the transition's `labelProgress` fade.
+      if (s.label && !s.isRemovalLayer) {
+        const labelProgress = Math.max(0, Math.min(1, s.labelProgress ?? 1));
+        if (labelProgress > 0) {
+          labels.push({
+            source: s,
+            focused,
+            dim,
+            labelProgress,
+            // Anchor just behind the city's back edge (world −Z), centered on
+            // its column.
+            x: offsets[i].x,
+            z: offsets[i].z - (b.maxZ - b.minZ) / 2,
+          });
+        }
       }
     });
 
@@ -1480,7 +1490,7 @@ function ArchitectureMapHighlightLayersInner({
         const h = 13 + padY * 2;
         const rx = p.x - w / 2;
         const ry = p.y - h - 8;
-        ctx.globalAlpha = label.dim;
+        ctx.globalAlpha = label.dim * label.labelProgress;
         ctx.fillStyle = 'rgba(10, 14, 22, 0.72)';
         ctx.fillRect(rx, ry, w, h);
         if (label.focused) {
