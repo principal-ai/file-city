@@ -610,8 +610,9 @@ export function drawLayeredDistricts(
     if (ap > 0) {
       const a = Math.min(1, ap);
       ctx.strokeStyle = `rgba(250, 204, 21, ${0.35 + 0.65 * a})`;
-      // Steady 3px accent — matches 3D's DistrictFloor (no width ramp).
-      ctx.lineWidth = 3;
+      // Subtle accent — just over the 1px resting border (3D uses 3, but 2D's
+      // districts read heavier, so keep it light).
+      ctx.lineWidth = 1.5;
     } else {
       ctx.strokeStyle = `rgba(${Math.min(255, baseColor[0] + 40)}, ${Math.min(
         255,
