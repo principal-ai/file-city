@@ -829,6 +829,34 @@ function ArchitectureMapHighlightLayersInner({
     return filterCityDataForSelectiveRender(processedData, selectiveRender);
   }, [sourceCityData, selectiveRender, subdirectoryMode]);
 
+  // The canvas bitmap is sized from the container *inside* the draw effect, but
+  // nothing re-ran that effect when the container changed size — so a panel
+  // that mounts at ~0 size (or grows after layout) stayed blank (the theme
+  // background showed through). Observe the container and bump a tick.
+  const hasCityData = !!filteredCityData;
+  const [resizeTick, setResizeTick] = useState(0);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    let lastW = -1;
+    let lastH = -1;
+    const ro = new ResizeObserver(entries => {
+      const rect = entries[0]?.contentRect;
+      if (!rect) return;
+      if (
+        Math.abs(rect.width - lastW) < 0.5 &&
+        Math.abs(rect.height - lastH) < 0.5
+      ) {
+        return;
+      }
+      lastW = rect.width;
+      lastH = rect.height;
+      setResizeTick(t => t + 1);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [hasCityData]);
+
   const canvasSizingData = useMemo(() => {
     if (subdirectoryMode?.enabled && subdirectoryMode.autoCenter !== true && sourceCityData) {
       return sourceCityData;
@@ -1501,6 +1529,12 @@ function ArchitectureMapHighlightLayersInner({
     canvas.width = displayWidth;
     canvas.height = displayHeight;
 
+    // No usable size yet — skip (and don't store a bogus first fit). The
+    // ResizeObserver re-runs this effect once the container has real size.
+    if (displayWidth <= 1 || displayHeight <= 1) {
+      return;
+    }
+
     ctx.fillStyle = resolvedCanvasBackgroundColor;
     ctx.fillRect(0, 0, displayWidth, displayHeight);
 
@@ -1771,6 +1805,7 @@ function ArchitectureMapHighlightLayersInner({
     fitTick,
     animateFit,
     zoomAnimationSpeed,
+    resizeTick,
   ]);
 
   // Optimized hit testing
