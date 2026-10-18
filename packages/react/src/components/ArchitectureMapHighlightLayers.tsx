@@ -526,15 +526,18 @@ function ArchitectureMapHighlightLayersInner({
       if (s.label && !s.isRemovalLayer && !dimmed) {
         const labelProgress = Math.max(0, Math.min(1, s.labelProgress ?? 1));
         if (labelProgress > 0) {
+          const depth = b.maxZ - b.minZ;
+          const halfD = depth / 2;
+          // Same clearance 3D uses (computeCityLabelAnchor): a small gap behind
+          // the back edge so the chip doesn't sit flush against the footprint.
+          const gap = Math.max(8, halfD * 0.04);
           labels.push({
             source: s,
             focused,
             dim,
             labelProgress,
-            // Anchor just behind the city's back edge (world −Z), centered on
-            // its column.
             x: offsets[i].x,
-            z: offsets[i].z - (b.maxZ - b.minZ) / 2,
+            z: offsets[i].z - halfD - gap,
           });
         }
       }
@@ -564,6 +567,13 @@ function ArchitectureMapHighlightLayersInner({
   // Screen-space rects of the source labels, written during the draw pass and
   // read by the click handler to drive `onSourceFocusChange`.
   const labelRectsRef = useRef<LabelHitRect[]>([]);
+
+  // Reserve a top band for the source label chips (13px text + 2×4px pad + 8px
+  // gap, plus a little room) so the fitted city leaves space for them instead
+  // of clipping the top row's labels. Keyed on multi-source mode rather than
+  // the current label list so the fit doesn't jump mid-transition as labels
+  // fade in.
+  const labelBandPx = citySources && citySources.length > 0 ? 34 : 0;
 
   // Focus-out dimming: `focusDirectory` recedes every building outside its
   // subtree (independent of highlight layers), mirroring FileCity3D.
@@ -866,6 +876,7 @@ function ArchitectureMapHighlightLayersInner({
       displayHeight,
       displayOptions.padding,
       safeArea,
+      labelBandPx,
     );
 
     // Calculate target center in world coordinates
@@ -909,6 +920,7 @@ function ArchitectureMapHighlightLayersInner({
     safeArea?.right,
     safeArea?.top,
     safeArea?.bottom,
+    labelBandPx,
   ]);
 
   // Build hit test cache with spatial indexing
@@ -1065,6 +1077,7 @@ function ArchitectureMapHighlightLayersInner({
         displayHeight,
         displayOptions.padding,
         safeArea,
+        labelBandPx,
       );
 
       // Use stableZoomScale for abstraction calculation to avoid recalculating during animation
@@ -1274,6 +1287,7 @@ function ArchitectureMapHighlightLayersInner({
     safeArea?.right,
     safeArea?.top,
     safeArea?.bottom,
+    labelBandPx,
   ]);
 
   // Combine all layers for rendering, including calculated abstraction layer
@@ -1374,6 +1388,7 @@ function ArchitectureMapHighlightLayersInner({
       height,
       displayOptions.padding,
       safeArea,
+      labelBandPx,
     );
 
     // Get abstracted paths from the abstraction layer
@@ -1416,6 +1431,7 @@ function ArchitectureMapHighlightLayersInner({
     safeArea?.right,
     safeArea?.top,
     safeArea?.bottom,
+    labelBandPx,
   ]);
 
   // Main canvas drawing with layer-based highlighting
@@ -1462,6 +1478,7 @@ function ArchitectureMapHighlightLayersInner({
       displayHeight,
       displayOptions.padding,
       safeArea,
+      labelBandPx,
     );
 
     const worldToCanvas = (x: number, z: number) => ({
@@ -1666,6 +1683,7 @@ function ArchitectureMapHighlightLayersInner({
     safeArea?.right,
     safeArea?.top,
     safeArea?.bottom,
+    labelBandPx,
   ]);
 
   // Optimized hit testing
@@ -1695,6 +1713,7 @@ function ArchitectureMapHighlightLayersInner({
         height,
         displayOptions.padding,
         safeArea,
+        labelBandPx,
       );
 
       const screenX = (canvasX - zoomState.offsetX) / zoomState.scale;
@@ -1771,6 +1790,7 @@ function ArchitectureMapHighlightLayersInner({
       safeArea?.right,
       safeArea?.top,
       safeArea?.bottom,
+      labelBandPx,
     ],
   );
 
@@ -2341,6 +2361,12 @@ function calculateFitWithSafeArea(
   height: number,
   padding: number,
   safeArea?: SafeArea,
+  /**
+   * Screen-space band reserved at the TOP of the fit for source label chips
+   * (multi-city layouts draw a repo label just above each city's back edge).
+   * Analogous to FileCity3D padding its camera frame for the label chip.
+   */
+  reserveTopPx: number = 0,
 ) {
   const left = safeArea?.left ?? 0;
   const right = safeArea?.right ?? 0;
@@ -2348,9 +2374,12 @@ function calculateFitWithSafeArea(
   const bottom = safeArea?.bottom ?? 0;
 
   const insetLeft = left * width;
-  const insetTop = top * height;
+  const insetTop = top * height + reserveTopPx;
   const innerWidth = Math.max(1, width * Math.max(0, 1 - left - right));
-  const innerHeight = Math.max(1, height * Math.max(0, 1 - top - bottom));
+  const innerHeight = Math.max(
+    1,
+    height * Math.max(0, 1 - top - bottom) - reserveTopPx,
+  );
 
   const { scale, offsetX, offsetZ } = calculateScaleAndOffset(
     cityData,
