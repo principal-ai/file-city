@@ -95,8 +95,8 @@ export function buildPackageSources(
   // the framing zoom (which scales with the footprint). Enforce a
   // footprint-relative minimum gap so a tight `cellPadding` can't make one
   // city's label overlap the city behind it.
-  const cellW = maxW + Math.max(cellPadding, Math.max(16, maxW * 0.12));
-  const cellD = maxD + Math.max(cellPadding, Math.max(16, maxD * 0.12));
+  const cellW = maxW + Math.max(cellPadding, Math.max(16, maxW * 0.18));
+  const cellD = maxD + Math.max(cellPadding, Math.max(16, maxD * 0.18));
 
   const cols = layoutColumns ?? Math.ceil(Math.sqrt(packageCities.length));
   const rows = Math.ceil(packageCities.length / cols);

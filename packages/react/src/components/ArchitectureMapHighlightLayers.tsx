@@ -569,11 +569,11 @@ function ArchitectureMapHighlightLayersInner({
   const labelRectsRef = useRef<LabelHitRect[]>([]);
 
   // Reserve a top band for the source label chips (13px text + 2×4px pad + 8px
-  // gap, plus a little room) so the fitted city leaves space for them instead
-  // of clipping the top row's labels. Keyed on multi-source mode rather than
+  // gap, plus room) so the fitted city leaves space for them instead of
+  // clipping the top row's labels. Keyed on multi-source mode rather than
   // the current label list so the fit doesn't jump mid-transition as labels
   // fade in.
-  const labelBandPx = citySources && citySources.length > 0 ? 34 : 0;
+  const labelBandPx = citySources && citySources.length > 0 ? 44 : 0;
 
   // Focus-out dimming: `focusDirectory` recedes every building outside its
   // subtree (independent of highlight layers), mirroring FileCity3D.
