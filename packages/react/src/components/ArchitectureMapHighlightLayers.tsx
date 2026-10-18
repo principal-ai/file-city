@@ -69,6 +69,9 @@ export interface ArchitectureMapHighlightLayersProps {
   // exposes no completion callback).
   onZoomComplete?: () => void; // Called when the focus animation completes
   zoomAnimationSpeed?: number; // Animation easing factor (0-1), default 0.12
+  /** Ease the base fit (safeArea / city-size changes) instead of snapping —
+   *  the 2D analogue of the 3D camera easing between framings. Default true. */
+  animateFit?: boolean;
 
   // Safe area — inset rect (fractions of the canvas) the flat city frames
   // itself into, matching FileCity3D's `safeArea`. The canvas stays full-size;
@@ -378,6 +381,7 @@ function ArchitectureMapHighlightLayersInner({
   enableZoom = false,
   onZoomComplete,
   zoomAnimationSpeed = 0.12,
+  animateFit = true,
   safeArea,
   fullSize = false,
   showGrid = false,
@@ -639,6 +643,29 @@ function ArchitectureMapHighlightLayersInner({
     offsetX: number;
     offsetY: number;
   } | null>(null);
+
+  // Animated base fit. Previously only a `focusDirectory` change animated; the
+  // base fit (safeArea / city-size) snapped. Easing it makes mode / chrome
+  // transitions glide the city like the 3D camera. `animateFit` opts out.
+  const fitRef = useRef<{ scale: number; offsetX: number; offsetZ: number } | null>(
+    null,
+  );
+  const fitTargetRef = useRef<{
+    scale: number;
+    offsetX: number;
+    offsetZ: number;
+  } | null>(null);
+  const fitAnimRef = useRef<number | null>(null);
+  // Drives a redraw each animation frame (value itself is unused).
+  const [fitTick, bumpFit] = useState(0);
+  useEffect(() => {
+    return () => {
+      if (fitAnimRef.current !== null) {
+        cancelAnimationFrame(fitAnimRef.current);
+        fitAnimRef.current = null;
+      }
+    };
+  }, []);
 
   // Stable zoom scale - only updates when animation completes or user stops zooming
   // Used for expensive calculations that shouldn't run every frame
@@ -1486,7 +1513,7 @@ function ArchitectureMapHighlightLayersInner({
         ? sourceCityData
         : filteredCityData;
 
-    const { scale, offsetX, offsetZ } = calculateFitWithSafeArea(
+    const desiredFit = calculateFitWithSafeArea(
       coordinateSystemData,
       displayWidth,
       displayHeight,
@@ -1494,6 +1521,49 @@ function ArchitectureMapHighlightLayersInner({
       safeArea,
       labelBandPx,
     );
+    fitTargetRef.current = {
+      scale: desiredFit.scale,
+      offsetX: desiredFit.offsetX,
+      offsetZ: desiredFit.offsetZ,
+    };
+
+    // First fit snaps; afterwards ease toward the target (unless opted out).
+    if (!fitRef.current) {
+      fitRef.current = { ...fitTargetRef.current };
+    } else if (!animateFit) {
+      if (!fitsClose(fitRef.current, fitTargetRef.current)) {
+        fitRef.current = { ...fitTargetRef.current };
+      }
+    } else if (
+      fitAnimRef.current === null &&
+      !fitsClose(fitRef.current, fitTargetRef.current)
+    ) {
+      const step = () => {
+        const target = fitTargetRef.current;
+        const current = fitRef.current;
+        if (!target || !current) {
+          fitAnimRef.current = null;
+          return;
+        }
+        const k = zoomAnimationSpeed;
+        const next = {
+          scale: current.scale + (target.scale - current.scale) * k,
+          offsetX: current.offsetX + (target.offsetX - current.offsetX) * k,
+          offsetZ: current.offsetZ + (target.offsetZ - current.offsetZ) * k,
+        };
+        if (fitsClose(next, target)) {
+          fitRef.current = { ...target };
+          fitAnimRef.current = null;
+        } else {
+          fitRef.current = next;
+          fitAnimRef.current = requestAnimationFrame(step);
+        }
+        bumpFit(n => n + 1);
+      };
+      fitAnimRef.current = requestAnimationFrame(step);
+    }
+
+    const { scale, offsetX, offsetZ } = fitRef.current;
 
     const worldToCanvas = (x: number, z: number) => ({
       x:
@@ -1698,6 +1768,9 @@ function ArchitectureMapHighlightLayersInner({
     safeArea?.top,
     safeArea?.bottom,
     labelBandPx,
+    fitTick,
+    animateFit,
+    zoomAnimationSpeed,
   ]);
 
   // Optimized hit testing
@@ -1721,14 +1794,19 @@ function ArchitectureMapHighlightLayersInner({
           ? sourceCityData
           : filteredCityData;
 
-      const { scale, offsetX, offsetZ } = calculateFitWithSafeArea(
-        coordinateSystemData,
-        width,
-        height,
-        displayOptions.padding,
-        safeArea,
-        labelBandPx,
-      );
+      // Read the *animated* fit so hit-testing matches what's drawn (the base
+      // fit eases between framings). Fall back to a fresh computation only
+      // before the first paint.
+      const { scale, offsetX, offsetZ } =
+        fitRef.current ??
+        calculateFitWithSafeArea(
+          coordinateSystemData,
+          width,
+          height,
+          displayOptions.padding,
+          safeArea,
+          labelBandPx,
+        );
 
       const screenX = (canvasX - zoomState.offsetX) / zoomState.scale;
       const screenY = (canvasY - zoomState.offsetY) / zoomState.scale;
@@ -2411,6 +2489,18 @@ function calculateFitWithSafeArea(
     innerWidth,
     innerHeight,
   };
+}
+
+/** Whether two base fits are effectively identical (settled). */
+function fitsClose(
+  a: { scale: number; offsetX: number; offsetZ: number },
+  b: { scale: number; offsetX: number; offsetZ: number },
+): boolean {
+  return (
+    Math.abs(a.scale - b.scale) < 0.001 &&
+    Math.abs(a.offsetX - b.offsetX) < 0.5 &&
+    Math.abs(a.offsetZ - b.offsetZ) < 0.5
+  );
 }
 
 export const ArchitectureMapHighlightLayers = ArchitectureMapHighlightLayersInner;
