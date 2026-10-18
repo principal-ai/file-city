@@ -528,9 +528,9 @@ function ArchitectureMapHighlightLayersInner({
         if (labelProgress > 0) {
           const depth = b.maxZ - b.minZ;
           const halfD = depth / 2;
-          // Same clearance 3D uses (computeCityLabelAnchor): a small gap behind
-          // the back edge so the chip doesn't sit flush against the footprint.
-          const gap = Math.max(8, halfD * 0.04);
+          // Small clearance behind the back edge (the chip is drawn above this
+          // anchor), so the chip sits just off the footprint rather than flush.
+          const gap = Math.max(4, halfD * 0.02);
           labels.push({
             source: s,
             focused,
@@ -1587,7 +1587,7 @@ function ArchitectureMapHighlightLayersInner({
         const w = ctx.measureText(text).width + padX * 2;
         const h = 13 + padY * 2;
         const rx = p.x - w / 2;
-        const ry = p.y - h - 8;
+        const ry = p.y - h - 4;
         ctx.globalAlpha = label.dim * label.labelProgress;
         ctx.fillStyle = 'rgba(10, 14, 22, 0.72)';
         ctx.fillRect(rx, ry, w, h);
