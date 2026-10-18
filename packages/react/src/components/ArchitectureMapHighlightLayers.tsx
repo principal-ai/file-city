@@ -472,56 +472,6 @@ function ArchitectureMapHighlightLayersInner({
     }).highlightLayers as HighlightLayer[];
 
     const offsets = resolveSourceOffsets(citySources, gridGap);
-
-    // Reserve world space behind each row for its label chips. Without this a
-    // row's chip (drawn above its city's back edge) overlaps the city in the
-    // row behind it. The reserve is footprint-relative — mirroring 3D's
-    // padBoundsForLabel margin — because a chip's world height scales with the
-    // framing zoom, which scales with the footprint, so a footprint-relative
-    // margin covers it at any zoom.
-    const hasSourceLabels = citySources.some(s => s.label && !s.isRemovalLayer);
-    if (hasSourceLabels) {
-      // Measure rows and depth from the *grid* sources only. The synthetic
-      // removal layer sits at the origin carrying the whole pre-separation
-      // city's bounds; including it would add a phantom middle row (stretching
-      // the grid) and inflate the reserve.
-      let maxDepth = 0;
-      const gridRowZ: number[] = [];
-      citySources.forEach((s, i) => {
-        if (!s.label || s.isRemovalLayer) return;
-        if (s.cityData.buildings.length === 0) return;
-        maxDepth = Math.max(maxDepth, s.cityData.bounds.maxZ - s.cityData.bounds.minZ);
-        const z = offsets[i].z;
-        if (!gridRowZ.some(rz => Math.abs(rz - z) <= 1)) gridRowZ.push(z);
-      });
-
-      if (gridRowZ.length >= 2 && maxDepth > 0) {
-        gridRowZ.sort((a, b) => a - b);
-        const reserve = Math.max(16, maxDepth * 0.12);
-        const nearestRow = (z: number) => {
-          let best = 0;
-          let bestD = Infinity;
-          for (let i = 0; i < gridRowZ.length; i++) {
-            const d = Math.abs(gridRowZ[i] - z);
-            if (d < bestD) {
-              bestD = d;
-              best = i;
-            }
-          }
-          return best;
-        };
-        // Push each row down by its index × reserve, opening the extra gap its
-        // chip needs between it and the row behind. Non-grid sources follow
-        // their nearest row.
-        for (let i = 0; i < offsets.length; i++) {
-          offsets[i] = {
-            x: offsets[i].x,
-            z: offsets[i].z + nearestRow(offsets[i].z) * reserve,
-          };
-        }
-      }
-    }
-
     const global = computeGlobalBounds(citySources, offsets);
     const focusedSet =
       focusedSources && focusedSources.length > 0 ? new Set(focusedSources) : null;
