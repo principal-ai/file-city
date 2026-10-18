@@ -33,7 +33,11 @@ type Story = StoryObj<typeof meta>;
 // Same magnitudes the agent-session mode uses.
 const WIDTHS = [2, 20, 60, 100, 180];
 const COLORS = ['#22c55e', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4'];
-const DIRS = ['src', 'src/components', 'src/utils', 'docs', 'dist'];
+// Siblings only. A district's `worldBounds` is its D3-treemap node rect, which
+// *contains* its whole subtree — so a parent border always overlaps its
+// children's by construction (true in 3D too). Nested paths would overlap
+// regardless of stroke width and muddy the comparison.
+const DIRS = ['src/components', 'src/hooks', 'src/styles', 'docs', 'dist'];
 
 const dirBorderLayers: HighlightLayer[] = DIRS.map((path, i) => ({
   id: `bw-${WIDTHS[i]}`,
