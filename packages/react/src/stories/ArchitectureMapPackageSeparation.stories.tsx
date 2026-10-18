@@ -92,9 +92,7 @@ function PackageSeparation2DScene() {
   const { beforeCity, afterSources } = useMemo(
     () =>
       buildPackageSources(fileTree, PACKAGES, {
-        // Roomy cells so the per-package labels clear the row above (a 2D label
-        // chip is screen-space and needs world-space gap to sit in).
-        cellPadding: 110,
+        cellPadding: 30,
         layoutColumns: 2,
         treemapOptions: {
           paddingTop: 2,

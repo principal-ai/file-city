@@ -472,6 +472,39 @@ function ArchitectureMapHighlightLayersInner({
     }).highlightLayers as HighlightLayer[];
 
     const offsets = resolveSourceOffsets(citySources, gridGap);
+
+    // Reserve world space behind each row for its label chips. Without this a
+    // row's chip (drawn above its city's back edge) overlaps the city in the
+    // row behind it. The reserve is footprint-relative — mirroring 3D's
+    // padBoundsForLabel margin — because a chip's world height scales with the
+    // framing zoom, which scales with the footprint, so a footprint-relative
+    // margin covers it at any zoom.
+    const hasSourceLabels = citySources.some(s => s.label && !s.isRemovalLayer);
+    if (hasSourceLabels) {
+      let maxDepth = 0;
+      for (const s of citySources) {
+        if (s.cityData.buildings.length === 0) continue;
+        maxDepth = Math.max(maxDepth, s.cityData.bounds.maxZ - s.cityData.bounds.minZ);
+      }
+      const reserve = Math.max(16, maxDepth * 0.12);
+      const tol = Math.max(1, maxDepth * 0.02);
+      // Group rows by z (tolerant to small drift), ascending.
+      const rowZ: number[] = [];
+      for (const o of offsets) {
+        if (!rowZ.some(z => Math.abs(z - o.z) <= tol)) rowZ.push(o.z);
+      }
+      rowZ.sort((a, b) => a - b);
+      const rowIndexOf = (z: number) => {
+        for (let i = 0; i < rowZ.length; i++) if (Math.abs(rowZ[i] - z) <= tol) return i;
+        return 0;
+      };
+      // Push each row down by its index × reserve, opening the extra gap its
+      // chip needs between it and the row behind.
+      for (let i = 0; i < offsets.length; i++) {
+        offsets[i] = { x: offsets[i].x, z: offsets[i].z + rowIndexOf(offsets[i].z) * reserve };
+      }
+    }
+
     const global = computeGlobalBounds(citySources, offsets);
     const focusedSet =
       focusedSources && focusedSources.length > 0 ? new Set(focusedSources) : null;
