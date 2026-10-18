@@ -235,18 +235,15 @@ function renderBorderStrategy(
   bounds: { x: number; y: number; width: number; height: number },
   layer: HighlightLayer,
   item: LayerItem,
-  scale: number,
   borderRadius: number = 0,
 ) {
   ctx.save();
   ctx.strokeStyle = layer.color;
-  // Match FileCity3D's `borderWidth` semantics: it's a world-unit numerator
-  // (`thickness = max(0.2, borderWidth * 0.1)`) that scales with the view.
-  // Mapping it through the world→canvas scale keeps a given `borderWidth`
-  // looking the same as it does in 3D instead of drawing N raw pixels.
-  // Clamp to ≥1px so hairlines stay visible.
-  const worldThickness = Math.max(0.2, (layer.borderWidth ?? 2) * 0.1);
-  ctx.lineWidth = Math.max(1, worldThickness * scale);
+  // 2D borders are always a crisp 1px hairline. `borderWidth` is a 3D-only
+  // emphasis dial (it scales a world-space tube: max(0.2, borderWidth * 0.1));
+  // in flat 2D any value above 1px just reads as a fat slab, so it's ignored
+  // for the stroke width here — colour + opacity carry the emphasis instead.
+  ctx.lineWidth = 1;
   ctx.globalAlpha = layer.opacity || 1;
   ctx.setLineDash([]);
 
@@ -486,7 +483,7 @@ function applyLayerRendering(
 
   switch (strategy) {
     case 'border':
-      renderBorderStrategy(ctx, bounds, layer, item, scale, borderRadius);
+      renderBorderStrategy(ctx, bounds, layer, item, borderRadius);
       break;
     case 'fill':
       renderFillStrategy(ctx, bounds, layer, item, borderRadius);
