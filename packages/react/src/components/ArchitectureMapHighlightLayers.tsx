@@ -21,7 +21,7 @@ import {
   SelectiveRenderOptions,
 } from '@principal-ai/file-city-builder';
 import { MapInteractionState, MapDisplayOptions } from '../types/react-types';
-import { getDefaultFileColorConfig } from '../utils/fileColorHighlightLayers';
+import { getDefaultFileColorConfig, createFileColorHighlightLayers } from '../utils/fileColorHighlightLayers';
 import { extractIconConfig } from '../utils/fileTypeIcons';
 import { resolveVisualizationIntent } from '../utils/visualizationResolution';
 import type { CitySource, IsolationMode, SafeArea } from './FileCity3D';
@@ -404,6 +404,20 @@ function ArchitectureMapHighlightLayersInner({
 }: ArchitectureMapHighlightLayersProps) {
   const { theme } = useTheme();
 
+  // Default file-type (suffix) colors. The 3D renderer derives these
+  // internally; here we derive them when the host doesn't pass
+  // `fileColorLayers`, so 2D colours buildings by suffix out of the box too.
+  // Hosts rendering per-frame city data can pass `fileColorLayers` explicitly
+  // to skip the per-render derivation.
+  const effectiveFileColorLayers = useMemo(() => {
+    if (fileColorLayers && fileColorLayers.length > 0) return fileColorLayers;
+    const files =
+      citySources && citySources.length > 0
+        ? citySources.flatMap(s => s.cityData.buildings)
+        : cityData?.buildings ?? [];
+    return files.length > 0 ? createFileColorHighlightLayers(files) : undefined;
+  }, [fileColorLayers, cityData, citySources]);
+
   // ============================================================================
   // Visualization Resolution
   // Always resolve: combines highlightLayers with fileColorLayers,
@@ -415,7 +429,7 @@ function ArchitectureMapHighlightLayersInner({
       focusPath: focusDirectory,
       focusColor: externalFocusColor,
       highlightLayers: (externalHighlightLayers ?? []) as Parameters<typeof resolveVisualizationIntent>[0]['highlightLayers'],
-      fileColorLayers: (fileColorLayers ?? []) as Parameters<typeof resolveVisualizationIntent>[0]['fileColorLayers'],
+      fileColorLayers: (effectiveFileColorLayers ?? []) as Parameters<typeof resolveVisualizationIntent>[0]['fileColorLayers'],
     });
 
     return {
@@ -425,7 +439,7 @@ function ArchitectureMapHighlightLayersInner({
       shouldIsolate: resolution.shouldIsolate,
     };
   }, [
-    fileColorLayers,
+    effectiveFileColorLayers,
     externalHighlightLayers,
     focusDirectory,
     externalFocusColor,
@@ -466,7 +480,7 @@ function ArchitectureMapHighlightLayersInner({
     const fileColorOnly = resolveVisualizationIntent({
       focusPath: null,
       highlightLayers: [],
-      fileColorLayers: (fileColorLayers ?? []) as Parameters<
+      fileColorLayers: (effectiveFileColorLayers ?? []) as Parameters<
         typeof resolveVisualizationIntent
       >[0]['fileColorLayers'],
     }).highlightLayers as HighlightLayer[];
@@ -556,7 +570,7 @@ function ArchitectureMapHighlightLayersInner({
     };
 
     return { merged, groups, labels };
-  }, [citySources, gridGap, focusedSources, dimOpacity, fileColorLayers]);
+  }, [citySources, gridGap, focusedSources, dimOpacity, effectiveFileColorLayers]);
 
   // The city everything downstream renders/fits against — the merged
   // multi-source city, or the single `cityData` prop.
