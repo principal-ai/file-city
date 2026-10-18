@@ -481,27 +481,44 @@ function ArchitectureMapHighlightLayersInner({
     // margin covers it at any zoom.
     const hasSourceLabels = citySources.some(s => s.label && !s.isRemovalLayer);
     if (hasSourceLabels) {
+      // Measure rows and depth from the *grid* sources only. The synthetic
+      // removal layer sits at the origin carrying the whole pre-separation
+      // city's bounds; including it would add a phantom middle row (stretching
+      // the grid) and inflate the reserve.
       let maxDepth = 0;
-      for (const s of citySources) {
-        if (s.cityData.buildings.length === 0) continue;
+      const gridRowZ: number[] = [];
+      citySources.forEach((s, i) => {
+        if (!s.label || s.isRemovalLayer) return;
+        if (s.cityData.buildings.length === 0) return;
         maxDepth = Math.max(maxDepth, s.cityData.bounds.maxZ - s.cityData.bounds.minZ);
-      }
-      const reserve = Math.max(16, maxDepth * 0.12);
-      const tol = Math.max(1, maxDepth * 0.02);
-      // Group rows by z (tolerant to small drift), ascending.
-      const rowZ: number[] = [];
-      for (const o of offsets) {
-        if (!rowZ.some(z => Math.abs(z - o.z) <= tol)) rowZ.push(o.z);
-      }
-      rowZ.sort((a, b) => a - b);
-      const rowIndexOf = (z: number) => {
-        for (let i = 0; i < rowZ.length; i++) if (Math.abs(rowZ[i] - z) <= tol) return i;
-        return 0;
-      };
-      // Push each row down by its index × reserve, opening the extra gap its
-      // chip needs between it and the row behind.
-      for (let i = 0; i < offsets.length; i++) {
-        offsets[i] = { x: offsets[i].x, z: offsets[i].z + rowIndexOf(offsets[i].z) * reserve };
+        const z = offsets[i].z;
+        if (!gridRowZ.some(rz => Math.abs(rz - z) <= 1)) gridRowZ.push(z);
+      });
+
+      if (gridRowZ.length >= 2 && maxDepth > 0) {
+        gridRowZ.sort((a, b) => a - b);
+        const reserve = Math.max(16, maxDepth * 0.12);
+        const nearestRow = (z: number) => {
+          let best = 0;
+          let bestD = Infinity;
+          for (let i = 0; i < gridRowZ.length; i++) {
+            const d = Math.abs(gridRowZ[i] - z);
+            if (d < bestD) {
+              bestD = d;
+              best = i;
+            }
+          }
+          return best;
+        };
+        // Push each row down by its index × reserve, opening the extra gap its
+        // chip needs between it and the row behind. Non-grid sources follow
+        // their nearest row.
+        for (let i = 0; i < offsets.length; i++) {
+          offsets[i] = {
+            x: offsets[i].x,
+            z: offsets[i].z + nearestRow(offsets[i].z) * reserve,
+          };
+        }
       }
     }
 
