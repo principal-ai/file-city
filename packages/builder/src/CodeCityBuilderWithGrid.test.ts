@@ -110,6 +110,47 @@ describe('CodeCityBuilderWithGrid', () => {
       expect(city.metadata).toBeDefined();
     });
 
+    it('should open parent↔child spacing with a depth-dependent paddingOuter', () => {
+      const builder = new CodeCityBuilderWithGrid();
+      const fileTree = createMockFileTree();
+
+      const noPad = {
+        paddingTop: 0,
+        paddingBottom: 0,
+        paddingLeft: 0,
+        paddingRight: 0,
+        paddingInner: 0,
+        paddingOuter: 0,
+      };
+
+      const flat = builder.buildCityFromFileSystem(fileTree, '', noPad);
+      const spaced = builder.buildCityFromFileSystem(fileTree, '', {
+        ...noPad,
+        // 40 units of clearance around every directory's children.
+        paddingOuter: (depth: number) => (depth >= 1 ? 40 : 0),
+      });
+
+      const gap = (
+        city: ReturnType<typeof builder.buildCityFromFileSystem>,
+        child: string,
+        parent: string,
+      ) => {
+        const c = city.districts.find(d => d.path === child);
+        const p = city.districts.find(d => d.path === parent);
+        expect(c && p).toBeTruthy();
+        return c!.worldBounds.minX - p!.worldBounds.minX;
+      };
+
+      const flatGap = gap(flat, 'src/components', 'src');
+      const spacedGap = gap(spaced, 'src/components', 'src');
+
+      // The child stays inside the parent either way; the function form opens
+      // real clearance that a fixed 0 does not.
+      expect(flatGap).toBeGreaterThanOrEqual(0);
+      expect(spacedGap).toBeGreaterThan(flatGap);
+      expect(spacedGap - flatGap).toBeGreaterThan(30);
+    });
+
     it('should build city with grid layout', () => {
       const gridConfig: CodebaseView = {
         id: 'test-grid',

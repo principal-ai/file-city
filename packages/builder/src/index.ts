@@ -7,7 +7,7 @@ export type { MultiVersionOptions, MultiVersionResult } from './MultiVersionCity
 
 // Grid-based builder and layout manager
 export { CodeCityBuilderWithGrid } from './CodeCityBuilderWithGrid.js';
-export type { TreemapOptions } from './CodeCityBuilderWithGrid.js';
+export type { TreemapOptions, PaddingValue } from './CodeCityBuilderWithGrid.js';
 export { GridLayoutManager } from './GridLayoutManager.js';
 
 // File tree builder utilities

@@ -36,15 +36,55 @@ interface TreemapCacheEntry {
   createdAt: number;
 }
 
+/**
+ * A padding value: a fixed number, or a function of the node's depth (0 = the
+ * root). The function form lets a host open extra space between a parent
+ * directory's border and its children's borders without over-padding shallow
+ * trees. Mirrors D3's own `(node) => number` padding API.
+ */
+export type PaddingValue = number | ((depth: number) => number);
+
+/** Depths sampled when hashing a padding function into the cache key. */
+const PADDING_SAMPLE_DEPTHS = 16;
+
+/** Sample a (possibly depth-dependent) padding into a serializable value. */
+function paddingSignature(
+  v: PaddingValue | undefined,
+): number | number[] | undefined {
+  if (v === undefined) return undefined;
+  if (typeof v === 'number') return v;
+  const out: number[] = [];
+  for (let d = 0; d <= PADDING_SAMPLE_DEPTHS; d++) out.push(v(d));
+  return out;
+}
+
+/** Collapse a padding value to a single number for metadata/logging. */
+function paddingNumber(v: PaddingValue | undefined, fallback: number): number {
+  if (typeof v === 'number') return v;
+  if (typeof v === 'function') return v(1);
+  return fallback;
+}
+
+/**
+ * Adapt a {@link PaddingValue} to D3's `(node) => number` form. Functions are
+ * evaluated with the node's depth so a host can scale padding per level; a
+ * constant is wrapped in a function too (D3's overloads reject a union).
+ */
+function toD3Padding(v: PaddingValue) {
+  return typeof v === 'function'
+    ? (node: { depth: number }) => v(node.depth)
+    : () => v;
+}
+
 // Options that affect cache key (layout-related only)
 interface CacheRelevantOptions {
-  padding?: number;
-  paddingOuter?: number;
-  paddingTop?: number;
-  paddingBottom?: number;
-  paddingLeft?: number;
-  paddingRight?: number;
-  paddingInner?: number;
+  padding?: number | number[];
+  paddingOuter?: number | number[];
+  paddingTop?: number | number[];
+  paddingBottom?: number | number[];
+  paddingLeft?: number | number[];
+  paddingRight?: number | number[];
+  paddingInner?: number | number[];
   round?: boolean;
   maxNestingDepth?: number;
   deepNestingStrategy?: string;
@@ -77,13 +117,13 @@ export interface TreemapOptions {
   deepNestingSizeBoost?: number; // Size multiplier for deep files (e.g., 1.5)
   flattenThreshold?: number; // Files per directory threshold for flattening
 
-  padding?: number;
-  paddingOuter?: number;
-  paddingTop?: number;
-  paddingBottom?: number;
-  paddingLeft?: number;
-  paddingRight?: number;
-  paddingInner?: number;
+  padding?: PaddingValue;
+  paddingOuter?: PaddingValue;
+  paddingTop?: PaddingValue;
+  paddingBottom?: PaddingValue;
+  paddingLeft?: PaddingValue;
+  paddingRight?: PaddingValue;
+  paddingInner?: PaddingValue;
   round?: boolean;
   tile?: typeof treemapSquarify;
   directorySortFn?: DirectorySortFunction;
@@ -131,13 +171,13 @@ export class CodeCityBuilderWithGrid {
   ): string {
     // Extract only the options that affect treemap layout
     const cacheRelevantOptions: CacheRelevantOptions = {
-      padding: options.padding,
-      paddingOuter: options.paddingOuter,
-      paddingTop: options.paddingTop,
-      paddingBottom: options.paddingBottom,
-      paddingLeft: options.paddingLeft,
-      paddingRight: options.paddingRight,
-      paddingInner: options.paddingInner,
+      padding: paddingSignature(options.padding),
+      paddingOuter: paddingSignature(options.paddingOuter),
+      paddingTop: paddingSignature(options.paddingTop),
+      paddingBottom: paddingSignature(options.paddingBottom),
+      paddingLeft: paddingSignature(options.paddingLeft),
+      paddingRight: paddingSignature(options.paddingRight),
+      paddingInner: paddingSignature(options.paddingInner),
       round: options.round,
       maxNestingDepth: options.maxNestingDepth,
       deepNestingStrategy: options.deepNestingStrategy,
@@ -653,12 +693,12 @@ export class CodeCityBuilderWithGrid {
         analyzedAt: new Date(),
         rootPath,
         layoutConfig: {
-          paddingTop: options.paddingTop || 20,
-          paddingBottom: options.paddingBottom || 20,
-          paddingLeft: options.paddingLeft || 4,
-          paddingRight: options.paddingRight || 4,
-          paddingInner: options.paddingInner || 4,
-          paddingOuter: options.paddingOuter || 8,
+          paddingTop: paddingNumber(options.paddingTop, 20),
+          paddingBottom: paddingNumber(options.paddingBottom, 20),
+          paddingLeft: paddingNumber(options.paddingLeft, 4),
+          paddingRight: paddingNumber(options.paddingRight, 4),
+          paddingInner: paddingNumber(options.paddingInner, 4),
+          paddingOuter: paddingNumber(options.paddingOuter, 8),
         },
       },
     };
@@ -742,15 +782,30 @@ export class CodeCityBuilderWithGrid {
       .sort((a, b) => (b.value || 0) - (a.value || 0));
 
     // Step 4: Create D3 treemap layout
+    // D3 note: in this version `paddingOuter(x)` is an *alias* that sets the
+    // four side paddings (`paddingTop(x).paddingRight(x).paddingBottom(x)
+    // .paddingLeft(x)`) — there is no separate outer pad. Setting the sides
+    // after it therefore clobbered it, so `paddingOuter` was a silent no-op.
+    // Fold it into each side instead, so it means what its name says: extra
+    // clearance between a node and its children (the parent↔child gap).
+    const resolvePad = (v: PaddingValue, depth: number) =>
+      typeof v === 'function' ? v(depth) : v;
+    const withOuter = (side: PaddingValue): PaddingValue => {
+      if (paddingOuter === 0) return side;
+      if (typeof side === 'number' && typeof paddingOuter === 'number') {
+        return side + paddingOuter;
+      }
+      return (depth: number) => resolvePad(side, depth) + resolvePad(paddingOuter, depth);
+    };
+
     const treemapLayout = treemap<D3HierarchyData>()
       .size([width, height])
-      .padding(padding)
-      .paddingOuter(paddingOuter)
-      .paddingTop(paddingTop)
-      .paddingBottom(paddingBottom)
-      .paddingLeft(paddingLeft)
-      .paddingRight(paddingRight)
-      .paddingInner(paddingInner)
+      .padding(toD3Padding(padding))
+      .paddingInner(toD3Padding(paddingInner))
+      .paddingTop(toD3Padding(withOuter(paddingTop)))
+      .paddingBottom(toD3Padding(withOuter(paddingBottom)))
+      .paddingLeft(toD3Padding(withOuter(paddingLeft)))
+      .paddingRight(toD3Padding(withOuter(paddingRight)))
       .tile(tile)
       .round(round);
 
@@ -776,12 +831,12 @@ export class CodeCityBuilderWithGrid {
         analyzedAt: new Date(),
         rootPath,
         layoutConfig: {
-          paddingTop,
-          paddingBottom,
-          paddingLeft,
-          paddingRight,
-          paddingInner,
-          paddingOuter,
+          paddingTop: paddingNumber(paddingTop, 20),
+          paddingBottom: paddingNumber(paddingBottom, 20),
+          paddingLeft: paddingNumber(paddingLeft, 4),
+          paddingRight: paddingNumber(paddingRight, 4),
+          paddingInner: paddingNumber(paddingInner, 4),
+          paddingOuter: paddingNumber(paddingOuter, 8),
         },
       },
     };
