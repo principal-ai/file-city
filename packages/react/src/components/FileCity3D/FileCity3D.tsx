@@ -69,6 +69,40 @@ export type OnCameraFrame = (
   size: { width: number; height: number },
 ) => void;
 
+/** Result of `projectToCanvas`: canvas-local CSS pixels plus a visibility hint. */
+export interface CanvasPoint {
+  x: number;
+  y: number;
+  /**
+   * False when the point is behind the camera. The homogeneous divide flips
+   * x/y for such points, so callers should hide whatever they anchor to it.
+   */
+  visible: boolean;
+}
+
+const PROJECT_SCRATCH = new THREE.Vector3();
+
+/**
+ * Projects a world point (city coordinates, as passed to `onCameraFrame`) to
+ * canvas-local CSS pixels. Pairs with `OnCameraFrame` so an HTML/SVG overlay
+ * laid over the canvas can anchor to buildings.
+ *
+ * Reuses one scratch vector: call it synchronously and copy the result if you
+ * need to keep it.
+ */
+export function projectToCanvas(
+  camera: THREE.Camera,
+  size: { width: number; height: number },
+  world: { x: number; y: number; z: number },
+): CanvasPoint {
+  const v = PROJECT_SCRATCH.set(world.x, world.y, world.z).project(camera);
+  return {
+    x: (v.x * 0.5 + 0.5) * size.width,
+    y: (v.y * -0.5 + 0.5) * size.height,
+    visible: v.z <= 1,
+  };
+}
+
 /** What to do with non-highlighted buildings */
 export type IsolationMode =
   | 'none' // Show all buildings normally
@@ -3041,6 +3075,14 @@ export interface FileCity3DProps {
    * buildings flash yellow and show +/- indicators during the transition.
    */
   transitionProgress?: number;
+
+  /**
+   * Extra R3F scene content rendered inside the canvas, in **city world
+   * coordinates** (the same space as `cityData.buildings[].position`, so a
+   * mesh at a building's x/z sits on that building). Single-city mode only;
+   * ignored when `citySources` is set.
+   */
+  children?: React.ReactNode;
 }
 
 /**
@@ -3180,6 +3222,7 @@ export function FileCity3D({
   districtAppearingProgress,
   modifiedFiles,
   transitionProgress,
+  children,
 }: FileCity3DProps) {
   const [hoveredBuilding, setHoveredBuilding] = useState<CityBuilding | null>(null);
   const [internalIsGrown, setInternalIsGrown] = useState(false);
@@ -3522,6 +3565,17 @@ export function FileCity3D({
               transitionProgress={transitionProgress}
             />
             {onCameraFrame && <CameraFrameBridge onCameraFrame={onCameraFrame} />}
+            {children && (
+              <group
+                position={[
+                  -(cityData!.bounds.minX + cityData!.bounds.maxX) / 2,
+                  0,
+                  -(cityData!.bounds.minZ + cityData!.bounds.maxZ) / 2,
+                ]}
+              >
+                {children}
+              </group>
+            )}
           </>
         )}
       </Canvas>

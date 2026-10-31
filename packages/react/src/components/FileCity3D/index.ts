@@ -19,6 +19,7 @@ export {
   DEFAULT_FLAT_PATTERNS,
   DEFAULT_CAMERA_CONTROLS,
   CitySourceLabel,
+  projectToCanvas,
 } from './FileCity3D';
 export type {
   FileCity3DProps,
@@ -42,9 +43,10 @@ export type {
   TouchTwoAction,
   WheelAction,
   OnCameraFrame,
+  CanvasPoint,
 } from './FileCity3D';
 
-export { CityContent } from './CityContent';
+export { CityContent, calculateBuildingHeight } from './CityContent';
 export type { CityContentProps } from './CityContent';
 export { CityLights } from './CityLights';
 export type { CityLightsProps } from './CityLights';

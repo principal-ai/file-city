@@ -119,6 +119,8 @@ export {
   setCameraTarget,
   DEFAULT_FLAT_PATTERNS,
   DEFAULT_CAMERA_CONTROLS,
+  calculateBuildingHeight,
+  projectToCanvas,
 } from './components/FileCity3D';
 export type {
   FileCity3DProps,
@@ -135,6 +137,7 @@ export type {
   TouchTwoAction,
   WheelAction,
   OnCameraFrame,
+  CanvasPoint,
   CitySource,
 } from './components/FileCity3D';
 

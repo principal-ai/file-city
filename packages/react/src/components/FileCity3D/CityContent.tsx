@@ -109,7 +109,7 @@ function resolveStaggerDelay(animationConfig: AnimationConfig, buildingCount: nu
   return animationConfig.staggerDelay ?? 15;
 }
 
-function calculateBuildingHeight(
+export function calculateBuildingHeight(
   building: CityBuilding,
   scaling: HeightScaling = 'logarithmic',
   linearScale: number = 1,
