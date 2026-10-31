@@ -64,6 +64,14 @@ export interface ArchitectureMapHighlightLayersProps {
   onBuildingClick?: (building: CityBuilding, event: MouseEvent) => void;
   onBuildingHover?: (building: CityBuilding | null) => void;
   enableZoom?: boolean;
+  /**
+   * Track the pointer and outline the hovered building/district. Every hover
+   * change repaints the whole canvas, which is costly over several full repo
+   * cities; hosts that only need clicks can turn it off. Clicks still hit-test
+   * (at click time) and `onBuildingHover` / `onDirectoryHover` / `onHoverInfo`
+   * never fire. Default true.
+   */
+  enableHover?: boolean;
 
   // Animated focus framing. 2D-only companions (the 3D camera animation
   // exposes no completion callback).
@@ -379,6 +387,7 @@ function ArchitectureMapHighlightLayersInner({
   onBuildingClick,
   onBuildingHover,
   enableZoom = false,
+  enableHover = true,
   onZoomComplete,
   zoomAnimationSpeed = 0.12,
   animateFit = true,
@@ -480,14 +489,30 @@ function ArchitectureMapHighlightLayersInner({
   const sourceModel = useMemo(() => {
     if (!citySources || citySources.length === 0) return null;
 
-    // Base file-type colors (unscoped) — per-source layers sit on top.
-    const fileColorOnly = resolveVisualizationIntent({
-      focusPath: null,
-      highlightLayers: [],
-      fileColorLayers: (effectiveFileColorLayers ?? []) as Parameters<
-        typeof resolveVisualizationIntent
-      >[0]['fileColorLayers'],
-    }).highlightLayers as HighlightLayer[];
+    // Per-source layer resolution, same rules as the single-city path: file
+    // type colors are scoped to the source's highlighted paths (or directory
+    // focus) so everything outside falls back to `defaultBuildingColor` /
+    // isolation. Mirrors FileCity3D, where an unmatched building only loses its
+    // file color when the source supplies a fallback; a source that highlights
+    // but sets neither a default color nor isolation keeps full colors.
+    const fileColorInput = (effectiveFileColorLayers ?? []) as Parameters<
+      typeof resolveVisualizationIntent
+    >[0]['fileColorLayers'];
+    const resolveSourceLayers = (s: CitySource): HighlightLayer[] => {
+      const scopesFileColors =
+        s.defaultBuildingColor != null ||
+        (s.isolationMode ?? 'none') !== 'none' ||
+        !!s.focusDirectory;
+      return resolveVisualizationIntent({
+        focusPath: s.focusDirectory ?? null,
+        highlightLayers: (scopesFileColors ? s.highlightLayers ?? [] : []) as Parameters<
+          typeof resolveVisualizationIntent
+        >[0]['highlightLayers'],
+        fileColorLayers: fileColorInput,
+      }).highlightLayers.concat(
+        scopesFileColors ? [] : (s.highlightLayers ?? []),
+      ) as HighlightLayer[];
+    };
 
     const offsets = resolveSourceOffsets(citySources, gridGap);
     const global = computeGlobalBounds(citySources, offsets);
@@ -531,7 +556,7 @@ function ArchitectureMapHighlightLayersInner({
         dim,
         buildings: gBuildings,
         districts: gDistricts,
-        layers: [...(s.highlightLayers ?? []), ...fileColorOnly],
+        layers: resolveSourceLayers(s),
         isolationMode: s.isolationMode ?? 'none',
         focusDirectory: s.focusDirectory ?? null,
         focusColor: s.focusColor ?? null,
@@ -2001,6 +2026,7 @@ function ArchitectureMapHighlightLayersInner({
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       if (!canvasRef.current || !containerRef.current || !filteredCityData || zoomState.isDragging)
         return;
+      if (!enableHover) return;
 
       // Throttle hover updates to improve performance with large datasets
       const now = performance.now();
@@ -2041,7 +2067,7 @@ function ArchitectureMapHighlightLayersInner({
         };
       });
     },
-    [filteredCityData, zoomState.isDragging, performHitTest, transformMouseCoordinates],
+    [filteredCityData, zoomState.isDragging, performHitTest, transformMouseCoordinates, enableHover],
   );
 
   const handleMouseMove = useCallback(
@@ -2091,22 +2117,19 @@ function ArchitectureMapHighlightLayersInner({
     if (zoomState.hasMouseMoved) {
       return;
     }
+    if (!canvasRef.current || !containerRef.current) return;
+
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const { x, y } = transformMouseCoordinates(
+      e.clientX - containerRect.left,
+      e.clientY - containerRect.top,
+      canvasRef.current.width,
+      canvasRef.current.height,
+    );
 
     // Source labels take priority — a label click focuses that repo (or clears
     // focus when it's already focused), mirroring FileCity3D's source focus.
-    if (
-      sourceModel &&
-      canvasRef.current &&
-      labelRectsRef.current.length > 0 &&
-      containerRef.current
-    ) {
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const { x, y } = transformMouseCoordinates(
-        e.clientX - containerRect.left,
-        e.clientY - containerRect.top,
-        canvasRef.current.width,
-        canvasRef.current.height,
-      );
+    if (sourceModel && labelRectsRef.current.length > 0) {
       const hit = labelRectsRef.current.find(
         r => x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height,
       );
@@ -2117,13 +2140,17 @@ function ArchitectureMapHighlightLayersInner({
       }
     }
 
-    if (interactionState.hoveredBuilding) {
-      onBuildingClick?.(interactionState.hoveredBuilding, e.nativeEvent);
+    // With hover tracking on, the pointer's target is already resolved; with
+    // it off, resolve it now so clicks still land on buildings/directories.
+    const target = enableHover ? interactionState : performHitTest(x, y);
+
+    if (target.hoveredBuilding) {
+      onBuildingClick?.(target.hoveredBuilding, e.nativeEvent);
       return;
     }
 
-    if (interactionState.hoveredDistrict) {
-      const districtPath = interactionState.hoveredDistrict.path || '';
+    if (target.hoveredDistrict) {
+      const districtPath = target.hoveredDistrict.path || '';
       const isRoot = !districtPath || districtPath === '';
       if (isRoot) return;
 
